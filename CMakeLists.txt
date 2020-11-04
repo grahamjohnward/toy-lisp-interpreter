@@ -4,6 +4,8 @@ project(toy-lisp-interpreter VERSION 0.1.0)
 include(CTest)
 enable_testing()
 
+add_definitions(-D_DEFAULT_SOURCE)
+
 add_executable(toy-lisp-interpreter lisp.c)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})

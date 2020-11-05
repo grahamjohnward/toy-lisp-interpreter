@@ -18,26 +18,26 @@ typedef uint64_t lisp_object_t;
 #define CONS_TYPE 2
 #define STRING_TYPE 3
 
-#define ConsPtr(obj) ((cons*)((obj) ^ TYPE_MASK))
-#define SymbolPtr(obj) ((symbol*)((obj) ^ TYPE_MASK))
+#define ConsPtr(obj) ((struct cons*)((obj) ^ TYPE_MASK))
+#define SymbolPtr(obj) ((struct symbol*)((obj) ^ TYPE_MASK))
 
 /* Might be nice to have a lisp_memory struct separate from the interpreter */
-typedef struct lisp_interpreter_t {
+struct lisp_interpreter {
     lisp_object_t* heap;
     lisp_object_t* next_free;
     lisp_object_t symbol_table;
-} lisp_interpreter_t;
+};
 
-typedef struct {
+struct cons {
     lisp_object_t car;
     lisp_object_t cdr;
-} cons;
+};
 
-typedef struct {
+struct symbol {
     lisp_object_t name;
     lisp_object_t value;
     lisp_object_t function;
-} symbol;
+};
 
 char* print_object(lisp_object_t obj);
 
@@ -74,7 +74,7 @@ static void check_symbol(lisp_object_t o)
 lisp_object_t rplaca(lisp_object_t the_cons, lisp_object_t the_car)
 {
     check_cons(the_cons);
-    cons* p = ConsPtr(the_cons);
+    struct cons* p = ConsPtr(the_cons);
     p->car = the_car;
     return the_cons;
 }
@@ -82,12 +82,12 @@ lisp_object_t rplaca(lisp_object_t the_cons, lisp_object_t the_car)
 lisp_object_t rplacd(lisp_object_t the_cons, lisp_object_t the_cdr)
 {
     check_cons(the_cons);
-    cons* p = ConsPtr(the_cons);
+    struct cons* p = ConsPtr(the_cons);
     p->cdr = the_cdr;
     return the_cons;
 }
 
-lisp_object_t allocate_cons(lisp_interpreter_t* interp)
+lisp_object_t allocate_cons(struct lisp_interpreter* interp)
 {
     lisp_object_t new_cons = (lisp_object_t)interp->next_free;
     interp->next_free += 2;
@@ -97,7 +97,7 @@ lisp_object_t allocate_cons(lisp_interpreter_t* interp)
     return new_cons;
 }
 
-static void init_interpreter(lisp_interpreter_t* interp, size_t heap_size)
+static void init_interpreter(struct lisp_interpreter* interp, size_t heap_size)
 {
     if (sizeof(lisp_object_t) != sizeof(void*))
         abort();
@@ -112,12 +112,12 @@ static void init_interpreter(lisp_interpreter_t* interp, size_t heap_size)
     interp->symbol_table = allocate_cons(interp);
 }
 
-lisp_object_t allocate_single_object(lisp_interpreter_t* interp)
+lisp_object_t allocate_single_object(struct lisp_interpreter* interp)
 {
     return (lisp_object_t)interp->next_free++;
 }
 
-lisp_object_t allocate_string(lisp_interpreter_t* interp, size_t len, char* str)
+lisp_object_t allocate_string(struct lisp_interpreter* interp, size_t len, char* str)
 {
     lisp_object_t obj = (lisp_object_t)interp->next_free;
     size_t* header_address = (size_t*)obj;
@@ -128,12 +128,12 @@ lisp_object_t allocate_string(lisp_interpreter_t* interp, size_t len, char* str)
     return obj | STRING_TYPE;
 }
 
-lisp_object_t allocate_symbol(lisp_interpreter_t* interp, lisp_object_t name)
+lisp_object_t allocate_symbol(struct lisp_interpreter* interp, lisp_object_t name)
 {
     /* This allocates a new symbol every time */
     /* I should check for a preexisting symbol with the same name and return that if found */
     lisp_object_t obj = (lisp_object_t)interp->next_free;
-    symbol* s = (symbol*)obj;
+    struct symbol* s = (struct symbol*)obj;
     s->name = name;
     s->value = NIL;
     s->function = NIL;
@@ -174,7 +174,7 @@ lisp_object_t string_equalp(lisp_object_t s1, lisp_object_t s2)
     }
 }
 
-lisp_object_t parse_symbol(lisp_interpreter_t* interp, char** text)
+lisp_object_t parse_symbol(struct lisp_interpreter* interp, char** text)
 {
     static char* delimiters = " \n\t\r)\0";
     char* p = *text;
@@ -218,9 +218,9 @@ static void skip_whitespace(char** text)
         (*text)++;
 }
 
-lisp_object_t parse1(lisp_interpreter_t*, char**);
+lisp_object_t parse1(struct lisp_interpreter*, char**);
 
-lisp_object_t parse_cons(lisp_interpreter_t* interp, char** text)
+lisp_object_t parse_cons(struct lisp_interpreter* interp, char** text)
 {
     skip_whitespace(text);
     lisp_object_t new_cons = allocate_cons(interp);
@@ -239,7 +239,7 @@ lisp_object_t parse_cons(lisp_interpreter_t* interp, char** text)
     return new_cons;
 }
 
-lisp_object_t parse1(lisp_interpreter_t* interp, char** text)
+lisp_object_t parse1(struct lisp_interpreter* interp, char** text)
 {
     skip_whitespace(text);
     if (!**text)
@@ -258,7 +258,7 @@ lisp_object_t parse1(lisp_interpreter_t* interp, char** text)
     return 0;
 }
 
-void parse(lisp_interpreter_t* interp, char* text,
+void parse(struct lisp_interpreter* interp, char* text,
     void (*callback)(lisp_object_t))
 {
     char** cursor = &text;
@@ -269,7 +269,7 @@ void parse(lisp_interpreter_t* interp, char* text,
 lisp_object_t car(lisp_object_t obj)
 {
     check_cons(obj);
-    cons* foo = ConsPtr(obj);
+    struct cons* foo = ConsPtr(obj);
     return ConsPtr(obj)->car;
 }
 
@@ -306,21 +306,21 @@ lisp_object_t integerp(lisp_object_t obj)
     }
 }
 
-typedef struct string_buffer_link {
+struct string_buffer_link {
     char* string;
     struct string_buffer_link* next;
     size_t len;
-} string_buffer_link;
+};
 
-typedef struct {
-    string_buffer_link* head;
-    string_buffer_link* tail;
+struct string_buffer {
+    struct string_buffer_link* head;
+    struct string_buffer_link* tail;
     size_t len;
-} string_buffer_t;
+};
 
-void string_buffer_append(string_buffer_t* sb, char* string)
+void string_buffer_append(struct string_buffer* sb, char* string)
 {
-    string_buffer_link* link = malloc(sizeof(string_buffer_link));
+    struct string_buffer_link* link = malloc(sizeof(struct string_buffer_link));
     /* Update links */
     link->next = NULL;
     if (sb->tail)
@@ -336,13 +336,13 @@ void string_buffer_append(string_buffer_t* sb, char* string)
     strcpy(link->string, string);
 }
 
-void string_buffer_print(string_buffer_link* sb)
+void string_buffer_print(struct string_buffer_link* sb)
 {
-    for (string_buffer_link* link = sb; link; link = link->next)
+    for (struct string_buffer_link* link = sb; link; link = link->next)
         printf("%s", link->string);
 }
 
-void string_buffer_init(string_buffer_t* sb)
+void string_buffer_init(struct string_buffer* sb)
 {
     sb->head = NULL;
     sb->tail = NULL;
@@ -350,26 +350,26 @@ void string_buffer_init(string_buffer_t* sb)
 }
 
 /* Caller is responsible for freeing returned memory */
-char* string_buffer_to_string(string_buffer_t* sb)
+char* string_buffer_to_string(struct string_buffer* sb)
 {
     char* result = malloc(sb->len);
     char* cur = result;
-    for (string_buffer_link* link = sb->head; link; link = link->next) {
+    for (struct string_buffer_link* link = sb->head; link; link = link->next) {
         strcpy(cur, link->string);
         cur += link->len;
     }
     return result;
 }
 
-void string_buffer_free_link(string_buffer_link*);
+void string_buffer_free_link(struct string_buffer_link*);
 
 /* N.B. does not actually free the buffer struct itself */
-void string_buffer_free_links(string_buffer_t* sb)
+void string_buffer_free_links(struct string_buffer* sb)
 {
     string_buffer_free_link(sb->head);
 }
 
-void string_buffer_free_link(string_buffer_link* link)
+void string_buffer_free_link(struct string_buffer_link* link)
 {
     if (link->next)
         string_buffer_free_link(link->next);
@@ -377,11 +377,11 @@ void string_buffer_free_link(string_buffer_link* link)
     free(link);
 }
 
-void print_object_to_buffer(lisp_object_t, string_buffer_t*);
+void print_object_to_buffer(lisp_object_t, struct string_buffer*);
 
 char* print_object(lisp_object_t obj)
 {
-    string_buffer_t sb;
+    struct string_buffer sb;
     string_buffer_init(&sb);
     print_object_to_buffer(obj, &sb);
     char* result = string_buffer_to_string(&sb);
@@ -389,9 +389,9 @@ char* print_object(lisp_object_t obj)
     return result;
 }
 
-void print_cons_to_buffer(lisp_object_t, string_buffer_t*);
+void print_cons_to_buffer(lisp_object_t, struct string_buffer*);
 
-void print_cons_to_buffer(lisp_object_t obj, string_buffer_t* sb)
+void print_cons_to_buffer(lisp_object_t obj, struct string_buffer* sb)
 {
     print_object_to_buffer(car(obj), sb);
     if (cdr(obj) != NIL) {
@@ -405,7 +405,7 @@ void print_cons_to_buffer(lisp_object_t obj, string_buffer_t* sb)
     }
 }
 
-void print_object_to_buffer(lisp_object_t obj, string_buffer_t* sb)
+void print_object_to_buffer(lisp_object_t obj, struct string_buffer* sb)
 {
     if (integerp(obj) != NIL) {
         int value = obj >> 3;
@@ -469,7 +469,7 @@ static void test_parse_single_integer_list()
 {
     test_name = "parse_single_integer_list";
     char* test_string = "(14)";
-    lisp_interpreter_t interp;
+    struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t result = parse1(&interp, &test_string);
     check(consp(result), "consp");
@@ -484,7 +484,7 @@ static void test_parse_integer_list()
 {
     test_name = "parse_integer_list";
     char* test_string = "(23 71)";
-    lisp_interpreter_t interp;
+    struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t result = parse1(&interp, &test_string);
     check(consp(result), "consp");
@@ -492,7 +492,7 @@ static void test_parse_integer_list()
     check(integerp(result_car), "car is int");
     check(result_car == 23 << 3, "car value");
     lisp_object_t result_cdr = cdr(result);
-    cons* frobbo = (cons*)result;
+    struct cons* frobbo = (struct cons*)result;
     check(NIL != result_cdr, "cdr is not null");
     check(consp(result_cdr), "cdr is a pair");
     lisp_object_t cadr = car(result_cdr);
@@ -504,7 +504,7 @@ static void test_parse_dotted_pair_of_integers()
 {
     test_name = "parse_dotted_pair_of_integers";
     char* test_string = "(45 . 123)";
-    lisp_interpreter_t interp;
+    struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t result = parse1(&interp, &test_string);
     check(consp(result), "consp");
@@ -518,7 +518,7 @@ static void test_parse_symbol()
 {
     test_name = "test_parse_symbol";
     char* test_string = "foo";
-    lisp_interpreter_t interp;
+    struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t result = parse1(&interp, &test_string);
 }
@@ -526,7 +526,7 @@ static void test_parse_symbol()
 static void test_string_buffer()
 {
     test_name = "test_string_buffer";
-    string_buffer_t sb;
+    struct string_buffer sb;
     string_buffer_init(&sb);
     string_buffer_append(&sb, "foo");
     string_buffer_append(&sb, "bar");
@@ -541,7 +541,7 @@ static void test_print_integer()
 {
     test_name = "test_print_integer";
     char* test_string = "93";
-    lisp_interpreter_t interp;
+    struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t obj = parse1(&interp, &test_string);
     char* result = print_object(obj);
@@ -553,7 +553,7 @@ static void test_print_single_integer_list()
 {
     test_name = "test_print_single_integer_list";
     char* test_string = "(453)";
-    lisp_interpreter_t interp;
+    struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t obj = parse1(&interp, &test_string);
     char* result = print_object(obj);
@@ -565,7 +565,7 @@ static void test_print_integer_list()
 {
     test_name = "test_print_integer_list";
     char* test_string = "(240 -44 902)";
-    lisp_interpreter_t interp;
+    struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t obj = parse1(&interp, &test_string);
     char* result = print_object(obj);
@@ -577,7 +577,7 @@ static void test_print_dotted_pair()
 {
     test_name = "test_print_dotted_pair";
     char* test_string = "(65 . 185)";
-    lisp_interpreter_t interp;
+    struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t obj = parse1(&interp, &test_string);
     char* result = print_object(obj);
@@ -589,7 +589,7 @@ static void test_print_complex_list()
 {
     test_name = "test_print_complex_list";
     char* test_string = "(1 (2 3 4 (5 (6 7 8 (9 . 0)))))";
-    lisp_interpreter_t interp;
+    struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t obj = parse1(&interp, &test_string);
     char* result = print_object(obj);
@@ -625,7 +625,7 @@ static void test_read_and_print_nil()
 {
     test_name = "read_and_print_nil";
     char* test_string = "nil";
-    lisp_interpreter_t interp;
+    struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t obj = parse1(&interp, &test_string);
     check(obj == NIL, "is nil");
@@ -638,7 +638,7 @@ static void test_read_and_print_t()
 {
     test_name = "read_and_print_t";
     char* test_string = "t";
-    lisp_interpreter_t interp;
+    struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t obj = parse1(&interp, &test_string);
     check(obj == T, "is t");
@@ -650,7 +650,7 @@ static void test_read_and_print_t()
 static void test_strings()
 {
     test_name = "test_strings";
-    lisp_interpreter_t interp;
+    struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t s1 = allocate_string(&interp, 5, "hello");
     lisp_object_t s2 = allocate_string(&interp, 5, "hello");

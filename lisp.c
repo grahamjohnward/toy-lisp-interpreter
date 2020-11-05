@@ -19,6 +19,7 @@ typedef uint64_t lisp_object_t;
 #define STRING_TYPE 3
 
 #define ConsPtr(obj) ((cons*)((obj) ^ TYPE_MASK))
+#define SymbolPtr(obj) ((symbol*)((obj) ^ TYPE_MASK))
 
 /* Might be nice to have a lisp_memory struct separate from the interpreter */
 typedef struct lisp_interpreter_t {
@@ -32,6 +33,12 @@ typedef struct {
     lisp_object_t cdr;
 } cons;
 
+typedef struct {
+    lisp_object_t name;
+    lisp_object_t value;
+    lisp_object_t function;
+} symbol;
+
 char* print_object(lisp_object_t obj);
 
 static void check_cons(lisp_object_t cons)
@@ -39,6 +46,26 @@ static void check_cons(lisp_object_t cons)
     if ((cons & TYPE_MASK) != CONS_TYPE) {
         char* obj_string = print_object(cons);
         printf("Not a cons: %s\n", obj_string);
+        free(obj_string);
+        exit(1);
+    }
+}
+
+static void check_string(lisp_object_t o)
+{
+    if ((o & TYPE_MASK) != STRING_TYPE) {
+        char* obj_string = print_object(o);
+        printf("Not a string: %s\n", obj_string);
+        free(obj_string);
+        exit(1);
+    }
+}
+
+static void check_symbol(lisp_object_t o)
+{
+    if ((o & TYPE_MASK) != SYMBOL_TYPE) {
+        char* obj_string = print_object(o);
+        printf("Not a symbol: %s\n", obj_string);
         free(obj_string);
         exit(1);
     }
@@ -101,6 +128,52 @@ lisp_object_t allocate_string(lisp_interpreter_t* interp, size_t len, char* str)
     return obj | STRING_TYPE;
 }
 
+lisp_object_t allocate_symbol(lisp_interpreter_t* interp, lisp_object_t name)
+{
+    /* This allocates a new symbol every time */
+    /* I should check for a preexisting symbol with the same name and return that if found */
+    lisp_object_t obj = (lisp_object_t)interp->next_free;
+    symbol* s = (symbol*)obj;
+    s->name = name;
+    s->value = NIL;
+    s->function = NIL;
+    interp->next_free += 3;
+    lisp_object_t symbol = obj | SYMBOL_TYPE;
+    return symbol;
+}
+
+lisp_object_t eq(lisp_object_t o1, lisp_object_t o2)
+{
+    if (o1 == o2) {
+        return T;
+    } else {
+        return NIL;
+    }
+}
+
+lisp_object_t stringp(lisp_object_t s)
+{
+    return (s & TYPE_MASK) == STRING_TYPE ? T : NIL;
+}
+
+lisp_object_t string_equalp(lisp_object_t s1, lisp_object_t s2)
+{
+    check_string(s1);
+    check_string(s2);
+    if (eq(s1, s2) == T) {
+        return T;
+    } else {
+        /* Compare lengths */
+        size_t* l1p = (size_t*)(s1 ^ TYPE_MASK);
+        size_t* l2p = (size_t*)(s2 ^ TYPE_MASK);
+        if (*l1p != *l2p)
+            return NIL;
+        char* str1 = (char*)(l1p + 1);
+        char* str2 = (char*)(l2p + 1);
+        return strncmp(str1, str2, *l1p) == 0 ? T : NIL;
+    }
+}
+
 lisp_object_t parse_symbol(lisp_interpreter_t* interp, char** text)
 {
     static char* delimiters = " \n\t\r)\0";
@@ -118,6 +191,7 @@ lisp_object_t parse_symbol(lisp_interpreter_t* interp, char** text)
     } else {
         /* Create a Lisp string on the heap */
         lisp_object_t lisp_string = allocate_string(interp, len, tmp);
+        //return allocate_symbol(interp, lisp_string);
         /* Look for a matching string in the symbol table */
         /* Symbol table is a Lisp assoc list */
         /* If found, return */
@@ -573,6 +647,20 @@ static void test_read_and_print_t()
     free(result);
 }
 
+static void test_strings()
+{
+    test_name = "test_strings";
+    lisp_interpreter_t interp;
+    init_interpreter(&interp, 256);
+    lisp_object_t s1 = allocate_string(&interp, 5, "hello");
+    lisp_object_t s2 = allocate_string(&interp, 5, "hello");
+    lisp_object_t s3 = allocate_string(&interp, 6, "oohaah");
+    check(string_equalp(s1, s2) == T, "equal strings are equalp/1");
+    check(string_equalp(s2, s1) == T, "equal strings are equalp/2");
+    check(string_equalp(s1, s3) == NIL, "unequal strings are not equalp/1");
+    check(string_equalp(s2, s3) == NIL, "unequal strings are not equalp/2");
+}
+
 int main(int argc, char** argv)
 {
     test_skip_whitespace();
@@ -593,6 +681,7 @@ int main(int argc, char** argv)
     test_t_is_a_symbol();
     test_read_and_print_nil();
     test_read_and_print_t();
+    test_strings();
     test_parse_symbol();
     return 0;
 }

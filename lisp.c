@@ -95,10 +95,9 @@ lisp_object_t allocate_string(lisp_interpreter_t* interp, size_t len, char* str)
     lisp_object_t obj = (lisp_object_t)interp->next_free;
     size_t* header_address = (size_t*)obj;
     *header_address = len;
-    char* string_address = (char*)(header_address + 1);
-    strncpy(string_address, str, len);
-    char* foo = string_address + len + 8 - len % sizeof(lisp_object_t);
-    interp->next_free = (lisp_object_t*)foo;
+    char* straddr = (char*)(header_address + 1);
+    strncpy(straddr, str, len);
+    interp->next_free = (lisp_object_t*)(straddr + len + 8 - len % sizeof(lisp_object_t));
     return obj | STRING_TYPE;
 }
 

@@ -25,7 +25,7 @@ typedef uint64_t lisp_object_t;
 struct lisp_interpreter {
     lisp_object_t* heap;
     lisp_object_t* next_free;
-    lisp_object_t symbol_table;
+    lisp_object_t symbol_table; /* How will GC work for this? */
 };
 
 struct cons {
@@ -269,7 +269,6 @@ void parse(struct lisp_interpreter* interp, char* text,
 lisp_object_t car(lisp_object_t obj)
 {
     check_cons(obj);
-    struct cons* foo = ConsPtr(obj);
     return ConsPtr(obj)->car;
 }
 
@@ -492,7 +491,6 @@ static void test_parse_integer_list()
     check(integerp(result_car), "car is int");
     check(result_car == 23 << 3, "car value");
     lisp_object_t result_cdr = cdr(result);
-    struct cons* frobbo = (struct cons*)result;
     check(NIL != result_cdr, "cdr is not null");
     check(consp(result_cdr), "cdr is a pair");
     lisp_object_t cadr = car(result_cdr);

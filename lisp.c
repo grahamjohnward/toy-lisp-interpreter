@@ -144,16 +144,27 @@ lisp_object_t allocate_symbol(struct lisp_interpreter* interp, lisp_object_t nam
 
 lisp_object_t eq(lisp_object_t o1, lisp_object_t o2)
 {
-    if (o1 == o2) {
-        return T;
-    } else {
-        return NIL;
-    }
+    return o1 == o2 ? T : NIL;
 }
 
-lisp_object_t stringp(lisp_object_t s)
+lisp_object_t stringp(lisp_object_t obj)
 {
-    return (s & TYPE_MASK) == STRING_TYPE ? T : NIL;
+    return (obj & TYPE_MASK) == STRING_TYPE ? T : NIL;
+}
+
+lisp_object_t symbolp(lisp_object_t obj)
+{
+    return (obj & TYPE_MASK) == SYMBOL_TYPE ? T : NIL;
+}
+
+lisp_object_t integerp(lisp_object_t obj)
+{
+    return (obj & TYPE_MASK) == INTEGER_TYPE ? T : NIL;
+}
+
+lisp_object_t consp(lisp_object_t obj)
+{
+    return (obj & TYPE_MASK) == CONS_TYPE ? T : NIL;
 }
 
 lisp_object_t string_equalp(lisp_object_t s1, lisp_object_t s2)
@@ -278,33 +289,7 @@ lisp_object_t cdr(lisp_object_t obj)
     return ConsPtr(obj)->cdr;
 }
 
-lisp_object_t consp(lisp_object_t obj)
-{
-    if ((obj & TYPE_MASK) == CONS_TYPE) {
-        return T;
-    } else {
-        return NIL;
-    }
-}
-
-lisp_object_t symbolp(lisp_object_t obj)
-{
-    if ((obj & TYPE_MASK) == SYMBOL_TYPE) {
-        return T;
-    } else {
-        return NIL;
-    }
-}
-
-lisp_object_t integerp(lisp_object_t obj)
-{
-    if ((obj & TYPE_MASK) == INTEGER_TYPE) {
-        return T;
-    } else {
-        return NIL;
-    }
-}
-
+/* Maybe this string buffer stuff could be rewritten to use Lisp objects */
 struct string_buffer_link {
     char* string;
     struct string_buffer_link* next;
@@ -362,7 +347,6 @@ char* string_buffer_to_string(struct string_buffer* sb)
 
 void string_buffer_free_link(struct string_buffer_link*);
 
-/* N.B. does not actually free the buffer struct itself */
 void string_buffer_free_links(struct string_buffer* sb)
 {
     string_buffer_free_link(sb->head);

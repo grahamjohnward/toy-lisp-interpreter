@@ -13,13 +13,16 @@ typedef uint64_t lisp_object_t;
 #define T 0xfffffffffffffff1
 
 #define TYPE_MASK 0x7
+#define PTR_MASK 0xfffffffffffffff8
 #define INTEGER_TYPE 0
 #define SYMBOL_TYPE 1
 #define CONS_TYPE 2
 #define STRING_TYPE 3
 
-#define ConsPtr(obj) ((struct cons*)((obj) ^ TYPE_MASK))
-#define SymbolPtr(obj) ((struct symbol*)((obj) ^ TYPE_MASK))
+#define ConsPtr(obj) ((struct cons*)((obj)&PTR_MASK))
+#define SymbolPtr(obj) ((struct symbol*)((obj)&PTR_MASK))
+/* StringPtr is different as a string is not a struct */
+#define StringPtr(obj) ((size_t*)((obj)&PTR_MASK))
 
 /* Might be nice to have a lisp_memory struct separate from the interpreter */
 struct lisp_interpreter {
@@ -71,6 +74,18 @@ static void check_symbol(lisp_object_t o)
     }
 }
 
+lisp_object_t car(lisp_object_t obj)
+{
+    check_cons(obj);
+    return ConsPtr(obj)->car;
+}
+
+lisp_object_t cdr(lisp_object_t obj)
+{
+    check_cons(obj);
+    return ConsPtr(obj)->cdr;
+}
+
 lisp_object_t rplaca(lisp_object_t the_cons, lisp_object_t the_car)
 {
     check_cons(the_cons);
@@ -85,61 +100,6 @@ lisp_object_t rplacd(lisp_object_t the_cons, lisp_object_t the_cdr)
     struct cons* p = ConsPtr(the_cons);
     p->cdr = the_cdr;
     return the_cons;
-}
-
-lisp_object_t allocate_cons(struct lisp_interpreter* interp)
-{
-    lisp_object_t new_cons = (lisp_object_t)interp->next_free;
-    interp->next_free += 2;
-    new_cons |= CONS_TYPE;
-    rplaca(new_cons, NIL);
-    rplacd(new_cons, NIL);
-    return new_cons;
-}
-
-static void init_interpreter(struct lisp_interpreter* interp, size_t heap_size)
-{
-    if (sizeof(lisp_object_t) != sizeof(void*))
-        abort();
-    interp->heap = mmap(NULL, heap_size, PROT_READ | PROT_WRITE,
-        MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (interp->heap == (lisp_object_t*)-1) {
-        perror("mmap failed");
-        exit(1);
-    }
-    bzero(interp->heap, heap_size);
-    interp->next_free = interp->heap;
-    interp->symbol_table = allocate_cons(interp);
-}
-
-lisp_object_t allocate_single_object(struct lisp_interpreter* interp)
-{
-    return (lisp_object_t)interp->next_free++;
-}
-
-lisp_object_t allocate_string(struct lisp_interpreter* interp, size_t len, char* str)
-{
-    lisp_object_t obj = (lisp_object_t)interp->next_free;
-    size_t* header_address = (size_t*)obj;
-    *header_address = len;
-    char* straddr = (char*)(header_address + 1);
-    strncpy(straddr, str, len);
-    interp->next_free = (lisp_object_t*)(straddr + len + 8 - len % sizeof(lisp_object_t));
-    return obj | STRING_TYPE;
-}
-
-lisp_object_t allocate_symbol(struct lisp_interpreter* interp, lisp_object_t name)
-{
-    /* This allocates a new symbol every time */
-    /* I should check for a preexisting symbol with the same name and return that if found */
-    lisp_object_t obj = (lisp_object_t)interp->next_free;
-    struct symbol* s = (struct symbol*)obj;
-    s->name = name;
-    s->value = NIL;
-    s->function = NIL;
-    interp->next_free += 3;
-    lisp_object_t symbol = obj | SYMBOL_TYPE;
-    return symbol;
 }
 
 lisp_object_t eq(lisp_object_t o1, lisp_object_t o2)
@@ -164,7 +124,56 @@ lisp_object_t integerp(lisp_object_t obj)
 
 lisp_object_t consp(lisp_object_t obj)
 {
-    return (obj & TYPE_MASK) == CONS_TYPE ? T : NIL;
+    return ((obj & TYPE_MASK) == CONS_TYPE) ? T : NIL;
+}
+
+lisp_object_t allocate_cons(struct lisp_interpreter* interp)
+{
+    lisp_object_t new_cons = (lisp_object_t)interp->next_free;
+    interp->next_free += 2;
+    new_cons |= CONS_TYPE;
+    rplaca(new_cons, NIL);
+    rplacd(new_cons, NIL);
+    return new_cons;
+}
+
+static void init_interpreter(struct lisp_interpreter* interp, size_t heap_size)
+{
+    if (sizeof(lisp_object_t) != sizeof(void*))
+        abort();
+    interp->heap = mmap(NULL, heap_size, PROT_READ | PROT_WRITE,
+        MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (interp->heap == (lisp_object_t*)-1) {
+        perror("mmap failed");
+        exit(1);
+    }
+    bzero(interp->heap, heap_size);
+    interp->next_free = interp->heap;
+    interp->symbol_table = NIL;
+}
+
+lisp_object_t allocate_single_object(struct lisp_interpreter* interp)
+{
+    return (lisp_object_t)interp->next_free++;
+}
+
+lisp_object_t allocate_string(struct lisp_interpreter* interp, size_t len, char* str)
+{
+    lisp_object_t obj = (lisp_object_t)interp->next_free;
+    size_t* header_address = (size_t*)obj;
+    *header_address = len;
+    char* straddr = (char*)(header_address + 1);
+    strncpy(straddr, str, len);
+    interp->next_free = (lisp_object_t*)(straddr + len + 8 - len % sizeof(lisp_object_t));
+    return obj | STRING_TYPE;
+}
+
+void get_string_parts(lisp_object_t string, size_t* lenptr, char** strptr)
+{
+    check_string(string);
+    size_t* name_length_ptr = StringPtr(string);
+    *lenptr = *name_length_ptr;
+    *strptr = (char*)(name_length_ptr + 1);
 }
 
 lisp_object_t string_equalp(lisp_object_t s1, lisp_object_t s2)
@@ -175,13 +184,57 @@ lisp_object_t string_equalp(lisp_object_t s1, lisp_object_t s2)
         return T;
     } else {
         /* Compare lengths */
-        size_t* l1p = (size_t*)(s1 ^ TYPE_MASK);
-        size_t* l2p = (size_t*)(s2 ^ TYPE_MASK);
+        size_t* l1p = (size_t*)(s1 & PTR_MASK);
+        size_t* l2p = (size_t*)(s2 & PTR_MASK);
         if (*l1p != *l2p)
             return NIL;
         char* str1 = (char*)(l1p + 1);
         char* str2 = (char*)(l2p + 1);
         return strncmp(str1, str2, *l1p) == 0 ? T : NIL;
+    }
+}
+
+lisp_object_t symbol_name(lisp_object_t sym)
+{
+    check_symbol(sym);
+    return SymbolPtr(sym)->name;
+}
+
+lisp_object_t find_symbol(lisp_object_t list_of_symbols, lisp_object_t name)
+{
+    check_string(name);
+    if (list_of_symbols == NIL)
+        return NIL;
+    check_cons(list_of_symbols);
+    lisp_object_t first = car(list_of_symbols);
+    if (first == NIL)
+        /* This should not happen - remove this case */
+        return NIL;
+    else if (string_equalp(symbol_name(first), name))
+        return first;
+    else
+        return find_symbol(cdr(list_of_symbols), name);
+}
+
+lisp_object_t allocate_symbol(struct lisp_interpreter* interp, lisp_object_t name)
+{
+    lisp_object_t preexisting_symbol = find_symbol(interp->symbol_table, name);
+    if (preexisting_symbol != NIL) {
+        return preexisting_symbol;
+    } else {
+        check_string(name);
+        lisp_object_t obj = (lisp_object_t)interp->next_free;
+        struct symbol* s = (struct symbol*)obj;
+        s->name = name;
+        s->value = NIL;
+        s->function = NIL;
+        interp->next_free += 3;
+        lisp_object_t symbol = obj | SYMBOL_TYPE;
+        lisp_object_t new_cons = allocate_cons(interp);
+        rplaca(new_cons, symbol);
+        rplacd(new_cons, interp->symbol_table);
+        interp->symbol_table = new_cons;
+        return symbol;
     }
 }
 
@@ -200,14 +253,8 @@ lisp_object_t parse_symbol(struct lisp_interpreter* interp, char** text)
     } else if (strcmp(tmp, "t") == 0) {
         return T;
     } else {
-        /* Create a Lisp string on the heap */
         lisp_object_t lisp_string = allocate_string(interp, len, tmp);
-        //return allocate_symbol(interp, lisp_string);
-        /* Look for a matching string in the symbol table */
-        /* Symbol table is a Lisp assoc list */
-        /* If found, return */
-        /* Else, create new symbol and return */
-        return NIL;
+        return allocate_symbol(interp, lisp_string);
     }
 }
 
@@ -277,17 +324,7 @@ void parse(struct lisp_interpreter* interp, char* text,
         callback(parse1(interp, cursor));
 }
 
-lisp_object_t car(lisp_object_t obj)
-{
-    check_cons(obj);
-    return ConsPtr(obj)->car;
-}
-
-lisp_object_t cdr(lisp_object_t obj)
-{
-    check_cons(obj);
-    return ConsPtr(obj)->cdr;
-}
+/* Printing */
 
 /* Maybe this string buffer stuff could be rewritten to use Lisp objects */
 struct string_buffer_link {
@@ -400,14 +437,25 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer* sb)
         string_buffer_append(sb, "nil");
     } else if (obj == T) {
         string_buffer_append(sb, "t");
-    } else if (consp(obj)) {
+    } else if (consp(obj) != NIL) {
         string_buffer_append(sb, "(");
         print_cons_to_buffer(obj, sb);
         string_buffer_append(sb, ")");
-    } else {
-        abort();
+    } else if (symbolp(obj) != NIL) {
+        check_symbol(obj);
+        struct symbol* sym = SymbolPtr(obj);
+        size_t len;
+        char* strptr;
+        get_string_parts(sym->name, &len, &strptr);
+        char* tmp = malloc(len + 1);
+        strncpy(tmp, strptr, len);
+        tmp[len] = 0;
+        string_buffer_append(sb, tmp);
+        free(tmp);
     }
 }
+
+/* Testing infrastructure */
 
 static char* test_name; /* Global */
 
@@ -422,6 +470,8 @@ static void check(int boolean, char* tag)
     }
     printf("\n");
 }
+
+/* Unit tests */
 
 static void test_skip_whitespace()
 {
@@ -494,15 +544,6 @@ static void test_parse_dotted_pair_of_integers()
     check(integerp(cdr(result)), "cdr is int");
     check(car(result) == 45 << 3, "car value");
     check(cdr(result) == 123 << 3, "cdr value");
-}
-
-static void test_parse_symbol()
-{
-    test_name = "test_parse_symbol";
-    char* test_string = "foo";
-    struct lisp_interpreter interp;
-    init_interpreter(&interp, 256);
-    lisp_object_t result = parse1(&interp, &test_string);
 }
 
 static void test_string_buffer()
@@ -641,6 +682,56 @@ static void test_strings()
     check(string_equalp(s2, s1) == T, "equal strings are equalp/2");
     check(string_equalp(s1, s3) == NIL, "unequal strings are not equalp/1");
     check(string_equalp(s2, s3) == NIL, "unequal strings are not equalp/2");
+    size_t len;
+    char* str;
+    get_string_parts(s1, &len, &str);
+    check(len == 5, "get_string_parts/length");
+    check(strncmp("hello", str, 5) == 0, "get_string_parts/string");
+}
+
+static void test_print_empty_cons()
+{
+    test_name = "test_print_empty_cons";
+    struct lisp_interpreter interp;
+    init_interpreter(&interp, 256);
+    lisp_object_t empty = allocate_cons(&interp);
+    check(strcmp("(nil)", print_object(empty)) == 0, "(nil)");
+}
+
+static void test_symbol_pointer()
+{
+    test_name = "test_symbol_pointer";
+    lisp_object_t obj_without_tag = 8;
+    lisp_object_t tagged_obj = obj_without_tag | SYMBOL_TYPE;
+    struct symbol* ptr = SymbolPtr(tagged_obj);
+    check((int)obj_without_tag == (int)ptr, "correct pointer");
+}
+
+static void test_parse_symbol()
+{
+    test_name = "test_parse_symbol";
+    char* test_string = "foo";
+    struct lisp_interpreter interp;
+    init_interpreter(&interp, 256);
+    lisp_object_t result = parse1(&interp, &test_string);
+    check(symbolp(result) == T, "symbolp");
+    check(consp(result) == NIL, "not consp");
+    check(strcmp("foo", print_object(result)) == 0, "print");
+}
+
+static void test_parse_multiple_symbols()
+{
+    test_name = "test_parse_symbol";
+    char* s1 = "foo";
+    struct lisp_interpreter interp;
+    init_interpreter(&interp, 256);
+    lisp_object_t sym1 = parse1(&interp, &s1);
+    char* s2 = "bar";
+    lisp_object_t sym2 = parse1(&interp, &s2);
+    check(strcmp("(bar foo)", print_object(interp.symbol_table)), "symbol table looks right");
+    char* s3 = "bar";
+    lisp_object_t sym3 = parse1(&interp, &s2);
+    check(strcmp("(bar foo)", print_object(interp.symbol_table)), "symbol reused");
 }
 
 int main(int argc, char** argv)
@@ -664,6 +755,9 @@ int main(int argc, char** argv)
     test_read_and_print_nil();
     test_read_and_print_t();
     test_strings();
+    test_print_empty_cons();
+    test_symbol_pointer();
     test_parse_symbol();
+    test_parse_multiple_symbols();
     return 0;
 }

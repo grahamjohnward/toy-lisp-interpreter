@@ -28,7 +28,7 @@ typedef uint64_t lisp_object_t;
 struct lisp_interpreter {
     lisp_object_t* heap;
     lisp_object_t* next_free;
-    lisp_object_t symbol_table; /* How will GC work for this? */
+    lisp_object_t symbol_table; /* A root for GC */
 };
 
 struct cons {
@@ -124,7 +124,7 @@ lisp_object_t integerp(lisp_object_t obj)
 
 lisp_object_t consp(lisp_object_t obj)
 {
-    return ((obj & TYPE_MASK) == CONS_TYPE) ? T : NIL;
+    return (obj & TYPE_MASK) == CONS_TYPE ? T : NIL;
 }
 
 lisp_object_t allocate_cons(struct lisp_interpreter* interp)
@@ -207,10 +207,7 @@ lisp_object_t find_symbol(lisp_object_t list_of_symbols, lisp_object_t name)
         return NIL;
     check_cons(list_of_symbols);
     lisp_object_t first = car(list_of_symbols);
-    if (first == NIL)
-        /* This should not happen - remove this case */
-        return NIL;
-    else if (string_equalp(symbol_name(first), name))
+    if (string_equalp(symbol_name(first), name))
         return first;
     else
         return find_symbol(cdr(list_of_symbols), name);
@@ -242,8 +239,8 @@ lisp_object_t parse_symbol(struct lisp_interpreter* interp, char** text)
 {
     static char* delimiters = " \n\t\r)\0";
     char* p = *text;
-    for (; !strchr(delimiters, *p); p++)
-        ;
+    while (!strchr(delimiters, *p))
+        p++;
     size_t len = p - *text;
     char* tmp = alloca(len);
     strcpy(tmp, *text);
@@ -731,7 +728,7 @@ static void test_parse_multiple_symbols()
     check(strcmp("(bar foo)", print_object(interp.symbol_table)), "symbol table looks right");
     char* s3 = "bar";
     lisp_object_t sym3 = parse1(&interp, &s2);
-    check(eq(sym2, sym3), "symbols eq");
+    check(eq(sym2, sym3) == T, "symbols eq");
     check(strcmp("(bar foo)", print_object(interp.symbol_table)), "symbol table looks right(2)");
 }
 

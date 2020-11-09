@@ -548,7 +548,7 @@ static void test_parse_dotted_pair_of_integers()
 
 static void test_string_buffer()
 {
-    test_name = "test_string_buffer";
+    test_name = "string_buffer";
     struct string_buffer sb;
     string_buffer_init(&sb);
     string_buffer_append(&sb, "foo");
@@ -562,7 +562,7 @@ static void test_string_buffer()
 
 static void test_print_integer()
 {
-    test_name = "test_print_integer";
+    test_name = "print_integer";
     char* test_string = "93";
     struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
@@ -574,7 +574,7 @@ static void test_print_integer()
 
 static void test_print_single_integer_list()
 {
-    test_name = "test_print_single_integer_list";
+    test_name = "print_single_integer_list";
     char* test_string = "(453)";
     struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
@@ -586,7 +586,7 @@ static void test_print_single_integer_list()
 
 static void test_print_integer_list()
 {
-    test_name = "test_print_integer_list";
+    test_name = "print_integer_list";
     char* test_string = "(240 -44 902)";
     struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
@@ -598,7 +598,7 @@ static void test_print_integer_list()
 
 static void test_print_dotted_pair()
 {
-    test_name = "test_print_dotted_pair";
+    test_name = "print_dotted_pair";
     char* test_string = "(65 . 185)";
     struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
@@ -610,7 +610,7 @@ static void test_print_dotted_pair()
 
 static void test_print_complex_list()
 {
-    test_name = "test_print_complex_list";
+    test_name = "print_complex_list";
     char* test_string = "(1 (2 3 4 (5 (6 7 8 (9 . 0)))))";
     struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
@@ -622,25 +622,25 @@ static void test_print_complex_list()
 
 static void test_nil_is_not_a_cons()
 {
-    test_name = "test_nil_is_not_a_cons";
+    test_name = "nil_is_not_a_cons";
     check(consp(NIL) == NIL, "not a cons");
 }
 
 static void test_t_is_not_a_cons()
 {
-    test_name = "test_t_is_not_a_cons";
+    test_name = "t_is_not_a_cons";
     check(consp(T) == NIL, "not a cons");
 }
 
 static void test_nil_is_a_symbol()
 {
-    test_name = "test_nil_is_a_symbol";
+    test_name = "nil_is_a_symbol";
     check(symbolp(NIL) == T, "symbol");
 }
 
 static void test_t_is_a_symbol()
 {
-    test_name = "test_t_is_a_symbol";
+    test_name = "t_is_a_symbol";
     check(symbolp(T) == T, "symbol");
 }
 
@@ -672,7 +672,7 @@ static void test_read_and_print_t()
 
 static void test_strings()
 {
-    test_name = "test_strings";
+    test_name = "strings";
     struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t s1 = allocate_string(&interp, 5, "hello");
@@ -691,7 +691,7 @@ static void test_strings()
 
 static void test_print_empty_cons()
 {
-    test_name = "test_print_empty_cons";
+    test_name = "print_empty_cons";
     struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t empty = allocate_cons(&interp);
@@ -700,7 +700,7 @@ static void test_print_empty_cons()
 
 static void test_symbol_pointer()
 {
-    test_name = "test_symbol_pointer";
+    test_name = "symbol_pointer";
     lisp_object_t obj_without_tag = 8;
     lisp_object_t tagged_obj = obj_without_tag | SYMBOL_TYPE;
     struct symbol* ptr = SymbolPtr(tagged_obj);
@@ -709,7 +709,7 @@ static void test_symbol_pointer()
 
 static void test_parse_symbol()
 {
-    test_name = "test_parse_symbol";
+    test_name = "parse_symbol";
     char* test_string = "foo";
     struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
@@ -721,7 +721,7 @@ static void test_parse_symbol()
 
 static void test_parse_multiple_symbols()
 {
-    test_name = "test_parse_symbol";
+    test_name = "parse_multiple_symbols";
     char* s1 = "foo";
     struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
@@ -731,7 +731,8 @@ static void test_parse_multiple_symbols()
     check(strcmp("(bar foo)", print_object(interp.symbol_table)), "symbol table looks right");
     char* s3 = "bar";
     lisp_object_t sym3 = parse1(&interp, &s2);
-    check(strcmp("(bar foo)", print_object(interp.symbol_table)), "symbol reused");
+    check(eq(sym2, sym3), "symbols eq");
+    check(strcmp("(bar foo)", print_object(interp.symbol_table)), "symbol table looks right(2)");
 }
 
 int main(int argc, char** argv)

@@ -207,7 +207,7 @@ lisp_object_t find_symbol(lisp_object_t list_of_symbols, lisp_object_t name)
         return NIL;
     check_cons(list_of_symbols);
     lisp_object_t first = car(list_of_symbols);
-    if (string_equalp(symbol_name(first), name))
+    if (string_equalp(symbol_name(first), name) == T)
         return first;
     else
         return find_symbol(cdr(list_of_symbols), name);
@@ -732,6 +732,18 @@ static void test_parse_multiple_symbols()
     check(strcmp("(bar foo)", print_object(interp.symbol_table)), "symbol table looks right(2)");
 }
 
+static void test_parse_list_of_symbols()
+{
+    test_name = "parse_list_of_symbols";
+    char* test_string = "(hello you are nice)";
+    struct lisp_interpreter interp;
+    init_interpreter(&interp, 256);
+    lisp_object_t result = parse1(&interp, &test_string);
+    check(consp(result) == T, "consp");
+    check(symbolp(car((result))) == T, "first symbolp");
+    check(strcmp("(hello you are nice)", print_object(result)) == 0, "prints ok");
+}
+
 int main(int argc, char** argv)
 {
     test_skip_whitespace();
@@ -757,5 +769,6 @@ int main(int argc, char** argv)
     test_symbol_pointer();
     test_parse_symbol();
     test_parse_multiple_symbols();
+    test_parse_list_of_symbols();
     return 0;
 }

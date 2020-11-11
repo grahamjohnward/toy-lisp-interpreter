@@ -378,6 +378,7 @@ void string_buffer_free_link(struct string_buffer_link*);
 
 void string_buffer_free_links(struct string_buffer* sb)
 {
+    if (sb->head)
         string_buffer_free_link(sb->head);
 }
 
@@ -741,6 +742,32 @@ static void test_parse_list_of_symbols()
     check(strcmp("(hello you are nice)", print_object(result)) == 0, "prints ok");
 }
 
+static void test_eq()
+{
+    test_name = "eq";
+    check(eq(0, 0) == T, "(eq 0 0) is T");
+    check(eq(1, 1) == T, "(eq 1 1) is T");
+    check(eq(NIL, NIL) == T, "(eq nil nil) is T");
+    check(eq(T, T) == T, "(eq t t) is T");
+    check(eq(0, 0) != NIL, "(eq 0 0) is not NIL");
+    check(eq(1, 1) != NIL, "(eq 1 1) is not NIL");
+    check(eq(NIL, NIL) != NIL, "(eq nil nil) is not NIL");
+    check(eq(T, T) != NIL, "(eq t t) is not NIL");
+}
+
+/* The parse updates the pointer passed to it.
+   This test is to say that we think this is OK */
+static void test_parser_advances_pointer()
+{
+    test_name = "parser_advances_pointer";
+    char* s1 = "foo";
+    char* before = s1;
+    struct lisp_interpreter interp;
+    init_interpreter(&interp, 256);
+    lisp_object_t sym1 = parse1(&interp, &s1);
+    check(s1 - before == 3, "pointer advanced");
+}
+
 int main(int argc, char** argv)
 {
     test_skip_whitespace();
@@ -764,8 +791,10 @@ int main(int argc, char** argv)
     test_strings();
     test_print_empty_cons();
     test_symbol_pointer();
+    test_eq();
     test_parse_symbol();
     test_parse_multiple_symbols();
     test_parse_list_of_symbols();
+    test_parser_advances_pointer();
     return 0;
 }

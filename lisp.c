@@ -378,7 +378,7 @@ void string_buffer_free_link(struct string_buffer_link*);
 
 void string_buffer_free_links(struct string_buffer* sb)
 {
-    string_buffer_free_link(sb->head);
+        string_buffer_free_link(sb->head);
 }
 
 void string_buffer_free_link(struct string_buffer_link* link)

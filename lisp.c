@@ -722,11 +722,11 @@ static void test_parse_multiple_symbols()
     lisp_object_t sym1 = parse1(&interp, &s1);
     char* s2 = "bar";
     lisp_object_t sym2 = parse1(&interp, &s2);
-    check(strcmp("(bar foo)", print_object(interp.symbol_table)), "symbol table looks right");
+    check(strcmp("(bar foo)", print_object(interp.symbol_table)) == 0, "symbol table looks right");
     char* s3 = "bar";
-    lisp_object_t sym3 = parse1(&interp, &s2);
+    lisp_object_t sym3 = parse1(&interp, &s3);
     check(eq(sym2, sym3) == T, "symbols eq");
-    check(strcmp("(bar foo)", print_object(interp.symbol_table)), "symbol table looks right(2)");
+    check(strcmp("(bar foo)", print_object(interp.symbol_table)) == 0, "symbol table looks right(2)");
 }
 
 static void test_parse_list_of_symbols()

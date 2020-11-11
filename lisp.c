@@ -141,13 +141,13 @@ static void init_interpreter(struct lisp_interpreter* interp, size_t heap_size)
 {
     if (sizeof(lisp_object_t) != sizeof(void*))
         abort();
-    interp->heap = mmap(NULL, heap_size, PROT_READ | PROT_WRITE,
-        MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    size_t nbytes = heap_size * sizeof(lisp_object_t);
+    interp->heap = mmap(NULL, nbytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (interp->heap == (lisp_object_t*)-1) {
         perror("mmap failed");
         exit(1);
     }
-    bzero(interp->heap, heap_size);
+    bzero(interp->heap, nbytes);
     interp->next_free = interp->heap;
     interp->symbol_table = NIL;
 }

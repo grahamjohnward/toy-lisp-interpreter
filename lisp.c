@@ -152,11 +152,6 @@ static void init_interpreter(struct lisp_interpreter* interp, size_t heap_size)
     interp->symbol_table = NIL;
 }
 
-lisp_object_t allocate_single_object(struct lisp_interpreter* interp)
-{
-    return (lisp_object_t)interp->next_free++;
-}
-
 lisp_object_t allocate_string(struct lisp_interpreter* interp, size_t len, char* str)
 {
     lisp_object_t obj = (lisp_object_t)interp->next_free;

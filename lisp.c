@@ -175,7 +175,7 @@ lisp_object_t string_equalp(lisp_object_t s1, lisp_object_t s2)
 {
     check_string(s1);
     check_string(s2);
-    if (eq(s1, s2) == T) {
+    if (eq(s1, s2) != NIL) {
         return T;
     } else {
         /* Compare lengths */
@@ -736,8 +736,8 @@ static void test_parse_list_of_symbols()
     struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t result = parse1(&interp, &test_string);
-    check(consp(result) == T, "consp");
-    check(symbolp(car((result))) == T, "first symbolp");
+    check(consp(result) != NIL, "consp");
+    check(symbolp(car((result))) != NIL, "first symbolp");
     check(strcmp("(hello you are nice)", print_object(result)) == 0, "prints ok");
 }
 

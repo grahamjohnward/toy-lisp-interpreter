@@ -440,11 +440,10 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer* sb)
         size_t len;
         char* strptr;
         get_string_parts(sym->name, &len, &strptr);
-        char* tmp = malloc(len + 1);
+        char* tmp = alloca(len + 1);
         strncpy(tmp, strptr, len);
         tmp[len] = 0;
         string_buffer_append(sb, tmp);
-        free(tmp);
     } else if (stringp(obj) != NIL) {
         string_buffer_append(sb, "a_string");
     }

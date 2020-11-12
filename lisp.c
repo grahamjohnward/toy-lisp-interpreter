@@ -349,12 +349,6 @@ void string_buffer_append(struct string_buffer* sb, char* string)
     strcpy(link->string, string);
 }
 
-void string_buffer_print(struct string_buffer_link* sb)
-{
-    for (struct string_buffer_link* link = sb; link; link = link->next)
-        printf("%s", link->string);
-}
-
 void string_buffer_init(struct string_buffer* sb)
 {
     sb->head = NULL;

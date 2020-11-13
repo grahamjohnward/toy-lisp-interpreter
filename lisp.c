@@ -127,10 +127,16 @@ lisp_object_t consp(lisp_object_t obj)
     return (obj & TYPE_MASK) == CONS_TYPE ? T : NIL;
 }
 
+lisp_object_t allocate_lisp_objects(struct lisp_interpreter* interp, size_t n)
+{
+    lisp_object_t result = (lisp_object_t)interp->next_free;
+    interp->next_free += n;
+    return result;
+}
+
 lisp_object_t allocate_cons(struct lisp_interpreter* interp)
 {
-    lisp_object_t new_cons = (lisp_object_t)interp->next_free;
-    interp->next_free += 2;
+    lisp_object_t new_cons = allocate_lisp_objects(interp, 2);
     new_cons |= CONS_TYPE;
     rplaca(new_cons, NIL);
     rplacd(new_cons, NIL);
@@ -154,12 +160,12 @@ static void init_interpreter(struct lisp_interpreter* interp, size_t heap_size)
 
 lisp_object_t allocate_string(struct lisp_interpreter* interp, size_t len, char* str)
 {
-    lisp_object_t obj = (lisp_object_t)interp->next_free;
+    size_t size = 2 + (len - 1) / 8;
+    lisp_object_t obj = allocate_lisp_objects(interp, size);
     size_t* header_address = (size_t*)obj;
     *header_address = len;
     char* straddr = (char*)(header_address + 1);
     strncpy(straddr, str, len);
-    interp->next_free = (lisp_object_t*)(straddr + len + 8 - len % sizeof(lisp_object_t));
     return obj | STRING_TYPE;
 }
 
@@ -215,12 +221,11 @@ lisp_object_t allocate_symbol(struct lisp_interpreter* interp, lisp_object_t nam
         return preexisting_symbol;
     } else {
         check_string(name);
-        lisp_object_t obj = (lisp_object_t)interp->next_free;
+        lisp_object_t obj = allocate_lisp_objects(interp, 3);
         struct symbol* s = (struct symbol*)obj;
         s->name = name;
         s->value = NIL;
         s->function = NIL;
-        interp->next_free += 3;
         lisp_object_t symbol = obj | SYMBOL_TYPE;
         lisp_object_t new_cons = allocate_cons(interp);
         rplaca(new_cons, symbol);

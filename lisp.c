@@ -44,34 +44,29 @@ struct symbol {
 
 char* print_object(lisp_object_t obj);
 
-static void check_cons(lisp_object_t cons)
+static void check_type(lisp_object_t obj, int type, char* type_name)
 {
-    if ((cons & TYPE_MASK) != CONS_TYPE) {
-        char* obj_string = print_object(cons);
-        printf("Not a cons: %s\n", obj_string);
+    if ((obj && TYPE_MASK) != type) {
+        char* obj_string = print_object(obj);
+        printf("Not a %s: %s\n", type_name, obj_string);
         free(obj_string);
         exit(1);
     }
 }
 
-static void check_string(lisp_object_t o)
+static void check_cons(lisp_object_t obj)
 {
-    if ((o & TYPE_MASK) != STRING_TYPE) {
-        char* obj_string = print_object(o);
-        printf("Not a string: %s\n", obj_string);
-        free(obj_string);
-        exit(1);
-    }
+    check_type(obj, CONS_TYPE, "cons");
 }
 
-static void check_symbol(lisp_object_t o)
+static void check_string(lisp_object_t obj)
 {
-    if ((o & TYPE_MASK) != SYMBOL_TYPE) {
-        char* obj_string = print_object(o);
-        printf("Not a symbol: %s\n", obj_string);
-        free(obj_string);
-        exit(1);
-    }
+    check_type(obj, STRING_TYPE, "string");
+}
+
+static void check_symbol(lisp_object_t obj)
+{
+    check_type(obj, SYMBOL_TYPE, "symbol");
 }
 
 lisp_object_t car(lisp_object_t obj)

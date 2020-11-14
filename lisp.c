@@ -19,6 +19,8 @@ typedef uint64_t lisp_object_t;
 #define CONS_TYPE 2
 #define STRING_TYPE 3
 
+static char* type_names[4] = { "integer", "symbol", "cons", "string" };
+
 #define ConsPtr(obj) ((struct cons*)((obj)&PTR_MASK))
 #define SymbolPtr(obj) ((struct symbol*)((obj)&PTR_MASK))
 /* StringPtr is different as a string is not a struct */
@@ -44,11 +46,13 @@ struct symbol {
 
 char* print_object(lisp_object_t obj);
 
-static void check_type(lisp_object_t obj, int type, char* type_name)
+lisp_object_t istype(lisp_object_t obj, int type);
+
+static void check_type(lisp_object_t obj, int type)
 {
-    if ((obj && TYPE_MASK) != type) {
+    if (istype(obj, type) == NIL) {
         char* obj_string = print_object(obj);
-        printf("Not a %s: %s\n", type_name, obj_string);
+        printf("Not a %s: %s\n", type_names[type], obj_string);
         free(obj_string);
         exit(1);
     }
@@ -56,17 +60,17 @@ static void check_type(lisp_object_t obj, int type, char* type_name)
 
 static void check_cons(lisp_object_t obj)
 {
-    check_type(obj, CONS_TYPE, "cons");
+    check_type(obj, CONS_TYPE);
 }
 
 static void check_string(lisp_object_t obj)
 {
-    check_type(obj, STRING_TYPE, "string");
+    check_type(obj, STRING_TYPE);
 }
 
 static void check_symbol(lisp_object_t obj)
 {
-    check_type(obj, SYMBOL_TYPE, "symbol");
+    check_type(obj, SYMBOL_TYPE);
 }
 
 lisp_object_t car(lisp_object_t obj)
@@ -102,24 +106,29 @@ lisp_object_t eq(lisp_object_t o1, lisp_object_t o2)
     return o1 == o2 ? T : NIL;
 }
 
+lisp_object_t istype(lisp_object_t obj, int type)
+{
+    return (obj & TYPE_MASK) == type ? T : NIL;
+}
+
 lisp_object_t stringp(lisp_object_t obj)
 {
-    return (obj & TYPE_MASK) == STRING_TYPE ? T : NIL;
+    return istype(obj, STRING_TYPE);
 }
 
 lisp_object_t symbolp(lisp_object_t obj)
 {
-    return (obj & TYPE_MASK) == SYMBOL_TYPE ? T : NIL;
+    return istype(obj, SYMBOL_TYPE);
 }
 
 lisp_object_t integerp(lisp_object_t obj)
 {
-    return (obj & TYPE_MASK) == INTEGER_TYPE ? T : NIL;
+    return istype(obj, INTEGER_TYPE);
 }
 
 lisp_object_t consp(lisp_object_t obj)
 {
-    return (obj & TYPE_MASK) == CONS_TYPE ? T : NIL;
+    return istype(obj, CONS_TYPE);
 }
 
 lisp_object_t allocate_lisp_objects(struct lisp_interpreter* interp, size_t n)

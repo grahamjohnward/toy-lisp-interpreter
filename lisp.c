@@ -318,11 +318,11 @@ lisp_object_t parse1(struct lisp_interpreter* interp, char** text)
 }
 
 void parse(struct lisp_interpreter* interp, char* text,
-    void (*callback)(lisp_object_t))
+    void (*callback)(void*, lisp_object_t), void* callback_data)
 {
     char** cursor = &text;
     while (*text)
-        callback(parse1(interp, cursor));
+        callback(callback_data, parse1(interp, cursor));
 }
 
 /* Printing */
@@ -770,6 +770,25 @@ static void test_parser_advances_pointer()
     check(s1 - before == 3, "pointer advanced");
 }
 
+static void test_parse_multiple_objects_callback(void* data, lisp_object_t obj)
+{
+    print_object_to_buffer(obj, (struct string_buffer*)data);
+}
+
+void test_parse_multiple_objects()
+{
+    test_name = "parse_multiple_objects";
+    char* test_string = "foo bar";
+    struct lisp_interpreter interp;
+    init_interpreter(&interp, 256);
+    struct string_buffer sb;
+    string_buffer_init(&sb);
+    parse(&interp, test_string, test_parse_multiple_objects_callback, (void*)&sb);
+    char* str = string_buffer_to_string(&sb);
+    check(strcmp("foobar", str) == 0, "parses both symbols");
+    free(str);
+}
+
 int main(int argc, char** argv)
 {
     test_skip_whitespace();
@@ -798,5 +817,6 @@ int main(int argc, char** argv)
     test_parse_multiple_symbols();
     test_parse_list_of_symbols();
     test_parser_advances_pointer();
+    test_parse_multiple_objects();
     return 0;
 }

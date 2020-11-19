@@ -704,7 +704,7 @@ static void test_symbol_pointer()
     lisp_object_t obj_without_tag = 8;
     lisp_object_t tagged_obj = obj_without_tag | SYMBOL_TYPE;
     struct symbol* ptr = SymbolPtr(tagged_obj);
-    check((int)obj_without_tag == (int)ptr, "correct pointer");
+    check((unsigned long)obj_without_tag == (unsigned long)ptr, "correct pointer");
 }
 
 static void test_parse_symbol()

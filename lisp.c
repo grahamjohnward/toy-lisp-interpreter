@@ -246,8 +246,9 @@ lisp_object_t parse_symbol(struct lisp_interpreter* interp, char** text)
     while (!strchr(delimiters, *p))
         p++;
     size_t len = p - *text;
-    char* tmp = alloca(len);
-    strcpy(tmp, *text);
+    char* tmp = alloca(len + 1);
+    strncpy(tmp, *text, len);
+    tmp[len] = 0;
     *text += len;
     if (strcmp(tmp, "nil") == 0) {
         return NIL;
@@ -354,7 +355,7 @@ void string_buffer_append(struct string_buffer* sb, char* string)
     link->len = strlen(string);
     sb->len += link->len;
     /* Copy string */
-    link->string = malloc(link->len);
+    link->string = malloc(link->len + 1);
     strcpy(link->string, string);
 }
 
@@ -368,7 +369,7 @@ void string_buffer_init(struct string_buffer* sb)
 /* Caller is responsible for freeing returned memory */
 char* string_buffer_to_string(struct string_buffer* sb)
 {
-    char* result = malloc(sb->len);
+    char* result = malloc(sb->len + 1);
     char* cur = result;
     for (struct string_buffer_link* link = sb->head; link; link = link->next) {
         strcpy(cur, link->string);
@@ -692,7 +693,9 @@ static void test_print_empty_cons()
     struct lisp_interpreter interp;
     init_interpreter(&interp, 256);
     lisp_object_t empty = allocate_cons(&interp);
-    check(strcmp("(nil)", print_object(empty)) == 0, "(nil)");
+    char* str = print_object(empty);
+    check(strcmp("(nil)", str) == 0, "(nil)");
+    free(str);
 }
 
 static void test_symbol_pointer()
@@ -713,7 +716,9 @@ static void test_parse_symbol()
     lisp_object_t result = parse1(&interp, &test_string);
     check(symbolp(result) == T, "symbolp");
     check(consp(result) == NIL, "not consp");
-    check(strcmp("foo", print_object(result)) == 0, "print");
+    char* str = print_object(result);
+    check(strcmp("foo", str) == 0, "print");
+    free(str);
 }
 
 static void test_parse_multiple_symbols()
@@ -721,15 +726,19 @@ static void test_parse_multiple_symbols()
     test_name = "parse_multiple_symbols";
     char* s1 = "foo";
     struct lisp_interpreter interp;
-    init_interpreter(&interp, 256);
+    init_interpreter(&interp, 1024);
     lisp_object_t sym1 = parse1(&interp, &s1);
     char* s2 = "bar";
     lisp_object_t sym2 = parse1(&interp, &s2);
-    check(strcmp("(bar foo)", print_object(interp.symbol_table)) == 0, "symbol table looks right");
+    char* str = print_object(interp.symbol_table);
+    check(strcmp("(bar foo)", str) == 0, "symbol table looks right");
+    free(str);
     char* s3 = "bar";
     lisp_object_t sym3 = parse1(&interp, &s3);
     check(eq(sym2, sym3) == T, "symbols eq");
-    check(strcmp("(bar foo)", print_object(interp.symbol_table)) == 0, "symbol table looks right(2)");
+    str = print_object(interp.symbol_table);
+    check(strcmp("(bar foo)", str) == 0, "symbol table looks right(2)");
+    free(str);
 }
 
 static void test_parse_list_of_symbols()
@@ -737,11 +746,13 @@ static void test_parse_list_of_symbols()
     test_name = "parse_list_of_symbols";
     char* test_string = "(hello you are nice)";
     struct lisp_interpreter interp;
-    init_interpreter(&interp, 256);
-    lisp_object_t result = parse1(&interp, &test_string);
+    init_interpreter(&interp, 16384);
+    lisp_object_t result = parse1(&interp, &test_string); //bad
     check(consp(result) != NIL, "consp");
     check(symbolp(car((result))) != NIL, "first symbolp");
-    check(strcmp("(hello you are nice)", print_object(result)) == 0, "prints ok");
+    char* str = print_object(result);
+    check(strcmp("(hello you are nice)", str) == 0, "prints ok");
+    free(str);
 }
 
 static void test_eq()
@@ -785,6 +796,7 @@ void test_parse_multiple_objects()
     string_buffer_init(&sb);
     parse(&interp, test_string, test_parse_multiple_objects_callback, (void*)&sb);
     char* str = string_buffer_to_string(&sb);
+    string_buffer_free_links(&sb);
     check(strcmp("foobar", str) == 0, "parses both symbols");
     free(str);
 }

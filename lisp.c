@@ -143,12 +143,12 @@ lisp_object_t allocate_lisp_objects(size_t n)
     return result;
 }
 
-lisp_object_t allocate_cons()
+lisp_object_t cons(lisp_object_t car, lisp_object_t cdr)
 {
     lisp_object_t new_cons = allocate_lisp_objects(2);
     new_cons |= CONS_TYPE;
-    rplaca(new_cons, NIL);
-    rplacd(new_cons, NIL);
+    rplaca(new_cons, car);
+    rplacd(new_cons, cdr);
     return new_cons;
 }
 
@@ -251,10 +251,7 @@ lisp_object_t allocate_symbol(lisp_object_t name)
         s->value = NIL;
         s->function = NIL;
         lisp_object_t symbol = obj | SYMBOL_TYPE;
-        lisp_object_t new_cons = allocate_cons();
-        rplaca(new_cons, symbol);
-        rplacd(new_cons, interp->symbol_table);
-        interp->symbol_table = new_cons;
+        interp->symbol_table = cons(symbol, interp->symbol_table);
         return symbol;
     }
 }
@@ -303,8 +300,7 @@ lisp_object_t parse1(char**);
 lisp_object_t parse_cons(char** text)
 {
     skip_whitespace(text);
-    lisp_object_t new_cons = allocate_cons();
-    rplaca(new_cons, parse1(text));
+    lisp_object_t new_cons = cons(parse1(text), NIL);
     skip_whitespace(text);
     if (**text == '.') {
         (*text)++;
@@ -710,7 +706,7 @@ static void test_print_empty_cons()
 {
     test_name = "print_empty_cons";
     init_interpreter(256);
-    lisp_object_t empty = allocate_cons();
+    lisp_object_t empty = cons(NIL, NIL);
     char* str = print_object(empty);
     check(strcmp("(nil)", str) == 0, "(nil)");
     free(str);

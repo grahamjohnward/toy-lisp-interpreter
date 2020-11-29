@@ -18,13 +18,15 @@ typedef uint64_t lisp_object_t;
 #define SYMBOL_TYPE 1
 #define CONS_TYPE 2
 #define STRING_TYPE 3
+#define VECTOR_TYPE 4
 
-static char* type_names[4] = { "integer", "symbol", "cons", "string" };
+static char* type_names[5] = { "integer", "symbol", "cons", "string", "vector" };
 
 #define ConsPtr(obj) ((struct cons*)((obj)&PTR_MASK))
 #define SymbolPtr(obj) ((struct symbol*)((obj)&PTR_MASK))
 /* StringPtr is different as a string is not a struct */
 #define StringPtr(obj) ((size_t*)((obj)&PTR_MASK))
+#define VectorPtr(obj) ((struct vector*)((obj)&PTR_MASK))
 
 /* Might be nice to have a lisp_memory struct separate from the interpreter */
 struct lisp_interpreter {
@@ -47,6 +49,12 @@ struct symbol {
     lisp_object_t name;
     lisp_object_t value;
     lisp_object_t function;
+};
+
+struct vector {
+    /* This is a Lisp integer so >> 3 to get C value */
+    lisp_object_t len;
+    lisp_object_t storage;
 };
 
 char* print_object(lisp_object_t obj);
@@ -76,6 +84,11 @@ static void check_string(lisp_object_t obj)
 static void check_symbol(lisp_object_t obj)
 {
     check_type(obj, SYMBOL_TYPE);
+}
+
+static void check_vector(lisp_object_t obj)
+{
+    check_type(obj, VECTOR_TYPE);
 }
 
 lisp_object_t car(lisp_object_t obj)
@@ -150,6 +163,47 @@ lisp_object_t cons(lisp_object_t car, lisp_object_t cdr)
     rplaca(new_cons, car);
     rplacd(new_cons, cdr);
     return new_cons;
+}
+
+static lisp_object_t* check_vector_bounds_get_storage(lisp_object_t vector, lisp_object_t index)
+{
+    check_vector(vector);
+    struct vector* v = VectorPtr(vector);
+    if (index >= v->len) {
+        char* str = print_object(vector);
+        printf("Index %lu out of bounds for vector %s\n", index >> 3, str);
+        free(str);
+        abort();
+    }
+    lisp_object_t* storage = (lisp_object_t*)v->storage;
+    return storage;
+}
+
+lisp_object_t svref(lisp_object_t vector, lisp_object_t index)
+{
+    lisp_object_t* storage = check_vector_bounds_get_storage(vector, index);
+    return storage[index >> 3];
+}
+
+lisp_object_t svref_set(lisp_object_t vector, lisp_object_t index, lisp_object_t newvalue)
+{
+    lisp_object_t* storage = check_vector_bounds_get_storage(vector, index);
+    int i = index >> 3;
+    storage[i] = newvalue;
+    return newvalue;
+}
+
+lisp_object_t allocate_vector(size_t size)
+{
+    /* Allocate header */
+    struct vector* v = (struct vector*)allocate_lisp_objects(2);
+    v->len = size << 3;
+    /* Allocate storage */
+    v->storage = allocate_lisp_objects(size);
+    lisp_object_t result = (lisp_object_t)v | VECTOR_TYPE;
+    for (int i = 0; i < size; i++)
+        svref_set(result, i << 3, NIL);
+    return result;
 }
 
 static void init_interpreter(size_t heap_size)
@@ -815,6 +869,33 @@ void test_parse_multiple_objects()
     free(str);
     free_interpreter();
 }
+static void test_vector_initialization()
+{
+    init_interpreter(1024);
+    lisp_object_t v = allocate_vector(3);
+    check(eq(svref(v, 0), NIL) != NIL, "first element nil");
+    check(eq(svref(v, 1), NIL) != NIL, "second element nil");
+    check(eq(svref(v, 2), NIL) != NIL, "third element nil");
+    free_interpreter();
+}
+
+static void test_vector_svref()
+{
+    test_name = "vector_svref";
+    init_interpreter(1024);
+    char* symbol_text = "foo";
+    lisp_object_t sym = parse1(&symbol_text);
+    lisp_object_t v = allocate_vector(3);
+    char* list_text = "(a b c)";
+    lisp_object_t list = parse1(&list_text);
+    svref_set(v, 0, 14 << 3);
+    svref_set(v, 1 << 3, sym);
+    svref_set(v, 2 << 3, list);
+    check(eq(svref(v, 0), 14 << 3) != NIL, "first element ok");
+    check(eq(svref(v, 1 << 3), sym) != NIL, "second element ok");
+    check(eq(svref(v, 2 << 3), list) != NIL, "third element ok");
+    free_interpreter();
+}
 
 int main(int argc, char** argv)
 {
@@ -845,5 +926,7 @@ int main(int argc, char** argv)
     test_parse_list_of_symbols();
     test_parser_advances_pointer();
     test_parse_multiple_objects();
+    test_vector_initialization();
+    test_vector_svref();
     return 0;
 }

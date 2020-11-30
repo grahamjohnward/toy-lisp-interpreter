@@ -175,9 +175,7 @@ static lisp_object_t* check_vector_bounds_get_storage(lisp_object_t vector, lisp
     check_vector(vector);
     struct vector* v = VectorPtr(vector);
     if (index >= v->len) {
-        char* str = print_object(vector);
-        printf("Index %lu out of bounds for vector %s\n", index >> 3, str);
-        free(str);
+        printf("Index %lu out of bounds for vector (len=%lu)\n", index >> 3, v->len >> 3);
         abort();
     }
     lisp_object_t* storage = (lisp_object_t*)v->storage;
@@ -375,15 +373,22 @@ lisp_object_t parse_cons(char** text)
 }
 
 /* Returns a C int, not a Lisp integer */
-int length_c(lisp_object_t list)
+int length_c(lisp_object_t seq)
 {
     int result = 0;
-    if (list == NIL)
+    if (seq == NIL)
         return result;
-    check_cons(list);
-    lisp_object_t obj;
-    for (obj = list; obj != NIL; obj = cdr(obj))
-        result++;
+    if (vectorp(seq) != NIL) {
+        struct vector* v = VectorPtr(seq);
+        return v->len >> 3; /* Return a C int */
+    } else if (consp(seq) != NIL) {
+        check_cons(seq);
+        lisp_object_t obj;
+        for (obj = seq; obj != NIL; obj = cdr(obj))
+            result++;
+    } else {
+        abort();
+    }
     return result;
 }
 
@@ -570,6 +575,15 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer* sb)
         string_buffer_append(sb, tmp);
     } else if (stringp(obj) != NIL) {
         string_buffer_append(sb, "a_string");
+    } else if (vectorp(obj) != NIL) {
+        int len = length_c(obj);
+        string_buffer_append(sb, "#(");
+        for (int i = 0; i < len - 1; i++) {
+            print_object_to_buffer(svref(obj, i << 3), sb);
+            string_buffer_append(sb, " ");
+        }
+        print_object_to_buffer(svref(obj, (len - 1) << 3), sb);
+        string_buffer_append(sb, ")");
     }
 }
 
@@ -967,6 +981,18 @@ static void test_parse_vector()
     free_interpreter();
 }
 
+static void test_print_vector()
+{
+    test_name = "print_vector";
+    char* text = "#(a b c)";
+    init_interpreter(1024);
+    lisp_object_t result = parse1(&text);
+    char* str = print_object(result);
+    check(strcmp("#(a b c)", str) == 0, "correct string");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char** argv)
 {
     test_skip_whitespace();
@@ -999,5 +1025,6 @@ int main(int argc, char** argv)
     test_vector_initialization();
     test_vector_svref();
     test_parse_vector();
+    test_print_vector();
     return 0;
 }

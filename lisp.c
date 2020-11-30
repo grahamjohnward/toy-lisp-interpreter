@@ -149,6 +149,11 @@ lisp_object_t consp(lisp_object_t obj)
     return istype(obj, CONS_TYPE);
 }
 
+lisp_object_t vectorp(lisp_object_t obj)
+{
+    return istype(obj, VECTOR_TYPE);
+}
+
 lisp_object_t allocate_lisp_objects(size_t n)
 {
     lisp_object_t result = (lisp_object_t)interp->next_free;
@@ -369,6 +374,50 @@ lisp_object_t parse_cons(char** text)
     return new_cons;
 }
 
+/* Returns a C int, not a Lisp integer */
+int length_c(lisp_object_t list)
+{
+    int result = 0;
+    if (list == NIL)
+        return result;
+    check_cons(list);
+    lisp_object_t obj;
+    for (obj = list; obj != NIL; obj = cdr(obj))
+        result++;
+    return result;
+}
+
+lisp_object_t parse_vector(char** text)
+{
+    if (**text != '(')
+        abort();
+    if (*(*text - 1) != '#')
+        abort();
+    (*text)++;
+    lisp_object_t list = parse_cons(text);
+    int len = length_c(list);
+    lisp_object_t vector = allocate_vector(len);
+    /* Copy the list into a vector */
+    int i;
+    lisp_object_t c;
+    for (i = 0, c = list; i < len; i++, c = cdr(c))
+        svref_set(vector, i << 3, car(c));
+    return vector;
+}
+
+lisp_object_t parse_dispatch(char** text)
+{
+    if (**text != '#')
+        abort();
+    (*text)++;
+    if (!**text)
+        abort();
+    char c = **text;
+    if (c == '(')
+        return parse_vector(text);
+    abort();
+}
+
 lisp_object_t parse1(char** text)
 {
     skip_whitespace(text);
@@ -381,6 +430,8 @@ lisp_object_t parse1(char** text)
         printf("Unexpected close paren\n");
     } else if (**text == '-' || (**text >= '0' && **text <= '9')) {
         return parse_integer(text) << 3;
+    } else if (**text == '#') {
+        return parse_dispatch(text);
     } else {
         lisp_object_t sym = parse_symbol(text);
         return sym;
@@ -891,9 +942,28 @@ static void test_vector_svref()
     svref_set(v, 0, 14 << 3);
     svref_set(v, 1 << 3, sym);
     svref_set(v, 2 << 3, list);
-    check(eq(svref(v, 0), 14 << 3) != NIL, "first element ok");
-    check(eq(svref(v, 1 << 3), sym) != NIL, "second element ok");
-    check(eq(svref(v, 2 << 3), list) != NIL, "third element ok");
+    check(eq(svref(v, 0), 14 << 3) != NIL, "first element");
+    check(eq(svref(v, 1 << 3), sym) != NIL, "second element");
+    check(eq(svref(v, 2 << 3), list) != NIL, "third element");
+    free_interpreter();
+}
+
+static void test_parse_vector()
+{
+    test_name = "parse_vector";
+    char* text = "#(a b c)";
+    init_interpreter(1024);
+    lisp_object_t result = parse1(&text);
+    check(vectorp(result) == T, "vectorp");
+    char* a_text = "a";
+    lisp_object_t sym_a = parse1(&a_text);
+    check(eq(sym_a, svref(result, 0)) == T, "first element");
+    char* b_text = "b";
+    lisp_object_t sym_b = parse1(&b_text);
+    check(eq(sym_b, svref(result, 1 << 3)) == T, "second element");
+    char* c_text = "c";
+    lisp_object_t sym_c = parse1(&c_text);
+    check(eq(sym_c, svref(result, 2 << 3)) == T, "third element");
     free_interpreter();
 }
 
@@ -928,5 +998,6 @@ int main(int argc, char** argv)
     test_parse_multiple_objects();
     test_vector_initialization();
     test_vector_svref();
+    test_parse_vector();
     return 0;
 }

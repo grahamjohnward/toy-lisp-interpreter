@@ -52,8 +52,7 @@ struct symbol {
 };
 
 struct vector {
-    /* This is a Lisp integer so >> 3 to get C value */
-    lisp_object_t len;
+    size_t len;
     lisp_object_t storage;
 };
 
@@ -170,29 +169,28 @@ lisp_object_t cons(lisp_object_t car, lisp_object_t cdr)
     return new_cons;
 }
 
-static lisp_object_t* check_vector_bounds_get_storage(lisp_object_t vector, lisp_object_t index)
+static lisp_object_t* check_vector_bounds_get_storage(lisp_object_t vector, size_t index)
 {
     check_vector(vector);
     struct vector* v = VectorPtr(vector);
     if (index >= v->len) {
-        printf("Index %lu out of bounds for vector (len=%lu)\n", index >> 3, v->len >> 3);
+        printf("Index %zu out of bounds for vector (len=%lu)\n", index, v->len);
         abort();
     }
     lisp_object_t* storage = (lisp_object_t*)v->storage;
     return storage;
 }
 
-lisp_object_t svref(lisp_object_t vector, lisp_object_t index)
+lisp_object_t svref(lisp_object_t vector, size_t index)
 {
     lisp_object_t* storage = check_vector_bounds_get_storage(vector, index);
-    return storage[index >> 3];
+    return storage[index];
 }
 
-lisp_object_t svref_set(lisp_object_t vector, lisp_object_t index, lisp_object_t newvalue)
+lisp_object_t svref_set(lisp_object_t vector, size_t index, lisp_object_t newvalue)
 {
     lisp_object_t* storage = check_vector_bounds_get_storage(vector, index);
-    int i = index >> 3;
-    storage[i] = newvalue;
+    storage[index] = newvalue;
     return newvalue;
 }
 
@@ -200,12 +198,12 @@ lisp_object_t allocate_vector(size_t size)
 {
     /* Allocate header */
     struct vector* v = (struct vector*)allocate_lisp_objects(2);
-    v->len = size << 3;
+    v->len = size;
     /* Allocate storage */
     v->storage = allocate_lisp_objects(size);
     lisp_object_t result = (lisp_object_t)v | VECTOR_TYPE;
     for (int i = 0; i < size; i++)
-        svref_set(result, i << 3, NIL);
+        svref_set(result, i, NIL);
     return result;
 }
 
@@ -380,7 +378,7 @@ int length_c(lisp_object_t seq)
         return result;
     if (vectorp(seq) != NIL) {
         struct vector* v = VectorPtr(seq);
-        return v->len >> 3; /* Return a C int */
+        return v->len;
     } else if (consp(seq) != NIL) {
         check_cons(seq);
         lisp_object_t obj;
@@ -406,7 +404,7 @@ lisp_object_t parse_vector(char** text)
     int i;
     lisp_object_t c;
     for (i = 0, c = list; i < len; i++, c = cdr(c))
-        svref_set(vector, i << 3, car(c));
+        svref_set(vector, i, car(c));
     return vector;
 }
 
@@ -579,10 +577,10 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer* sb)
         int len = length_c(obj);
         string_buffer_append(sb, "#(");
         for (int i = 0; i < len - 1; i++) {
-            print_object_to_buffer(svref(obj, i << 3), sb);
+            print_object_to_buffer(svref(obj, i), sb);
             string_buffer_append(sb, " ");
         }
-        print_object_to_buffer(svref(obj, (len - 1) << 3), sb);
+        print_object_to_buffer(svref(obj, len - 1), sb);
         string_buffer_append(sb, ")");
     }
 }
@@ -934,6 +932,7 @@ void test_parse_multiple_objects()
     free(str);
     free_interpreter();
 }
+
 static void test_vector_initialization()
 {
     init_interpreter(1024);
@@ -953,12 +952,12 @@ static void test_vector_svref()
     lisp_object_t v = allocate_vector(3);
     char* list_text = "(a b c)";
     lisp_object_t list = parse1(&list_text);
-    svref_set(v, 0, 14 << 3);
-    svref_set(v, 1 << 3, sym);
-    svref_set(v, 2 << 3, list);
-    check(eq(svref(v, 0), 14 << 3) != NIL, "first element");
-    check(eq(svref(v, 1 << 3), sym) != NIL, "second element");
-    check(eq(svref(v, 2 << 3), list) != NIL, "third element");
+    svref_set(v, 0, 14);
+    svref_set(v, 1, sym);
+    svref_set(v, 2, list);
+    check(eq(svref(v, 0), 14) != NIL, "first element");
+    check(eq(svref(v, 1), sym) != NIL, "second element");
+    check(eq(svref(v, 2), list) != NIL, "third element");
     free_interpreter();
 }
 
@@ -974,10 +973,10 @@ static void test_parse_vector()
     check(eq(sym_a, svref(result, 0)) == T, "first element");
     char* b_text = "b";
     lisp_object_t sym_b = parse1(&b_text);
-    check(eq(sym_b, svref(result, 1 << 3)) == T, "second element");
+    check(eq(sym_b, svref(result, 1)) == T, "second element");
     char* c_text = "c";
     lisp_object_t sym_c = parse1(&c_text);
-    check(eq(sym_c, svref(result, 2 << 3)) == T, "third element");
+    check(eq(sym_c, svref(result, 2)) == T, "third element");
     free_interpreter();
 }
 

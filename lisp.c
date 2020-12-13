@@ -92,12 +92,16 @@ static void check_vector(lisp_object_t obj)
 
 lisp_object_t car(lisp_object_t obj)
 {
+    if (obj == NIL)
+        return NIL;
     check_cons(obj);
     return ConsPtr(obj)->car;
 }
 
 lisp_object_t cdr(lisp_object_t obj)
 {
+    if (obj == NIL)
+        return NIL;
     check_cons(obj);
     return ConsPtr(obj)->cdr;
 }
@@ -361,9 +365,10 @@ lisp_object_t parse_cons(char** text)
         (*text)++;
         skip_whitespace(text);
         rplacd(new_cons, parse1(text));
-    } else if (**text == ')') {
+    }
+    if (**text == ')') {
         (*text)++;
-        rplacd(new_cons, NIL);
+        return new_cons;
     } else {
         rplacd(new_cons, parse_cons(text));
     }
@@ -583,6 +588,55 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer* sb)
         print_object_to_buffer(svref(obj, len - 1), sb);
         string_buffer_append(sb, ")");
     }
+}
+
+/* Evaluation */
+lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x)
+{
+    return NIL;
+};
+
+lisp_object_t caar(lisp_object_t obj)
+{
+    return car(car(obj));
+}
+
+lisp_object_t cadr(lisp_object_t obj)
+{
+    return car(cdr(obj));
+}
+
+lisp_object_t cdar(lisp_object_t obj)
+{
+    return cdr(car(obj));
+}
+
+lisp_object_t cddr(lisp_object_t obj)
+{
+    return cdr(cdr(obj));
+}
+
+lisp_object_t atom(lisp_object_t obj)
+{
+    return consp(obj) != NIL ? NIL : T;
+}
+
+lisp_object_t sub2(lisp_object_t a, lisp_object_t z)
+{
+    if (a == NIL)
+        return z;
+    else if (eq(caar(a), z) != NIL)
+        return cdar(a);
+    else
+        return sub2(cdr(a), z);
+}
+
+lisp_object_t sublis(lisp_object_t a, lisp_object_t y)
+{
+    if (atom(y) != NIL)
+        return sub2(a, y);
+    else
+        return cons(sublis(a, car(y)), sublis(a, cdr(y)));
 }
 
 /* Testing infrastructure */
@@ -992,6 +1046,45 @@ static void test_print_vector()
     free_interpreter();
 }
 
+static void test_car_of_nil()
+{
+    test_name = "car_of_nil";
+    check(car(NIL) == NIL, "car of nil is nil");
+}
+
+static void test_cdr_of_nil()
+{
+    test_name = "cdr_of_nil";
+    check(cdr(NIL) == NIL, "cdr of nil is nil");
+}
+
+static void test_parse_list_of_dotted_pairs()
+{
+    test_name = "parse_list_of_dotted_pairs";
+    init_interpreter(4096);
+    char* text1 = "((X . SHAKESPEARE) (Y . (THE TEMPEST)))";
+    lisp_object_t obj = parse1(&text1);
+    char* str = print_object(obj);
+    check(strcmp("((X . SHAKESPEARE) (Y THE TEMPEST))", str) == 0, "");
+    free(str);
+    free_interpreter();
+}
+
+static void test_sublis()
+{
+    test_name = "test_sublis";
+    init_interpreter(4096);
+    char* text1 = "((X . SHAKESPEARE) (Y . (THE TEMPEST)))";
+    char* text2 = "(X WROTE Y)";
+    lisp_object_t obj1 = parse1(&text1);
+    lisp_object_t obj2 = parse1(&text2);
+    lisp_object_t result = sublis(obj1, obj2);
+    char* str = print_object(result);
+    check(strcmp("(SHAKESPEARE WROTE (THE TEMPEST))", str) == 0, "");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char** argv)
 {
     test_skip_whitespace();
@@ -1025,5 +1118,9 @@ int main(int argc, char** argv)
     test_vector_svref();
     test_parse_vector();
     test_print_vector();
+    test_car_of_nil();
+    test_cdr_of_nil();
+    test_parse_list_of_dotted_pairs();
+    test_sublis();
     return 0;
 }

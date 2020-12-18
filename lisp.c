@@ -639,6 +639,30 @@ lisp_object_t sublis(lisp_object_t a, lisp_object_t y)
         return cons(sublis(a, car(y)), sublis(a, cdr(y)));
 }
 
+lisp_object_t null(lisp_object_t obj)
+{
+    return (obj == NIL) ? T : NIL;
+}
+
+lisp_object_t append(lisp_object_t x, lisp_object_t y)
+{
+    if (null(x) != NIL)
+        return y;
+    else {
+        return cons(car(x), append(cdr(x), y));
+    }
+}
+
+lisp_object_t member(lisp_object_t x, lisp_object_t y)
+{
+    if (null(y) != NIL)
+        return NIL;
+    else if (eq(x, car(y)) != NIL)
+        return T;
+    else
+        return member(x, cdr(y));
+}
+
 /* Testing infrastructure */
 
 static char* test_name; /* Global */
@@ -1085,6 +1109,43 @@ static void test_sublis()
     free_interpreter();
 }
 
+static void test_null()
+{
+    test_name = "null";
+    check(null(NIL) != NIL, "nil");
+    check(null(T) == NIL, "t");
+}
+
+static void test_append()
+{
+    test_name = "append";
+    init_interpreter(4096);
+    char* text1 = "(A B)";
+    char* text2 = "(C D E)";
+    lisp_object_t obj1 = parse1(&text1);
+    lisp_object_t obj2 = parse1(&text2);
+    lisp_object_t result = append(obj1, obj2);
+    char* str = print_object(result);
+    check(strcmp("(A B C D E)", str) == 0, "");
+    free(str);
+    free_interpreter();
+}
+
+static void test_member()
+{
+    test_name = "member";
+    init_interpreter(4096);
+    char* text1 = "A";
+    char* text2 = "X";
+    char* text3 = "(A B C D)";
+    lisp_object_t obj1 = parse1(&text1);
+    lisp_object_t obj2 = parse1(&text2);
+    lisp_object_t obj3 = parse1(&text3);
+    check(member(obj1, obj3) != NIL, "A is member");
+    check(member(obj2, obj3) == NIL, "X is not member");
+    free_interpreter();
+}
+
 int main(int argc, char** argv)
 {
     test_skip_whitespace();
@@ -1122,5 +1183,8 @@ int main(int argc, char** argv)
     test_cdr_of_nil();
     test_parse_list_of_dotted_pairs();
     test_sublis();
+    test_null();
+    test_append();
+    test_member();
     return 0;
 }

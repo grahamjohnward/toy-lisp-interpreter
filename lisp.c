@@ -663,6 +663,16 @@ lisp_object_t member(lisp_object_t x, lisp_object_t y)
         return member(x, cdr(y));
 }
 
+lisp_object_t assoc(lisp_object_t x, lisp_object_t a)
+{
+    if (null(a) != NIL) /* McCarthy's ASSOC does not have this! */
+        return NIL;
+    if (eq(caar(a), x) != NIL)
+        return car(a);
+    else
+        return assoc(x, cdr(a));
+}
+
 /* Testing infrastructure */
 
 static char* test_name; /* Global */
@@ -1146,6 +1156,24 @@ static void test_member()
     free_interpreter();
 }
 
+static void test_assoc()
+{
+    test_name = "assoc";
+    init_interpreter(4096);
+    char* text1 = "((A . (M N)) (B . (CAR X)) (C . (QUOTE M)) (C . (CDR x)))";
+    char* text2 = "B";
+    char* text3 = "X";
+    lisp_object_t alist = parse1(&text1);
+    lisp_object_t b = parse1(&text2);
+    lisp_object_t x = parse1(&text3);
+    lisp_object_t result = assoc(b, alist);
+    char* str = print_object(result);
+    check(strcmp("(B CAR X)", str) == 0, "match found");
+    free(str);
+    check(assoc(x, alist) == NIL, "match not present");
+    free_interpreter();
+}
+
 int main(int argc, char** argv)
 {
     test_skip_whitespace();
@@ -1186,5 +1214,6 @@ int main(int argc, char** argv)
     test_null();
     test_append();
     test_member();
+    test_assoc();
     return 0;
 }

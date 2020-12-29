@@ -28,12 +28,18 @@ static char* type_names[5] = { "integer", "symbol", "cons", "string", "vector" }
 #define StringPtr(obj) ((size_t*)((obj)&PTR_MASK))
 #define VectorPtr(obj) ((struct vector*)((obj)&PTR_MASK))
 
+struct syms {
+    lisp_object_t car, cdr, cons, atom, eq, lambda, label, quote, cond;
+};
+
 /* Might be nice to have a lisp_memory struct separate from the interpreter */
 struct lisp_interpreter {
     lisp_object_t* heap;
     lisp_object_t* next_free;
     lisp_object_t symbol_table; /* A root for GC */
     size_t heap_size_bytes;
+    struct syms syms;
+    lisp_object_t environ;
 };
 
 struct lisp_interpreter* interp;
@@ -211,6 +217,8 @@ lisp_object_t allocate_vector(size_t size)
     return result;
 }
 
+lisp_object_t sym(char* string);
+
 static void init_interpreter(size_t heap_size)
 {
     interp = (struct lisp_interpreter*)malloc(sizeof(struct lisp_interpreter));
@@ -225,6 +233,16 @@ static void init_interpreter(size_t heap_size)
     bzero(interp->heap, interp->heap_size_bytes);
     interp->next_free = interp->heap;
     interp->symbol_table = NIL;
+    interp->syms.car = sym("CAR");
+    interp->syms.cdr = sym("CDR");
+    interp->syms.cons = sym("CONS");
+    interp->syms.atom = sym("ATOM");
+    interp->syms.eq = sym("EQ");
+    interp->syms.lambda = sym("LAMBDA");
+    interp->syms.label = sym("LABEL");
+    interp->syms.quote = sym("QUOTE");
+    interp->syms.cond = sym("COND");
+    interp->environ = cons(cons(T, T), cons(cons(NIL, NIL), NIL));
     interpreter_initialized = 1;
 }
 
@@ -454,6 +472,17 @@ void parse(char* text, void (*callback)(void*, lisp_object_t), void* callback_da
         callback(callback_data, parse1(cursor));
 }
 
+/* Convenience function */
+lisp_object_t sym(char* string)
+{
+    char* tmp = (char*)malloc(strlen(string) + 1);
+    char* tmp_save = tmp;
+    strcpy(tmp, string);
+    lisp_object_t result = parse_symbol(&tmp);
+    free(tmp_save);
+    return result;
+}
+
 /* Printing */
 
 /* Maybe this string buffer stuff could be rewritten to use Lisp objects */
@@ -591,11 +620,6 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer* sb)
 }
 
 /* Evaluation */
-lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x)
-{
-    return NIL;
-};
-
 lisp_object_t caar(lisp_object_t obj)
 {
     return car(car(obj));
@@ -614,6 +638,16 @@ lisp_object_t cdar(lisp_object_t obj)
 lisp_object_t cddr(lisp_object_t obj)
 {
     return cdr(cdr(obj));
+}
+
+lisp_object_t caddr(lisp_object_t obj)
+{
+    return car(cdr(cdr(obj)));
+}
+
+lisp_object_t cadar(lisp_object_t obj)
+{
+    return car(cdr(car(obj)));
 }
 
 lisp_object_t atom(lisp_object_t obj)
@@ -671,6 +705,87 @@ lisp_object_t assoc(lisp_object_t x, lisp_object_t a)
         return car(a);
     else
         return assoc(x, cdr(a));
+}
+
+lisp_object_t pairlis(lisp_object_t x, lisp_object_t y, lisp_object_t a)
+{
+
+    if (null(x) != NIL)
+        return a;
+    else
+        return cons(cons(car(x), car(y)), pairlis(cdr(x), cdr(y), a));
+}
+
+lisp_object_t eval(lisp_object_t e, lisp_object_t a);
+
+lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
+{
+    if (atom(fn) != NIL)
+        if (eq(fn, interp->syms.car) != NIL)
+            return caar(x);
+        else if (eq(fn, interp->syms.cdr) != NIL)
+            return cdar(x);
+        else if (eq(fn, interp->syms.cons) != NIL)
+            return cons(car(x), cadr(x));
+        else if (eq(fn, interp->syms.atom) != NIL)
+            return atom(car(x));
+        else if (eq(fn, interp->syms.eq) != NIL)
+            return eq(car(x), cadr(x));
+        else
+            return apply(eval(fn, a), x, a);
+    else if (eq(car(fn), interp->syms.lambda) != NIL)
+        return eval(caddr(fn), pairlis(cadr(fn), x, a));
+    else if (eq(car(fn), interp->syms.label) != NIL)
+        return apply(caddr(fn), x, cons(cons(cadr(fn), caddr(fn)), a));
+    else {
+        char* str = print_object(fn);
+        printf("Bad function: %s\n", str);
+        free(str);
+        exit(1);
+    }
+}
+
+lisp_object_t evcon(lisp_object_t c, lisp_object_t a)
+{
+    char* str = print_object(c);
+    free(str);
+    if (eval(caar(c), a) != NIL)
+        return eval(cadar(c), a);
+    else
+        return evcon(cdr(c), a);
+}
+
+lisp_object_t evlis(lisp_object_t m, lisp_object_t a)
+{
+    if (null(m) != NIL)
+        return NIL;
+    else
+        return cons(eval(car(m), a), evlis(cdr(m), a));
+}
+
+lisp_object_t eval(lisp_object_t e, lisp_object_t a)
+{
+    if (atom(e) != NIL)
+        return cdr(assoc(e, a));
+    else if (atom(car(e) != NIL))
+        if (eq(car(e), interp->syms.quote) != NIL)
+            return cadr(e);
+        else if (eq(car(e), interp->syms.cond) != NIL)
+            return evcon(cdr(e), a);
+        else
+            return apply(car(e), evlis(cdr(e), a), a);
+    else
+        return apply(car(e), evlis(cdr(e), a), a);
+}
+
+lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x)
+{
+    return apply(fn, x, NIL);
+}
+
+lisp_object_t eval_toplevel(lisp_object_t e)
+{
+    return eval(e, interp->environ);
 }
 
 /* Testing infrastructure */
@@ -946,6 +1061,7 @@ static void test_parse_multiple_symbols()
     test_name = "parse_multiple_symbols";
     char* s1 = "foo";
     init_interpreter(1024);
+    interp->symbol_table = NIL;
     lisp_object_t sym1 = parse1(&s1);
     char* s2 = "bar";
     lisp_object_t sym2 = parse1(&s2);
@@ -1174,6 +1290,96 @@ static void test_assoc()
     free_interpreter();
 }
 
+static void test_pairlis()
+{
+    test_name = "pairlis";
+    init_interpreter(4096);
+    char* text1 = "(A B C)";
+    char* text2 = "(U V W)";
+    char* text3 = "((D . X) (E . Y))";
+    lisp_object_t x = parse1(&text1);
+    lisp_object_t y = parse1(&text2);
+    lisp_object_t a = parse1(&text3);
+    lisp_object_t result = pairlis(x, y, a);
+    char* str = print_object(result);
+    check(strcmp("((A . U) (B . V) (C . W) (D . X) (E . Y))", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
+static void test_sym()
+{
+    test_name = "sym";
+    init_interpreter(1024);
+    lisp_object_t x1 = sym("x");
+    lisp_object_t x2 = sym("x");
+    lisp_object_t y = sym("y");
+    check(eq(x1, x2) != NIL, "(eq x1 x2)");
+    check(eq(x1, y) == NIL, "(not (eq x1 y))");
+    check(eq(x2, y) == NIL, "(not (eq x2 y))");
+    free_interpreter();
+}
+
+static void test_evalquote_helper(char* fnstr, char* exprstr, char* expected)
+{
+    init_interpreter(4096);
+    char* fnstr_copy = fnstr;
+    lisp_object_t fn = parse1(&fnstr);
+    lisp_object_t expr = parse1(&exprstr);
+    lisp_object_t result = evalquote(fn, expr);
+    char* result_str = print_object(result);
+    check(strcmp(expected, result_str) == 0, fnstr_copy);
+    free(result_str);
+    free_interpreter();
+}
+
+static void test_evalquote()
+{
+    test_name = "evalquote";
+    test_evalquote_helper("CAR", "((A . B))", "A");
+    test_evalquote_helper("CDR", "((A . B))", "B");
+    test_evalquote_helper("CDR", "((A . B))", "B");
+    test_evalquote_helper("ATOM", "(A)", "t");
+    test_evalquote_helper("ATOM", "((A . B))", "nil");
+    test_evalquote_helper("EQ", "(A A)", "t");
+    test_evalquote_helper("EQ", "(A B)", "nil");
+}
+
+static void test_eval_helper(char* exprstr, char* expectedstr)
+{
+    init_interpreter(4096);
+    char* exprstr_save = exprstr;
+    lisp_object_t expr = parse1(&exprstr);
+    lisp_object_t result = eval_toplevel(expr);
+    char* resultstr = print_object(result);
+    struct string_buffer sb;
+    string_buffer_init(&sb);
+    string_buffer_append(&sb, exprstr_save);
+    string_buffer_append(&sb, " => ");
+    string_buffer_append(&sb, expectedstr);
+    int ok = strcmp(expectedstr, resultstr) == 0;
+    if (!ok) {
+        string_buffer_append(&sb, " ACTUAL => ");
+        string_buffer_append(&sb, resultstr);
+    }
+    char* stuff = string_buffer_to_string(&sb);
+    check(ok, stuff);
+    free(stuff);
+    free(resultstr);
+    string_buffer_free_links(&sb);
+    free_interpreter();
+}
+
+static void test_eval()
+{
+    test_name = "eval";
+    test_eval_helper("t", "t");
+    test_eval_helper("(CONS (QUOTE A) (QUOTE B))", "(A . B)");
+    test_eval_helper("(COND ((EQ (CAR (CONS (QUOTE A) NIL)) (QUOTE A)) (QUOTE OK)))", "OK");
+    test_eval_helper("(COND ((EQ (CAR (CONS (QUOTE A) NIL)) (QUOTE B)) (QUOTE BAD)) (t (QUOTE OK)))", "OK");
+    test_eval_helper("((LAMBDA (X) (CAR X)) (CONS (QUOTE A) (QUOTE B)))", "A");
+}
+
 int main(int argc, char** argv)
 {
     test_skip_whitespace();
@@ -1215,5 +1421,9 @@ int main(int argc, char** argv)
     test_append();
     test_member();
     test_assoc();
+    test_pairlis();
+    test_sym();
+    test_evalquote();
+    test_eval();
     return 0;
 }

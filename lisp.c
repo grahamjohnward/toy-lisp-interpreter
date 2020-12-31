@@ -1,3 +1,5 @@
+#include "string_buffer.h"
+
 #include <alloca.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -484,72 +486,6 @@ lisp_object_t sym(char* string)
 }
 
 /* Printing */
-
-/* Maybe this string buffer stuff could be rewritten to use Lisp objects */
-struct string_buffer_link {
-    char* string;
-    struct string_buffer_link* next;
-    size_t len;
-};
-
-struct string_buffer {
-    struct string_buffer_link* head;
-    struct string_buffer_link* tail;
-    size_t len;
-};
-
-void string_buffer_append(struct string_buffer* sb, char* string)
-{
-    struct string_buffer_link* link = malloc(sizeof(struct string_buffer_link));
-    /* Update links */
-    link->next = NULL;
-    if (sb->tail)
-        sb->tail->next = link;
-    sb->tail = link;
-    if (!sb->head)
-        sb->head = link;
-    /* Update lengths */
-    link->len = strlen(string);
-    sb->len += link->len;
-    /* Copy string */
-    link->string = malloc(link->len + 1);
-    strcpy(link->string, string);
-}
-
-void string_buffer_init(struct string_buffer* sb)
-{
-    sb->head = NULL;
-    sb->tail = NULL;
-    sb->len = 0;
-}
-
-/* Caller is responsible for freeing returned memory */
-char* string_buffer_to_string(struct string_buffer* sb)
-{
-    char* result = malloc(sb->len + 1);
-    char* cur = result;
-    for (struct string_buffer_link* link = sb->head; link; link = link->next) {
-        strcpy(cur, link->string);
-        cur += link->len;
-    }
-    return result;
-}
-
-void string_buffer_free_link(struct string_buffer_link*);
-
-void string_buffer_free_links(struct string_buffer* sb)
-{
-    if (sb->head)
-        string_buffer_free_link(sb->head);
-}
-
-void string_buffer_free_link(struct string_buffer_link* link)
-{
-    if (link->next)
-        string_buffer_free_link(link->next);
-    free(link->string);
-    free(link);
-}
 
 void print_object_to_buffer(lisp_object_t, struct string_buffer*);
 

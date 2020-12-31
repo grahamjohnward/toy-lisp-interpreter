@@ -6,7 +6,7 @@ enable_testing()
 
 add_definitions(-D_DEFAULT_SOURCE)
 
-add_executable(toy-lisp-interpreter lisp.c)
+add_executable(toy-lisp-interpreter lisp.c string_buffer.c)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

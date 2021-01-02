@@ -446,6 +446,8 @@ lisp_object_t parse_dispatch(char** text)
     abort();
 }
 
+lisp_object_t parse_string(char**);
+
 lisp_object_t parse1(char** text)
 {
     skip_whitespace(text);
@@ -460,6 +462,8 @@ lisp_object_t parse1(char** text)
         return parse_integer(text) << 3;
     } else if (**text == '#') {
         return parse_dispatch(text);
+    } else if (**text == '"') {
+        return parse_string(text);
     } else {
         lisp_object_t sym = parse_symbol(text);
         return sym;
@@ -553,6 +557,53 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer* sb)
         print_object_to_buffer(svref(obj, len - 1), sb);
         string_buffer_append(sb, ")");
     }
+}
+
+lisp_object_t parse_string(char** text)
+{
+    if (**text != '"')
+        abort();
+    (*text)++;
+    char* p = *text;
+    int len = 0;
+    int escaped = 0;
+    struct string_buffer sb;
+    string_buffer_init(&sb);
+    for (; escaped || *p != '"'; p++) {
+        if (!escaped && *p == '\\') {
+            escaped = 1;
+        } else {
+            char c;
+            if (escaped) {
+                if (*p == '\\') {
+                    c = '\\';
+                } else if (*p == 'n') {
+                    c = '\n';
+                } else if (*p == 'r') {
+                    c = '\r';
+                } else if (*p == 't') {
+                    c = '\t';
+                } else if (*p == '"') {
+                    c = '"';
+                } else {
+                    printf("Unknown escape character: %c\n", *p);
+                    abort();
+                }
+                escaped = 0;
+            } else {
+                c = *p;
+            }
+            char* tmp = (char*)alloca(2);
+            tmp[0] = c;
+            tmp[1] = '\0';
+            string_buffer_append(&sb, tmp);
+            len++;
+        }
+    }
+    char* str = string_buffer_to_string(&sb);
+    lisp_object_t result = allocate_string(len, str);
+    free(str);
+    return result;
 }
 
 /* Evaluation */
@@ -1027,6 +1078,36 @@ static void test_parse_list_of_symbols()
     free_interpreter();
 }
 
+static void test_parse_string()
+{
+    test_name = "parse_string";
+    init_interpreter(256);
+    char* string = "\"hello\"";
+    lisp_object_t obj = parse_string(&string);
+    check(stringp(obj), "stringp");
+    size_t len;
+    char* str;
+    get_string_parts(obj, &len, &str);
+    check(len == 5, "length");
+    check(strcmp("hello", str) == 0, "value");
+    free_interpreter();
+}
+
+static void test_parse_string_with_escape_characters()
+{
+    test_name = "test_parse_string_with_escape_characters";
+    init_interpreter(256);
+    char* string = "\"he\\\"llo\\n\\t\\r\"";
+    lisp_object_t obj = parse_string(&string);
+    check(stringp(obj), "stringp");
+    size_t len;
+    char* str;
+    get_string_parts(obj, &len, &str);
+    check(len == 9, "length");
+    check(strcmp("he\"llo\n\t\r", str) == 0, "value");
+    free_interpreter();
+}
+
 static void test_eq()
 {
     test_name = "eq";
@@ -1343,6 +1424,8 @@ int main(int argc, char** argv)
     test_parse_symbol();
     test_parse_multiple_symbols();
     test_parse_list_of_symbols();
+    test_parse_string();
+    test_parse_string_with_escape_characters();
     test_parser_advances_pointer();
     test_parse_multiple_objects();
     test_vector_initialization();

@@ -752,6 +752,8 @@ lisp_object_t evlis(lisp_object_t m, lisp_object_t a)
 
 lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 {
+    if (integerp(e) != NIL || vectorp(e) != NIL)
+        return e;
     if (atom(e) != NIL)
         return cdr(assoc(e, a));
     else if (atom(car(e) != NIL))
@@ -1391,6 +1393,7 @@ static void test_eval()
 {
     test_name = "eval";
     test_eval_helper("t", "t");
+    test_eval_helper("3", "3");
     test_eval_helper("(CONS (QUOTE A) (QUOTE B))", "(A . B)");
     test_eval_helper("(COND ((EQ (CAR (CONS (QUOTE A) NIL)) (QUOTE A)) (QUOTE OK)))", "OK");
     test_eval_helper("(COND ((EQ (CAR (CONS (QUOTE A) NIL)) (QUOTE B)) (QUOTE BAD)) (t (QUOTE OK)))", "OK");

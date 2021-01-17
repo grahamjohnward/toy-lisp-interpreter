@@ -602,6 +602,7 @@ lisp_object_t parse_string(char** text)
     }
     char* str = string_buffer_to_string(&sb);
     lisp_object_t result = allocate_string(len, str);
+    string_buffer_free_links(&sb);
     free(str);
     return result;
 }

@@ -31,7 +31,7 @@ static char* type_names[5] = { "integer", "symbol", "cons", "string", "vector" }
 #define VectorPtr(obj) ((struct vector*)((obj)&PTR_MASK))
 
 struct syms {
-    lisp_object_t car, cdr, cons, atom, eq, lambda, label, quote, cond;
+    lisp_object_t car, cdr, cons, atom, eq, lambda, label, quote, cond, defun;
 };
 
 /* Might be nice to have a lisp_memory struct separate from the interpreter */
@@ -244,6 +244,7 @@ static void init_interpreter(size_t heap_size)
     interp->syms.label = sym("LABEL");
     interp->syms.quote = sym("QUOTE");
     interp->syms.cond = sym("COND");
+    interp->syms.defun = sym("DEFUN");
     interp->environ = cons(cons(T, T), cons(cons(NIL, NIL), NIL));
     interpreter_initialized = 1;
 }
@@ -708,8 +709,12 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a);
 
 lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
 {
-    if (atom(fn) != NIL)
-        if (eq(fn, interp->syms.car) != NIL)
+    if (atom(fn) != NIL) {
+        struct symbol* sym = SymbolPtr(fn);
+        if (sym->function != NIL)
+            /* Function cell of symbol is bound */
+            return apply(sym->function, x, a);
+        else if (eq(fn, interp->syms.car) != NIL)
             return caar(x);
         else if (eq(fn, interp->syms.cdr) != NIL)
             return cdar(x);
@@ -721,7 +726,7 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
             return eq(car(x), cadr(x));
         else
             return apply(eval(fn, a), x, a);
-    else if (eq(car(fn), interp->syms.lambda) != NIL)
+    } else if (eq(car(fn), interp->syms.lambda) != NIL)
         return eval(caddr(fn), pairlis(cadr(fn), x, a));
     else if (eq(car(fn), interp->syms.label) != NIL)
         return apply(caddr(fn), x, cons(cons(cadr(fn), caddr(fn)), a));
@@ -751,6 +756,17 @@ lisp_object_t evlis(lisp_object_t m, lisp_object_t a)
         return cons(eval(car(m), a), evlis(cdr(m), a));
 }
 
+lisp_object_t evaldefun(lisp_object_t e, lisp_object_t a)
+{
+    lisp_object_t fname = car(e);
+    lisp_object_t arglist = cadr(e);
+    lisp_object_t body = caddr(e);
+    lisp_object_t fn = cons(interp->syms.lambda, cons(arglist, cons(body, NIL)));
+    struct symbol* sym = SymbolPtr(fname);
+    sym->function = fn;
+    return fname;
+}
+
 lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 {
     if (integerp(e) != NIL || vectorp(e) != NIL)
@@ -762,6 +778,8 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
             return cadr(e);
         else if (eq(car(e), interp->syms.cond) != NIL)
             return evcon(cdr(e), a);
+        else if (eq(car(e), interp->syms.defun) != NIL)
+            return evaldefun(cdr(e), a);
         else
             return apply(car(e), evlis(cdr(e), a), a);
     else
@@ -1365,12 +1383,18 @@ static void test_evalquote()
     test_evalquote_helper("EQ", "(A B)", "nil");
 }
 
+static lisp_object_t test_eval_string_helper(char* exprstr)
+{
+    lisp_object_t expr = parse1(&exprstr);
+    lisp_object_t result = eval_toplevel(expr);
+    return result;
+}
+
 static void test_eval_helper(char* exprstr, char* expectedstr)
 {
     init_interpreter(4096);
     char* exprstr_save = exprstr;
-    lisp_object_t expr = parse1(&exprstr);
-    lisp_object_t result = eval_toplevel(expr);
+    lisp_object_t result = test_eval_string_helper(exprstr);
     char* resultstr = print_object(result);
     struct string_buffer sb;
     string_buffer_init(&sb);
@@ -1399,6 +1423,18 @@ static void test_eval()
     test_eval_helper("(COND ((EQ (CAR (CONS (QUOTE A) NIL)) (QUOTE A)) (QUOTE OK)))", "OK");
     test_eval_helper("(COND ((EQ (CAR (CONS (QUOTE A) NIL)) (QUOTE B)) (QUOTE BAD)) (t (QUOTE OK)))", "OK");
     test_eval_helper("((LAMBDA (X) (CAR X)) (CONS (QUOTE A) (QUOTE B)))", "A");
+}
+
+static void test_defun()
+{
+    test_name = "defun";
+    init_interpreter(4096);
+    lisp_object_t result1 = test_eval_string_helper("(DEFUN FOO (X) (CONS X (QUOTE BAR)))");
+    lisp_object_t result2 = test_eval_string_helper("(FOO 14)");
+    char* str = print_object(result2);
+    check(strcmp("(14 . BAR)", str) == 0, "result");
+    free(str);
+    free_interpreter();
 }
 
 int main(int argc, char** argv)
@@ -1448,5 +1484,6 @@ int main(int argc, char** argv)
     test_sym();
     test_evalquote();
     test_eval();
+    test_defun();
     return 0;
 }

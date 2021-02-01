@@ -262,6 +262,7 @@ static void free_interpreter()
     }
 }
 
+/* len here includes the terminating null byte of str */
 lisp_object_t allocate_string(size_t len, char* str)
 {
     size_t size = 2 + (len - 1) / 8;
@@ -277,7 +278,7 @@ void get_string_parts(lisp_object_t string, size_t* lenptr, char** strptr)
 {
     check_string(string);
     size_t* name_length_ptr = StringPtr(string);
-    *lenptr = *name_length_ptr;
+    *lenptr = *name_length_ptr - 1;
     *strptr = (char*)(name_length_ptr + 1);
 }
 
@@ -352,7 +353,7 @@ lisp_object_t parse_symbol(char** text)
     } else if (strcmp(tmp, "t") == 0) {
         return T;
     } else {
-        lisp_object_t lisp_string = allocate_string(len, tmp);
+        lisp_object_t lisp_string = allocate_string(len + 1 /* include terminating null */, tmp);
         return allocate_symbol(lisp_string);
     }
 }
@@ -602,7 +603,7 @@ lisp_object_t parse_string(char** text)
         }
     }
     char* str = string_buffer_to_string(&sb);
-    lisp_object_t result = allocate_string(len, str);
+    lisp_object_t result = allocate_string(len + 1, str);
     string_buffer_free_links(&sb);
     free(str);
     return result;
@@ -1015,9 +1016,9 @@ static void test_strings()
 {
     test_name = "strings";
     init_interpreter(256);
-    lisp_object_t s1 = allocate_string(5, "hello");
-    lisp_object_t s2 = allocate_string(5, "hello");
-    lisp_object_t s3 = allocate_string(6, "oohaah");
+    lisp_object_t s1 = allocate_string(6, "hello");
+    lisp_object_t s2 = allocate_string(6, "hello");
+    lisp_object_t s3 = allocate_string(7, "oohaah");
     check(string_equalp(s1, s2) == T, "equal strings are equalp/1");
     check(string_equalp(s2, s1) == T, "equal strings are equalp/2");
     check(string_equalp(s1, s3) == NIL, "unequal strings are not equalp/1");

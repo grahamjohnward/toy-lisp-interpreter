@@ -31,7 +31,7 @@ static char* type_names[5] = { "integer", "symbol", "cons", "string", "vector" }
 #define VectorPtr(obj) ((struct vector*)((obj)&PTR_MASK))
 
 struct syms {
-    lisp_object_t car, cdr, cons, atom, eq, lambda, label, quote, cond, defun;
+    lisp_object_t car, cdr, cons, atom, eq, lambda, label, quote, cond, defun, load;
 };
 
 /* Might be nice to have a lisp_memory struct separate from the interpreter */
@@ -245,6 +245,7 @@ static void init_interpreter(size_t heap_size)
     interp->syms.quote = sym("QUOTE");
     interp->syms.cond = sym("COND");
     interp->syms.defun = sym("DEFUN");
+    interp->syms.load = sym("LOAD");
     interp->environ = cons(cons(T, T), cons(cons(NIL, NIL), NIL));
     interpreter_initialized = 1;
 }
@@ -372,7 +373,7 @@ int parse_integer(char** text)
 
 static void skip_whitespace(char** text)
 {
-    while (strchr("\r\n\t ", **text) != NULL)
+    while (**text && strchr("\r\n\t ", **text) != NULL)
         (*text)++;
 }
 
@@ -454,7 +455,7 @@ lisp_object_t parse1(char** text)
 {
     skip_whitespace(text);
     if (!**text)
-        abort();
+        return NIL;
     if (**text == '(') {
         (*text)++;
         return parse_cons(text);
@@ -503,6 +504,20 @@ char* print_object(lisp_object_t obj)
     char* result = string_buffer_to_string(&sb);
     string_buffer_free_links(&sb);
     return result;
+}
+
+void debug_obj(lisp_object_t obj)
+{
+    char* str = print_object(obj);
+    printf("%s", str);
+    free(str);
+}
+
+void debug_obj2(char* msg, lisp_object_t obj)
+{
+    printf("%s: ", msg);
+    debug_obj(obj);
+    printf("\n");
 }
 
 void print_cons_to_buffer(lisp_object_t, struct string_buffer*);
@@ -708,6 +723,43 @@ lisp_object_t pairlis(lisp_object_t x, lisp_object_t y, lisp_object_t a)
 
 lisp_object_t eval(lisp_object_t e, lisp_object_t a);
 
+lisp_object_t eval_toplevel(lisp_object_t e)
+{
+    return eval(e, interp->environ);
+}
+
+static void load_eval_callback(void* ignored, lisp_object_t obj)
+{
+    lisp_object_t result = eval_toplevel(obj);
+    char* str = print_object(result);
+    printf("; %s\n", str);
+    free(str);
+}
+
+lisp_object_t load(lisp_object_t filename)
+{
+    check_string(filename);
+    size_t len;
+    char* str;
+    get_string_parts(filename, &len, &str);
+    FILE* f = fopen(str, "r");
+    if (f == NULL) {
+        perror(str);
+        exit(1);
+    }
+    struct string_buffer sb;
+    string_buffer_init(&sb);
+    char buf[1024];
+    while (fgets(buf, 1024, f) != NULL)
+        string_buffer_append(&sb, buf);
+    fclose(f);
+    char* text = string_buffer_to_string(&sb);
+    parse(text, load_eval_callback, NULL);
+    free(text);
+    string_buffer_free_links(&sb);
+    return T;
+}
+
 lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
 {
     if (atom(fn) != NIL) {
@@ -725,6 +777,8 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
             return atom(car(x));
         else if (eq(fn, interp->syms.eq) != NIL)
             return eq(car(x), cadr(x));
+        else if (eq(fn, interp->syms.load) != NIL)
+            return load(car(x));
         else
             return apply(eval(fn, a), x, a);
     } else if (eq(car(fn), interp->syms.lambda) != NIL)
@@ -741,8 +795,6 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
 
 lisp_object_t evcon(lisp_object_t c, lisp_object_t a)
 {
-    char* str = print_object(c);
-    free(str);
     if (eval(caar(c), a) != NIL)
         return eval(cadar(c), a);
     else
@@ -770,7 +822,7 @@ lisp_object_t evaldefun(lisp_object_t e, lisp_object_t a)
 
 lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 {
-    if (integerp(e) != NIL || vectorp(e) != NIL)
+    if (e == NIL || e == T || integerp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL)
         return e;
     if (atom(e) != NIL)
         return cdr(assoc(e, a));
@@ -790,11 +842,6 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x)
 {
     return apply(fn, x, NIL);
-}
-
-lisp_object_t eval_toplevel(lisp_object_t e)
-{
-    return eval(e, interp->environ);
 }
 
 /* Testing infrastructure */
@@ -1438,6 +1485,19 @@ static void test_defun()
     free_interpreter();
 }
 
+static void test_load()
+{
+    test_name = "load";
+    init_interpreter(32768);
+    lisp_object_t result1 = test_eval_string_helper("(LOAD \"/home/graham/toy-lisp-interpreter/test-load.lisp\")");
+    check(result1 == T, "load returns T");
+    lisp_object_t result2 = test_eval_string_helper("(TEST1 (QUOTE THERE))");
+    char* str = print_object(result2);
+    check(strcmp("(HELLO . THERE)", str) == 0, "result of TEST1");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char** argv)
 {
     test_skip_whitespace();
@@ -1486,5 +1546,6 @@ int main(int argc, char** argv)
     test_evalquote();
     test_eval();
     test_defun();
+    test_load();
     return 0;
 }

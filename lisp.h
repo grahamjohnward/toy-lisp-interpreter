@@ -23,6 +23,8 @@ void free_interpreter();
 char* print_object(lisp_object_t obj);
 void print_object_to_buffer(lisp_object_t, struct string_buffer*);
 
+void load_str(char *str);
+
 #define NIL 0xfffffffffffffff9
 #define T 0xfffffffffffffff1
 
@@ -66,6 +68,7 @@ lisp_object_t assoc(lisp_object_t x, lisp_object_t a);
 lisp_object_t pairlis(lisp_object_t x, lisp_object_t y, lisp_object_t a);
 lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x);
 lisp_object_t eval_toplevel(lisp_object_t e);
+lisp_object_t eval(lisp_object_t e, lisp_object_t a);
 
 struct syms {
     lisp_object_t car, cdr, cons, atom, eq, lambda, label, quote, cond, defun, load;

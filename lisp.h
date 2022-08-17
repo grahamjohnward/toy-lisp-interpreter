@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include <string_buffer.h>
+#include "string_buffer.h"
 
 /* This is actually just a collection of declarations that are
    required by the unit tests */

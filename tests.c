@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <lisp.h>
-#include <string_buffer.h>
+#include "lisp.h"
+#include "string_buffer.h"
 
 static char* test_name; /* Global */
 

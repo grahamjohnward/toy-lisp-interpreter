@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <lisp.h>
+#include "lisp.h"
 
 int main(int argc, char **argv)
 {

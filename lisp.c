@@ -518,7 +518,10 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer* sb)
         tmp[len] = 0;
         string_buffer_append(sb, tmp);
     } else if (stringp(obj) != NIL) {
-        string_buffer_append(sb, "a_string");
+        size_t len = 0;
+        char* str = NULL;
+        get_string_parts(obj, &len, &str);
+        string_buffer_append(sb, str);
     } else if (vectorp(obj) != NIL) {
         int len = length_c(obj);
         string_buffer_append(sb, "#(");
@@ -536,12 +539,12 @@ lisp_object_t parse_string(char** text)
     if (**text != '"')
         abort();
     (*text)++;
-    char* p = *text;
     int len = 0;
     int escaped = 0;
     struct string_buffer sb;
     string_buffer_init(&sb);
-    for (; escaped || *p != '"'; p++) {
+    for (; escaped || **text != '"'; (*text)++) {
+        char* p = *text;
         if (!escaped && *p == '\\') {
             escaped = 1;
         } else {
@@ -572,6 +575,10 @@ lisp_object_t parse_string(char** text)
             len++;
         }
     }
+    if (**text != '"')
+        /* No closing " */
+        abort();
+    (*text)++; /* Move past closing " */
     char* str = string_buffer_to_string(&sb);
     lisp_object_t result = allocate_string(len + 1, str);
     string_buffer_free_links(&sb);

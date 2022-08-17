@@ -316,12 +316,15 @@ static void test_parse_string()
     get_string_parts(obj, &len, &str);
     check(len == 5, "length");
     check(strcmp("hello", str) == 0, "value");
+    char* str2 = print_object(obj);
+    check(strcmp("hello", str2) == 0, "print_object");
+    free(str2);
     free_interpreter();
 }
 
 static void test_parse_string_with_escape_characters()
 {
-    test_name = "test_parse_string_with_escape_characters";
+    test_name = "parse_string_with_escape_characters";
     init_interpreter(256);
     char* string = "\"he\\\"llo\\n\\t\\r\"";
     lisp_object_t obj = parse_string(&string);
@@ -332,6 +335,25 @@ static void test_parse_string_with_escape_characters()
     check(len == 9, "length");
     check(strcmp("he\"llo\n\t\r", str) == 0, "value");
     free_interpreter();
+}
+
+static void test_parse_list_of_strings()
+{
+    test_name = "parse_list_of_strings";
+    init_interpreter(256);
+    char* string = "(\"hello\" \"world\")";
+    lisp_object_t obj = parse1(&string);
+    check(consp(obj), "list returned");
+    lisp_object_t s1 = car(obj);
+    check(stringp(s1), "first element is string");
+    char* s1str = print_object(s1);
+    check(strcmp("hello", s1str) == 0, "first element ok");
+    lisp_object_t s2 = car(cdr(obj));
+    char* s2str = print_object(s2);
+    check(strcmp("world", s2str) == 0, "second element ok");
+    free(s1str);
+    free(s2str);
+    check(stringp(s2), "second element is string");
 }
 
 static void test_eq()
@@ -683,6 +705,7 @@ int main(int argc, char** argv)
     test_parse_list_of_symbols();
     test_parse_string();
     test_parse_string_with_escape_characters();
+    test_parse_list_of_strings();
     test_eq();
     test_parser_advances_pointer();
     test_parse_multiple_objects();

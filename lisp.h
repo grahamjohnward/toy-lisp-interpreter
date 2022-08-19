@@ -10,18 +10,18 @@
 
 typedef uint64_t lisp_object_t;
 
-void skip_whitespace(char** text);
-int parse_integer(char** text);
-lisp_object_t parse_string(char**);
-lisp_object_t parse1(char**);
-void parse(char* text, void (*callback)(void*, lisp_object_t), void* callback_data);
-lisp_object_t sym(char* string);
+void skip_whitespace(char **text);
+int parse_integer(char **text);
+lisp_object_t parse_string(char **);
+lisp_object_t parse1(char **);
+void parse(char *text, void (*callback)(void *, lisp_object_t), void *callback_data);
+lisp_object_t sym(char *string);
 
 void init_interpreter(size_t heap_size);
 void free_interpreter();
 
-char* print_object(lisp_object_t obj);
-void print_object_to_buffer(lisp_object_t, struct string_buffer*);
+char *print_object(lisp_object_t obj);
+void print_object_to_buffer(lisp_object_t, struct string_buffer *);
 
 void load_str(char *str);
 
@@ -36,19 +36,19 @@ void load_str(char *str);
 #define STRING_TYPE 3
 #define VECTOR_TYPE 4
 
-#define ConsPtr(obj) ((struct cons*)((obj)&PTR_MASK))
-#define SymbolPtr(obj) ((struct symbol*)((obj)&PTR_MASK))
+#define ConsPtr(obj) ((struct cons *)((obj)&PTR_MASK))
+#define SymbolPtr(obj) ((struct symbol *)((obj)&PTR_MASK))
 /* StringPtr is different as a string is not a struct */
-#define StringPtr(obj) ((size_t*)((obj)&PTR_MASK))
-#define VectorPtr(obj) ((struct vector*)((obj)&PTR_MASK))
+#define StringPtr(obj) ((size_t *)((obj)&PTR_MASK))
+#define VectorPtr(obj) ((struct vector *)((obj)&PTR_MASK))
 
 lisp_object_t svref(lisp_object_t vector, size_t index);
 lisp_object_t svref_set(lisp_object_t vector, size_t index, lisp_object_t newvalue);
-    
-lisp_object_t allocate_string(size_t len, char* str);
+
+lisp_object_t allocate_string(size_t len, char *str);
 lisp_object_t allocate_vector(size_t size);
 
-void get_string_parts(lisp_object_t string, size_t* lenptr, char** strptr);
+void get_string_parts(lisp_object_t string, size_t *lenptr, char **strptr);
 
 lisp_object_t symbolp(lisp_object_t obj);
 lisp_object_t integerp(lisp_object_t obj);
@@ -63,7 +63,7 @@ lisp_object_t eq(lisp_object_t o1, lisp_object_t o2);
 lisp_object_t sublis(lisp_object_t a, lisp_object_t y);
 lisp_object_t null(lisp_object_t obj);
 lisp_object_t append(lisp_object_t x, lisp_object_t y);
-lisp_object_t member(lisp_object_t x, lisp_object_t y);    
+lisp_object_t member(lisp_object_t x, lisp_object_t y);
 lisp_object_t assoc(lisp_object_t x, lisp_object_t a);
 lisp_object_t pairlis(lisp_object_t x, lisp_object_t y, lisp_object_t a);
 lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x);
@@ -85,18 +85,18 @@ struct cons {
 struct cons_heap {
     size_t size;
     size_t allocation_count;
-    struct cons* actual_heap;
-    struct cons* free_list_head;
+    struct cons *actual_heap;
+    struct cons *free_list_head;
 };
 
-extern lisp_object_t* top_of_stack;
-void* get_rbp(int n);
-void cons_heap_init(struct cons_heap* heap, size_t size);
-void cons_heap_free(struct cons_heap* cons_heap);
-lisp_object_t cons_heap_allocate_cons(struct cons_heap* cons_heap);
-void mark(struct cons_heap* cons_heap);
-void mark_stack(struct cons_heap* cons_heap);
-void sweep(struct cons_heap* cons_heap);
+extern lisp_object_t *top_of_stack;
+void *get_rbp(int n);
+void cons_heap_init(struct cons_heap *heap, size_t size);
+void cons_heap_free(struct cons_heap *cons_heap);
+lisp_object_t cons_heap_allocate_cons(struct cons_heap *cons_heap);
+void mark(struct cons_heap *cons_heap);
+void mark_stack(struct cons_heap *cons_heap);
+void sweep(struct cons_heap *cons_heap);
 
 struct lisp_interpreter {
     struct syms syms;
@@ -104,8 +104,8 @@ struct lisp_interpreter {
     lisp_object_t symbol_table; /* A root for GC */
     struct cons_heap cons_heap;
     /* Legacy heap stuff */
-    lisp_object_t* heap;
-    lisp_object_t* next_free;
+    lisp_object_t *heap;
+    lisp_object_t *next_free;
     size_t heap_size_bytes;
 };
 

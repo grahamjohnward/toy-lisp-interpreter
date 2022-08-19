@@ -1,0 +1,14 @@
+{
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+    "editor.formatOnSave": true,
+    "C_Cpp.clang_format_style": "{ BasedOnStyle: WebKit, PointerAlignment: Right, AllowShortBlocksOnASingleLine: false, AllowShortFunctionsOnASingleLine: false }",
+    "cmake.generator": "Ninja",
+    "files.associations": {
+        "*.tcc": "c",
+        "functional": "c",
+        "fstream": "c",
+        "istream": "c",
+        "streambuf": "c",
+        "ostream": "c"
+    }
+}

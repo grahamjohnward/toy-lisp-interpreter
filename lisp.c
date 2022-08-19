@@ -10,11 +10,11 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-struct lisp_interpreter* interp;
+struct lisp_interpreter *interp;
 
 static int interpreter_initialized;
 
-lisp_object_t* top_of_stack = NULL;
+lisp_object_t *top_of_stack = NULL;
 
 struct symbol {
     lisp_object_t name;
@@ -31,9 +31,9 @@ lisp_object_t istype(lisp_object_t obj, int type);
 
 static void check_type(lisp_object_t obj, int type)
 {
-    static char* type_names[5] = { "integer", "symbol", "cons", "string", "vector" };
+    static char *type_names[5] = { "integer", "symbol", "cons", "string", "vector" };
     if (istype(obj, type) == NIL) {
-        char* obj_string = print_object(obj);
+        char *obj_string = print_object(obj);
         printf("Not a %s: %s\n", type_names[type], obj_string);
         free(obj_string);
         exit(1);
@@ -79,7 +79,7 @@ lisp_object_t cdr(lisp_object_t obj)
 lisp_object_t rplaca(lisp_object_t the_cons, lisp_object_t the_car)
 {
     check_cons(the_cons);
-    struct cons* p = ConsPtr(the_cons);
+    struct cons *p = ConsPtr(the_cons);
     p->car = the_car;
     return the_cons;
 }
@@ -87,7 +87,7 @@ lisp_object_t rplaca(lisp_object_t the_cons, lisp_object_t the_car)
 lisp_object_t rplacd(lisp_object_t the_cons, lisp_object_t the_cdr)
 {
     check_cons(the_cons);
-    struct cons* p = ConsPtr(the_cons);
+    struct cons *p = ConsPtr(the_cons);
     p->cdr = the_cdr;
     return the_cons;
 }
@@ -143,27 +143,27 @@ lisp_object_t cons(lisp_object_t car, lisp_object_t cdr)
     return new_cons;
 }
 
-static lisp_object_t* check_vector_bounds_get_storage(lisp_object_t vector, size_t index)
+static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, size_t index)
 {
     check_vector(vector);
-    struct vector* v = VectorPtr(vector);
+    struct vector *v = VectorPtr(vector);
     if (index >= v->len) {
         printf("Index %zu out of bounds for vector (len=%lu)\n", index, v->len);
         abort();
     }
-    lisp_object_t* storage = (lisp_object_t*)v->storage;
+    lisp_object_t *storage = (lisp_object_t *)v->storage;
     return storage;
 }
 
 lisp_object_t svref(lisp_object_t vector, size_t index)
 {
-    lisp_object_t* storage = check_vector_bounds_get_storage(vector, index);
+    lisp_object_t *storage = check_vector_bounds_get_storage(vector, index);
     return storage[index];
 }
 
 lisp_object_t svref_set(lisp_object_t vector, size_t index, lisp_object_t newvalue)
 {
-    lisp_object_t* storage = check_vector_bounds_get_storage(vector, index);
+    lisp_object_t *storage = check_vector_bounds_get_storage(vector, index);
     storage[index] = newvalue;
     return newvalue;
 }
@@ -171,7 +171,7 @@ lisp_object_t svref_set(lisp_object_t vector, size_t index, lisp_object_t newval
 lisp_object_t allocate_vector(size_t size)
 {
     /* Allocate header */
-    struct vector* v = (struct vector*)allocate_lisp_objects(2);
+    struct vector *v = (struct vector *)allocate_lisp_objects(2);
     v->len = size;
     /* Allocate storage */
     v->storage = allocate_lisp_objects(size);
@@ -183,12 +183,12 @@ lisp_object_t allocate_vector(size_t size)
 
 void init_interpreter(size_t heap_size)
 {
-    interp = (struct lisp_interpreter*)malloc(sizeof(struct lisp_interpreter));
-    if (sizeof(lisp_object_t) != sizeof(void*))
+    interp = (struct lisp_interpreter *)malloc(sizeof(struct lisp_interpreter));
+    if (sizeof(lisp_object_t) != sizeof(void *))
         abort();
     interp->heap_size_bytes = heap_size * sizeof(lisp_object_t);
-    interp->heap = mmap((void*)0x100000000000, interp->heap_size_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-    if (interp->heap == (lisp_object_t*)-1) {
+    interp->heap = mmap((void *)0x100000000000, interp->heap_size_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    if (interp->heap == (lisp_object_t *)-1) {
         perror("init_interpreter: mmap failed");
         exit(1);
     }
@@ -212,17 +212,17 @@ void init_interpreter(size_t heap_size)
     top_of_stack = NULL;
 }
 
-void cons_heap_init(struct cons_heap* cons_heap, size_t size)
+void cons_heap_init(struct cons_heap *cons_heap, size_t size)
 {
     cons_heap->size = size;
     cons_heap->allocation_count = 0;
-    cons_heap->actual_heap = mmap((void*)0x200000000000, sizeof(struct cons) * size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-    if (cons_heap->actual_heap == (struct cons*)-1) {
+    cons_heap->actual_heap = mmap((void *)0x200000000000, sizeof(struct cons) * size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    if (cons_heap->actual_heap == (struct cons *)-1) {
         perror("cons_heap_init: mmap failed");
         exit(1);
     }
     cons_heap->free_list_head = cons_heap->actual_heap;
-    struct cons* p = NULL;
+    struct cons *p = NULL;
     for (int i = 0; i < size - 1; i++) {
         p = cons_heap->actual_heap + i;
         p->cdr = (lisp_object_t)(p + 1);
@@ -235,7 +235,7 @@ void cons_heap_init(struct cons_heap* cons_heap, size_t size)
     }
 }
 
-void cons_heap_free(struct cons_heap* cons_heap)
+void cons_heap_free(struct cons_heap *cons_heap)
 {
     int rc = munmap(cons_heap->actual_heap, cons_heap->size * sizeof(struct cons));
     if (rc != 0) {
@@ -244,12 +244,12 @@ void cons_heap_free(struct cons_heap* cons_heap)
     }
 }
 
-void* get_rbp(int offset)
+void *get_rbp(int offset)
 {
     uint64_t dummy = 0;
-    uint64_t* rbp = (&dummy) + 2;
+    uint64_t *rbp = (&dummy) + 2;
     for (int i = 0; i < offset; i++)
-        rbp = *((uint64_t**)rbp);
+        rbp = *((uint64_t **)rbp);
     return rbp;
 }
 
@@ -258,28 +258,28 @@ static void mark_object(lisp_object_t obj)
     if (obj == NIL || obj == T)
         return;
     else if (consp(obj) == T) {
-        struct cons* cons_ptr = ConsPtr(obj);
+        struct cons *cons_ptr = ConsPtr(obj);
         cons_ptr->mark_bit = 1;
         mark_object(cons_ptr->car);
         if (!cons_ptr->cdr)
             abort();
         mark_object(cons_ptr->cdr);
     } else if (symbolp(obj) == T) {
-        struct symbol* sym = SymbolPtr(obj);
+        struct symbol *sym = SymbolPtr(obj);
         mark_object(sym->function);
         mark_object(sym->name);
         mark_object(sym->value);
     }
 }
 
-void mark_stack(struct cons_heap* cons_heap)
+void mark_stack(struct cons_heap *cons_heap)
 {
-    void* rbp = get_rbp(1);
+    void *rbp = get_rbp(1);
     if (top_of_stack) {
-        for (lisp_object_t* s = top_of_stack; s > (lisp_object_t*)rbp; s--) {
+        for (lisp_object_t *s = top_of_stack; s > (lisp_object_t *)rbp; s--) {
             if (consp(*s)) {
-                struct cons* p = ConsPtr(*s);
-                struct cons* cons_heap_limit = cons_heap->actual_heap + cons_heap->size;
+                struct cons *p = ConsPtr(*s);
+                struct cons *cons_heap_limit = cons_heap->actual_heap + cons_heap->size;
                 if (p >= cons_heap->actual_heap && p < cons_heap_limit && p->is_allocated)
                     mark_object(*s);
             }
@@ -288,17 +288,17 @@ void mark_stack(struct cons_heap* cons_heap)
         abort();
 }
 
-void mark(struct cons_heap* cons_heap)
+void mark(struct cons_heap *cons_heap)
 {
     mark_object(interp->environ);
     mark_object(interp->symbol_table);
     mark_stack(cons_heap);
 }
 
-void sweep(struct cons_heap* cons_heap)
+void sweep(struct cons_heap *cons_heap)
 {
     for (int i = 0; i < cons_heap->size; i++) {
-        struct cons* p = cons_heap->actual_heap + i;
+        struct cons *p = cons_heap->actual_heap + i;
         if (p->mark_bit && !p->is_allocated)
             abort();
         if (p->is_allocated && !p->mark_bit) {
@@ -311,7 +311,7 @@ void sweep(struct cons_heap* cons_heap)
     }
 }
 
-static void gc(struct cons_heap* cons_heap)
+static void gc(struct cons_heap *cons_heap)
 {
     size_t before = cons_heap->allocation_count;
     mark(cons_heap);
@@ -320,14 +320,14 @@ static void gc(struct cons_heap* cons_heap)
     printf("Garbage collection: %lu conses freed\n", nfreed);
 }
 
-lisp_object_t cons_heap_allocate_cons(struct cons_heap* cons_heap)
+lisp_object_t cons_heap_allocate_cons(struct cons_heap *cons_heap)
 {
     if (!cons_heap->free_list_head)
         gc(cons_heap);
     if (!cons_heap->free_list_head)
         abort();
-    struct cons* the_cons = cons_heap->free_list_head;
-    cons_heap->free_list_head = (struct cons*)the_cons->cdr;
+    struct cons *the_cons = cons_heap->free_list_head;
+    cons_heap->free_list_head = (struct cons *)the_cons->cdr;
     the_cons->car = NIL;
     the_cons->cdr = NIL;
     the_cons->is_allocated = 1;
@@ -352,23 +352,23 @@ void free_interpreter()
 }
 
 /* len here includes the terminating null byte of str */
-lisp_object_t allocate_string(size_t len, char* str)
+lisp_object_t allocate_string(size_t len, char *str)
 {
     size_t size = 2 + (len - 1) / 8;
     lisp_object_t obj = allocate_lisp_objects(size);
-    size_t* header_address = (size_t*)obj;
+    size_t *header_address = (size_t *)obj;
     *header_address = len;
-    char* straddr = (char*)(header_address + 1);
+    char *straddr = (char *)(header_address + 1);
     strncpy(straddr, str, len);
     return obj | STRING_TYPE;
 }
 
-void get_string_parts(lisp_object_t string, size_t* lenptr, char** strptr)
+void get_string_parts(lisp_object_t string, size_t *lenptr, char **strptr)
 {
     check_string(string);
-    size_t* name_length_ptr = StringPtr(string);
+    size_t *name_length_ptr = StringPtr(string);
     *lenptr = *name_length_ptr - 1;
-    *strptr = (char*)(name_length_ptr + 1);
+    *strptr = (char *)(name_length_ptr + 1);
 }
 
 lisp_object_t string_equalp(lisp_object_t s1, lisp_object_t s2)
@@ -379,12 +379,12 @@ lisp_object_t string_equalp(lisp_object_t s1, lisp_object_t s2)
         return T;
     } else {
         /* Compare lengths */
-        size_t* l1p = (size_t*)(s1 & PTR_MASK);
-        size_t* l2p = (size_t*)(s2 & PTR_MASK);
+        size_t *l1p = (size_t *)(s1 & PTR_MASK);
+        size_t *l2p = (size_t *)(s2 & PTR_MASK);
         if (*l1p != *l2p)
             return NIL;
-        char* str1 = (char*)(l1p + 1);
-        char* str2 = (char*)(l2p + 1);
+        char *str1 = (char *)(l1p + 1);
+        char *str2 = (char *)(l2p + 1);
         return strncmp(str1, str2, *l1p) == 0 ? T : NIL;
     }
 }
@@ -416,7 +416,7 @@ lisp_object_t allocate_symbol(lisp_object_t name)
     } else {
         check_string(name);
         lisp_object_t obj = allocate_lisp_objects(3);
-        struct symbol* s = (struct symbol*)obj;
+        struct symbol *s = (struct symbol *)obj;
         s->name = name;
         s->value = NIL;
         s->function = NIL;
@@ -426,14 +426,14 @@ lisp_object_t allocate_symbol(lisp_object_t name)
     }
 }
 
-lisp_object_t parse_symbol(char** text)
+lisp_object_t parse_symbol(char **text)
 {
-    static char* delimiters = " \n\t\r)\0";
-    char* p = *text;
+    static char *delimiters = " \n\t\r)\0";
+    char *p = *text;
     while (!strchr(delimiters, *p))
         p++;
     size_t len = p - *text;
-    char* tmp = alloca(len + 1);
+    char *tmp = alloca(len + 1);
     strncpy(tmp, *text, len);
     tmp[len] = 0;
     *text += len;
@@ -447,25 +447,25 @@ lisp_object_t parse_symbol(char** text)
     }
 }
 
-int parse_integer(char** text)
+int parse_integer(char **text)
 {
-    char* start = *text;
+    char *start = *text;
     size_t len = 0;
     for (; **text == '-' || (**text >= '0' && **text <= '9'); (*text)++, len++)
         ;
-    char* tmp = (char*)alloca(len + 1);
+    char *tmp = (char *)alloca(len + 1);
     strncpy(tmp, start, len);
     tmp[len] = 0;
     return atoi(tmp);
 }
 
-void skip_whitespace(char** text)
+void skip_whitespace(char **text)
 {
     while (**text && strchr("\r\n\t ", **text) != NULL)
         (*text)++;
 }
 
-lisp_object_t parse_cons(char** text)
+lisp_object_t parse_cons(char **text)
 {
     skip_whitespace(text);
     lisp_object_t new_cons = cons(parse1(text), NIL);
@@ -491,7 +491,7 @@ int length_c(lisp_object_t seq)
     if (seq == NIL)
         return result;
     if (vectorp(seq) != NIL) {
-        struct vector* v = VectorPtr(seq);
+        struct vector *v = VectorPtr(seq);
         return v->len;
     } else if (consp(seq) != NIL) {
         check_cons(seq);
@@ -504,7 +504,7 @@ int length_c(lisp_object_t seq)
     return result;
 }
 
-lisp_object_t parse_vector(char** text)
+lisp_object_t parse_vector(char **text)
 {
     if (**text != '(')
         abort();
@@ -522,7 +522,7 @@ lisp_object_t parse_vector(char** text)
     return vector;
 }
 
-lisp_object_t parse_dispatch(char** text)
+lisp_object_t parse_dispatch(char **text)
 {
     if (**text != '#')
         abort();
@@ -535,7 +535,7 @@ lisp_object_t parse_dispatch(char** text)
     abort();
 }
 
-lisp_object_t parse1(char** text)
+lisp_object_t parse1(char **text)
 {
     skip_whitespace(text);
     if (!**text)
@@ -558,18 +558,18 @@ lisp_object_t parse1(char** text)
     return 0;
 }
 
-void parse(char* text, void (*callback)(void*, lisp_object_t), void* callback_data)
+void parse(char *text, void (*callback)(void *, lisp_object_t), void *callback_data)
 {
-    char** cursor = &text;
+    char **cursor = &text;
     while (*text)
         callback(callback_data, parse1(cursor));
 }
 
 /* Convenience function */
-lisp_object_t sym(char* string)
+lisp_object_t sym(char *string)
 {
-    char* tmp = (char*)malloc(strlen(string) + 1);
-    char* tmp_save = tmp;
+    char *tmp = (char *)malloc(strlen(string) + 1);
+    char *tmp_save = tmp;
     strcpy(tmp, string);
     lisp_object_t result = parse_symbol(&tmp);
     free(tmp_save);
@@ -578,31 +578,31 @@ lisp_object_t sym(char* string)
 
 /* Printing */
 
-char* print_object(lisp_object_t obj)
+char *print_object(lisp_object_t obj)
 {
     struct string_buffer sb;
     string_buffer_init(&sb);
     print_object_to_buffer(obj, &sb);
-    char* result = string_buffer_to_string(&sb);
+    char *result = string_buffer_to_string(&sb);
     string_buffer_free_links(&sb);
     return result;
 }
 
 void debug_obj(lisp_object_t obj)
 {
-    char* str = print_object(obj);
+    char *str = print_object(obj);
     printf("%s", str);
     free(str);
 }
 
-void debug_obj2(char* msg, lisp_object_t obj)
+void debug_obj2(char *msg, lisp_object_t obj)
 {
     printf("%s: ", msg);
     debug_obj(obj);
     printf("\n");
 }
 
-void print_cons_to_buffer(lisp_object_t obj, struct string_buffer* sb)
+void print_cons_to_buffer(lisp_object_t obj, struct string_buffer *sb)
 {
     print_object_to_buffer(car(obj), sb);
     if (cdr(obj) != NIL) {
@@ -616,12 +616,12 @@ void print_cons_to_buffer(lisp_object_t obj, struct string_buffer* sb)
     }
 }
 
-void print_object_to_buffer(lisp_object_t obj, struct string_buffer* sb)
+void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
 {
     if (integerp(obj) != NIL) {
         int value = obj >> 3;
         int length = snprintf(NULL, 0, "%d", value);
-        char* str = alloca(length + 1);
+        char *str = alloca(length + 1);
         snprintf(str, length + 1, "%d", value);
         string_buffer_append(sb, str);
     } else if (obj == NIL) {
@@ -634,17 +634,17 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer* sb)
         string_buffer_append(sb, ")");
     } else if (symbolp(obj) != NIL) {
         check_symbol(obj);
-        struct symbol* sym = SymbolPtr(obj);
+        struct symbol *sym = SymbolPtr(obj);
         size_t len;
-        char* strptr;
+        char *strptr;
         get_string_parts(sym->name, &len, &strptr);
-        char* tmp = alloca(len + 1);
+        char *tmp = alloca(len + 1);
         strncpy(tmp, strptr, len);
         tmp[len] = 0;
         string_buffer_append(sb, tmp);
     } else if (stringp(obj) != NIL) {
         size_t len = 0;
-        char* str = NULL;
+        char *str = NULL;
         get_string_parts(obj, &len, &str);
         string_buffer_append(sb, str);
     } else if (vectorp(obj) != NIL) {
@@ -659,7 +659,7 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer* sb)
     }
 }
 
-lisp_object_t parse_string(char** text)
+lisp_object_t parse_string(char **text)
 {
     if (**text != '"')
         abort();
@@ -669,7 +669,7 @@ lisp_object_t parse_string(char** text)
     struct string_buffer sb;
     string_buffer_init(&sb);
     for (; escaped || **text != '"'; (*text)++) {
-        char* p = *text;
+        char *p = *text;
         if (!escaped && *p == '\\') {
             escaped = 1;
         } else {
@@ -693,7 +693,7 @@ lisp_object_t parse_string(char** text)
             } else {
                 c = *p;
             }
-            char* tmp = (char*)alloca(2);
+            char *tmp = (char *)alloca(2);
             tmp[0] = c;
             tmp[1] = '\0';
             string_buffer_append(&sb, tmp);
@@ -704,7 +704,7 @@ lisp_object_t parse_string(char** text)
         /* No closing " */
         abort();
     (*text)++; /* Move past closing " */
-    char* str = string_buffer_to_string(&sb);
+    char *str = string_buffer_to_string(&sb);
     lisp_object_t result = allocate_string(len + 1, str);
     string_buffer_free_links(&sb);
     free(str);
@@ -813,10 +813,10 @@ lisp_object_t eval_toplevel(lisp_object_t e)
     return eval(e, interp->environ);
 }
 
-static void load_eval_callback(void* ignored, lisp_object_t obj)
+static void load_eval_callback(void *ignored, lisp_object_t obj)
 {
     lisp_object_t result = eval_toplevel(obj);
-    char* str = print_object(result);
+    char *str = print_object(result);
     printf("; %s\n", str);
     free(str);
 }
@@ -825,7 +825,7 @@ lisp_object_t load(lisp_object_t filename)
 {
     check_string(filename);
     size_t len;
-    char* str;
+    char *str;
     get_string_parts(filename, &len, &str);
     load_str(str);
     return T;
@@ -833,7 +833,7 @@ lisp_object_t load(lisp_object_t filename)
 
 void load_str(char *str)
 {
-    FILE* f = fopen(str, "r");
+    FILE *f = fopen(str, "r");
     if (f == NULL) {
         perror(str);
         exit(1);
@@ -844,7 +844,7 @@ void load_str(char *str)
     while (fgets(buf, 1024, f) != NULL)
         string_buffer_append(&sb, buf);
     fclose(f);
-    char* text = string_buffer_to_string(&sb);
+    char *text = string_buffer_to_string(&sb);
     parse(text, load_eval_callback, NULL);
     free(text);
     string_buffer_free_links(&sb);
@@ -853,7 +853,7 @@ void load_str(char *str)
 lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
 {
     if (atom(fn) != NIL) {
-        struct symbol* sym = SymbolPtr(fn);
+        struct symbol *sym = SymbolPtr(fn);
         if (sym->function != NIL)
             /* Function cell of symbol is bound */
             return apply(sym->function, x, a);
@@ -876,7 +876,7 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
     else if (eq(car(fn), interp->syms.label) != NIL)
         return apply(caddr(fn), x, cons(cons(cadr(fn), caddr(fn)), a));
     else {
-        char* str = print_object(fn);
+        char *str = print_object(fn);
         printf("Bad function: %s\n", str);
         free(str);
         exit(1);
@@ -905,7 +905,7 @@ lisp_object_t evaldefun(lisp_object_t e, lisp_object_t a)
     lisp_object_t arglist = cadr(e);
     lisp_object_t body = caddr(e);
     lisp_object_t fn = cons(interp->syms.lambda, cons(arglist, cons(body, NIL)));
-    struct symbol* sym = SymbolPtr(fname);
+    struct symbol *sym = SymbolPtr(fname);
     sym->function = fn;
     return fname;
 }

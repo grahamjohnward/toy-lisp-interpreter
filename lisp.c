@@ -207,7 +207,7 @@ void init_interpreter(size_t heap_size)
     interp->syms.cond = sym("COND");
     interp->syms.defun = sym("DEFUN");
     interp->syms.load = sym("LOAD");
-    interp->environ = cons(cons(T, T), cons(cons(NIL, NIL), NIL));
+    interp->environ = NIL;
     interpreter_initialized = 1;
     top_of_stack = NULL;
 }

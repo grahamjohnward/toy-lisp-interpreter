@@ -14,10 +14,7 @@ struct lisp_interpreter* interp;
 
 static int interpreter_initialized;
 
-struct cons {
-    lisp_object_t car;
-    lisp_object_t cdr;
-};
+lisp_object_t* top_of_stack = NULL;
 
 struct symbol {
     lisp_object_t name;
@@ -139,7 +136,7 @@ lisp_object_t allocate_lisp_objects(size_t n)
 
 lisp_object_t cons(lisp_object_t car, lisp_object_t cdr)
 {
-    lisp_object_t new_cons = allocate_lisp_objects(2);
+    lisp_object_t new_cons = cons_heap_allocate_cons(&interp->cons_heap);
     new_cons |= CONS_TYPE;
     rplaca(new_cons, car);
     rplacd(new_cons, cdr);
@@ -190,13 +187,14 @@ void init_interpreter(size_t heap_size)
     if (sizeof(lisp_object_t) != sizeof(void*))
         abort();
     interp->heap_size_bytes = heap_size * sizeof(lisp_object_t);
-    interp->heap = mmap(NULL, interp->heap_size_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    interp->heap = mmap((void*)0x100000000000, interp->heap_size_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
     if (interp->heap == (lisp_object_t*)-1) {
-        perror("mmap failed");
+        perror("init_interpreter: mmap failed");
         exit(1);
     }
     bzero(interp->heap, interp->heap_size_bytes);
     interp->next_free = interp->heap;
+    cons_heap_init(&interp->cons_heap, 96);
     interp->symbol_table = NIL;
     interp->syms.car = sym("CAR");
     interp->syms.cdr = sym("CDR");
@@ -211,14 +209,141 @@ void init_interpreter(size_t heap_size)
     interp->syms.load = sym("LOAD");
     interp->environ = cons(cons(T, T), cons(cons(NIL, NIL), NIL));
     interpreter_initialized = 1;
+    top_of_stack = NULL;
+}
+
+void cons_heap_init(struct cons_heap* cons_heap, size_t size)
+{
+    cons_heap->size = size;
+    cons_heap->allocation_count = 0;
+    cons_heap->actual_heap = mmap((void*)0x200000000000, sizeof(struct cons) * size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    if (cons_heap->actual_heap == (struct cons*)-1) {
+        perror("cons_heap_init: mmap failed");
+        exit(1);
+    }
+    cons_heap->free_list_head = cons_heap->actual_heap;
+    struct cons* p = NULL;
+    for (int i = 0; i < size - 1; i++) {
+        p = cons_heap->actual_heap + i;
+        p->cdr = (lisp_object_t)(p + 1);
+    }
+    for (int i = 0; i < size; i++) {
+        p = cons_heap->actual_heap + i;
+        p->mark_bit = 0;
+        p->is_allocated = 0;
+        p->car = NIL;
+    }
+}
+
+void cons_heap_free(struct cons_heap* cons_heap)
+{
+    int rc = munmap(cons_heap->actual_heap, cons_heap->size * sizeof(struct cons));
+    if (rc != 0) {
+        perror("cons_heap_free: munmap failed");
+        exit(1);
+    }
+}
+
+void* get_rbp(int offset)
+{
+    uint64_t dummy = 0;
+    uint64_t* rbp = (&dummy) + 2;
+    for (int i = 0; i < offset; i++)
+        rbp = *((uint64_t**)rbp);
+    return rbp;
+}
+
+static void mark_object(lisp_object_t obj)
+{
+    if (obj == NIL || obj == T)
+        return;
+    else if (consp(obj) == T) {
+        struct cons* cons_ptr = ConsPtr(obj);
+        cons_ptr->mark_bit = 1;
+        mark_object(cons_ptr->car);
+        if (!cons_ptr->cdr)
+            abort();
+        mark_object(cons_ptr->cdr);
+    } else if (symbolp(obj) == T) {
+        struct symbol* sym = SymbolPtr(obj);
+        mark_object(sym->function);
+        mark_object(sym->name);
+        mark_object(sym->value);
+    }
+}
+
+void mark_stack(struct cons_heap* cons_heap)
+{
+    void* rbp = get_rbp(1);
+    if (top_of_stack) {
+        for (lisp_object_t* s = top_of_stack; s > (lisp_object_t*)rbp; s--) {
+            if (consp(*s)) {
+                struct cons* p = ConsPtr(*s);
+                struct cons* cons_heap_limit = cons_heap->actual_heap + cons_heap->size;
+                if (p >= cons_heap->actual_heap && p < cons_heap_limit && p->is_allocated)
+                    mark_object(*s);
+            }
+        }
+    } else
+        abort();
+}
+
+void mark(struct cons_heap* cons_heap)
+{
+    mark_object(interp->environ);
+    mark_object(interp->symbol_table);
+    mark_stack(cons_heap);
+}
+
+void sweep(struct cons_heap* cons_heap)
+{
+    for (int i = 0; i < cons_heap->size; i++) {
+        struct cons* p = cons_heap->actual_heap + i;
+        if (p->mark_bit && !p->is_allocated)
+            abort();
+        if (p->is_allocated && !p->mark_bit) {
+            p->cdr = (lisp_object_t)cons_heap->free_list_head;
+            p->is_allocated = 0;
+            cons_heap->free_list_head = p;
+            cons_heap->allocation_count--;
+        } else
+            p->mark_bit = 0;
+    }
+}
+
+static void gc(struct cons_heap* cons_heap)
+{
+    size_t before = cons_heap->allocation_count;
+    mark(cons_heap);
+    sweep(cons_heap);
+    size_t nfreed = before - cons_heap->allocation_count;
+    printf("Garbage collection: %lu conses freed\n", nfreed);
+}
+
+lisp_object_t cons_heap_allocate_cons(struct cons_heap* cons_heap)
+{
+    if (!cons_heap->free_list_head)
+        gc(cons_heap);
+    if (!cons_heap->free_list_head)
+        abort();
+    struct cons* the_cons = cons_heap->free_list_head;
+    cons_heap->free_list_head = (struct cons*)the_cons->cdr;
+    the_cons->car = NIL;
+    the_cons->cdr = NIL;
+    the_cons->is_allocated = 1;
+    if (the_cons->mark_bit)
+        abort();
+    cons_heap->allocation_count++;
+    return (lisp_object_t)the_cons;
 }
 
 void free_interpreter()
 {
     if (interpreter_initialized) {
+        cons_heap_free(&interp->cons_heap);
         int rc = munmap(interp->heap, interp->heap_size_bytes);
         if (rc != 0) {
-            perror("munmap failed");
+            perror("free_interpreter: munmap failed");
             exit(1);
         }
         free(interp);

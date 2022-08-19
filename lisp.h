@@ -74,14 +74,39 @@ struct syms {
     lisp_object_t car, cdr, cons, atom, eq, lambda, label, quote, cond, defun, load;
 };
 
-/* Might be nice to have a lisp_memory struct separate from the interpreter */
+struct cons {
+    /* Basically padding to ensure structs are 8-byte aligned */
+    uint64_t mark_bit;
+    uint64_t is_allocated;
+    lisp_object_t car;
+    lisp_object_t cdr;
+};
+
+struct cons_heap {
+    size_t size;
+    size_t allocation_count;
+    struct cons* actual_heap;
+    struct cons* free_list_head;
+};
+
+extern lisp_object_t* top_of_stack;
+void* get_rbp(int n);
+void cons_heap_init(struct cons_heap* heap, size_t size);
+void cons_heap_free(struct cons_heap* cons_heap);
+lisp_object_t cons_heap_allocate_cons(struct cons_heap* cons_heap);
+void mark(struct cons_heap* cons_heap);
+void mark_stack(struct cons_heap* cons_heap);
+void sweep(struct cons_heap* cons_heap);
+
 struct lisp_interpreter {
-    lisp_object_t* heap;
-    lisp_object_t* next_free;
-    lisp_object_t symbol_table; /* A root for GC */
-    size_t heap_size_bytes;
     struct syms syms;
     lisp_object_t environ;
+    lisp_object_t symbol_table; /* A root for GC */
+    struct cons_heap cons_heap;
+    /* Legacy heap stuff */
+    lisp_object_t* heap;
+    lisp_object_t* next_free;
+    size_t heap_size_bytes;
 };
 
 extern struct lisp_interpreter *interp;

@@ -7,6 +7,8 @@
 
 static char* test_name; /* Global */
 
+static int fail_count = 0;
+
 static void check(int boolean, char* tag)
 {
     printf("%s - %s", test_name, tag);
@@ -14,6 +16,7 @@ static void check(int boolean, char* tag)
     if (boolean) {
         printf("ok");
     } else {
+        fail_count++;
         printf("NOT OK");
     }
     printf("\n");
@@ -295,7 +298,7 @@ static void test_parse_list_of_symbols()
     test_name = "parse_list_of_symbols";
     char* test_string = "(hello you are nice)";
     init_interpreter(16384);
-    lisp_object_t result = parse1(&test_string); //bad
+    lisp_object_t result = parse1(&test_string); // bad
     check(consp(result) != NIL, "consp");
     check(symbolp(car((result))) != NIL, "first symbolp");
     char* str = print_object(result);
@@ -664,16 +667,96 @@ static void test_defun()
     free_interpreter();
 }
 
-static void test_load()
+static void test_cons_heap_init()
+{
+    test_name = "cons_heap_init";
+    struct cons_heap heap;
+    cons_heap_init(&heap, 4);
+    check(heap.size == 4, "size");
+    check(heap.actual_heap == heap.free_list_head, "free_list_head");
+    struct cons* c0 = heap.actual_heap;
+    struct cons* c1 = heap.actual_heap + 1;
+    check(c0->cdr == (lisp_object_t)c1, "free list first link");
+    struct cons* last_cons = heap.actual_heap + heap.size - 1;
+    struct cons* penultimate_cons = last_cons - 1;
+    check(penultimate_cons->cdr == (lisp_object_t)last_cons, "free list last link");
+    check((struct cons*)last_cons->cdr == NULL, "end of free list is NULL");
+    check(heap.allocation_count == 0, "allocation count zero");
+}
+
+static void test_cons_heap_allocate_cons()
+{
+    test_name = "cons_heap_allocate_cons";
+    struct cons_heap heap;
+    cons_heap_init(&heap, 4);
+    lisp_object_t new_cons = cons_heap_allocate_cons(&heap);
+    struct cons* struct_cons = ConsPtr(new_cons);
+    check(!struct_cons->mark_bit, "mark bit not set on new cons");
+    check(heap.free_list_head == heap.actual_heap + 1, "free list pointer moved");
+    check(heap.allocation_count == 1, "allocation count incremented");
+}
+
+static void test_cons_heap_mark_stack1()
+{
+    test_name = "cons_heap_mark_stack";
+    struct lisp_interpreter bof;
+    interp = &bof;
+    cons_heap_init(&bof.cons_heap, 4);
+    lisp_object_t my_lovely_cons = cons(T, T);
+    mark_stack(&bof.cons_heap);
+    check(bof.cons_heap.actual_heap[0].mark_bit, "0 marked");
+    check(bof.cons_heap.actual_heap[0].is_allocated, "0 allocated");
+    check(!bof.cons_heap.actual_heap[1].mark_bit, "1 not marked");
+    check(!bof.cons_heap.actual_heap[1].is_allocated, "1 not allocated");
+    check(!bof.cons_heap.actual_heap[2].mark_bit, "2 not marked");
+    check(!bof.cons_heap.actual_heap[2].is_allocated, "2 not allocated");
+    check(!bof.cons_heap.actual_heap[3].mark_bit, "3 not marked");
+    check(!bof.cons_heap.actual_heap[3].is_allocated, "3 not allocated");
+    lisp_object_t my_new_cons = cons(T, T); /* We expect this to be freed */
+    struct cons* p = ConsPtr(my_new_cons);
+    check(p == bof.cons_heap.actual_heap + 1, "new cons ok");
+    check(p->is_allocated, "new cons allocated");
+    check(!p->mark_bit, "new cons not marked");
+}
+
+static void test_cons_heap_mark_stack()
+{
+    top_of_stack = (lisp_object_t*)get_rbp(1);
+    test_cons_heap_mark_stack1();
+}
+
+static void test_cons_heap_mark_symbol_table1()
+{
+    mark(&interp->cons_heap);
+    sweep(&interp->cons_heap);
+}
+
+static void test_cons_heap_mark_symbol_table()
+{
+    init_interpreter(1024);
+    lisp_object_t will_be_freed = cons(sym("BOF"), NIL);
+    top_of_stack = (lisp_object_t*)get_rbp(1);
+    test_cons_heap_mark_symbol_table1();
+    free_interpreter();
+}
+
+static void test_load1()
 {
     test_name = "load";
-    init_interpreter(32768);
     lisp_object_t result1 = test_eval_string_helper("(LOAD \"/home/graham/toy-lisp-interpreter/test-load.lisp\")");
     check(result1 == T, "load returns T");
+    printf("%lu conses allocated\n", interp->cons_heap.allocation_count);
     lisp_object_t result2 = test_eval_string_helper("(TEST1 (QUOTE THERE))");
     char* str = print_object(result2);
     check(strcmp("(HELLO . THERE)", str) == 0, "result of TEST1");
     free(str);
+}
+
+static void test_load()
+{
+    init_interpreter(32768);
+    top_of_stack = (lisp_object_t*)get_rbp(1);
+    test_load1();
     free_interpreter();
 }
 
@@ -727,5 +810,13 @@ int main(int argc, char** argv)
     test_eval();
     test_defun();
     test_load();
-    return 0;
+    test_cons_heap_init();
+    test_cons_heap_allocate_cons();
+    test_cons_heap_mark_stack();
+    test_cons_heap_mark_symbol_table();
+    if (fail_count)
+        printf("%d checks failed\n", fail_count);
+    else
+        printf("All tests successful\n");
+    return fail_count;
 }

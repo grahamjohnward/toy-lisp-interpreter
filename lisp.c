@@ -375,9 +375,9 @@ lisp_object_t string_equalp(lisp_object_t s1, lisp_object_t s2)
 {
     check_string(s1);
     check_string(s2);
-    if (eq(s1, s2) != NIL) {
+    if (eq(s1, s2) != NIL)
         return T;
-    } else {
+    else {
         /* Compare lengths */
         size_t *l1p = (size_t *)(s1 & PTR_MASK);
         size_t *l2p = (size_t *)(s2 & PTR_MASK);
@@ -411,9 +411,9 @@ lisp_object_t find_symbol(lisp_object_t list_of_symbols, lisp_object_t name)
 lisp_object_t allocate_symbol(lisp_object_t name)
 {
     lisp_object_t preexisting_symbol = find_symbol(interp->symbol_table, name);
-    if (preexisting_symbol != NIL) {
+    if (preexisting_symbol != NIL)
         return preexisting_symbol;
-    } else {
+    else {
         check_string(name);
         lisp_object_t obj = allocate_lisp_objects(3);
         struct symbol *s = (struct symbol *)obj;
@@ -437,11 +437,11 @@ lisp_object_t parse_symbol(char **text)
     strncpy(tmp, *text, len);
     tmp[len] = 0;
     *text += len;
-    if (strcmp(tmp, "nil") == 0) {
+    if (strcmp(tmp, "nil") == 0)
         return NIL;
-    } else if (strcmp(tmp, "t") == 0) {
+    else if (strcmp(tmp, "t") == 0)
         return T;
-    } else {
+    else {
         lisp_object_t lisp_string = allocate_string(len + 1 /* include terminating null */, tmp);
         return allocate_symbol(lisp_string);
     }
@@ -670,29 +670,28 @@ lisp_object_t parse_string(char **text)
     string_buffer_init(&sb);
     for (; escaped || **text != '"'; (*text)++) {
         char *p = *text;
-        if (!escaped && *p == '\\') {
+        if (!escaped && *p == '\\')
             escaped = 1;
-        } else {
+        else {
             char c;
             if (escaped) {
-                if (*p == '\\') {
+                if (*p == '\\')
                     c = '\\';
-                } else if (*p == 'n') {
+                else if (*p == 'n')
                     c = '\n';
-                } else if (*p == 'r') {
+                else if (*p == 'r')
                     c = '\r';
-                } else if (*p == 't') {
+                else if (*p == 't')
                     c = '\t';
-                } else if (*p == '"') {
+                else if (*p == '"')
                     c = '"';
-                } else {
+                else {
                     printf("Unknown escape character: %c\n", *p);
                     abort();
                 }
                 escaped = 0;
-            } else {
+            } else
                 c = *p;
-            }
             char *tmp = (char *)alloca(2);
             tmp[0] = c;
             tmp[1] = '\0';
@@ -712,6 +711,7 @@ lisp_object_t parse_string(char **text)
 }
 
 /* Evaluation */
+
 lisp_object_t caar(lisp_object_t obj)
 {
     return car(car(obj));
@@ -808,48 +808,6 @@ lisp_object_t pairlis(lisp_object_t x, lisp_object_t y, lisp_object_t a)
         return cons(cons(car(x), car(y)), pairlis(cdr(x), cdr(y), a));
 }
 
-lisp_object_t eval_toplevel(lisp_object_t e)
-{
-    return eval(e, interp->environ);
-}
-
-static void load_eval_callback(void *ignored, lisp_object_t obj)
-{
-    lisp_object_t result = eval_toplevel(obj);
-    char *str = print_object(result);
-    printf("; %s\n", str);
-    free(str);
-}
-
-lisp_object_t load(lisp_object_t filename)
-{
-    check_string(filename);
-    size_t len;
-    char *str;
-    get_string_parts(filename, &len, &str);
-    load_str(str);
-    return T;
-}
-
-void load_str(char *str)
-{
-    FILE *f = fopen(str, "r");
-    if (f == NULL) {
-        perror(str);
-        exit(1);
-    }
-    struct string_buffer sb;
-    string_buffer_init(&sb);
-    char buf[1024];
-    while (fgets(buf, 1024, f) != NULL)
-        string_buffer_append(&sb, buf);
-    fclose(f);
-    char *text = string_buffer_to_string(&sb);
-    parse(text, load_eval_callback, NULL);
-    free(text);
-    string_buffer_free_links(&sb);
-}
-
 lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
 {
     if (atom(fn) != NIL) {
@@ -932,4 +890,48 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x)
 {
     return apply(fn, x, NIL);
+}
+
+/* Load */
+
+lisp_object_t eval_toplevel(lisp_object_t e)
+{
+    return eval(e, interp->environ);
+}
+
+static void load_eval_callback(void *ignored, lisp_object_t obj)
+{
+    lisp_object_t result = eval_toplevel(obj);
+    char *str = print_object(result);
+    printf("; %s\n", str);
+    free(str);
+}
+
+lisp_object_t load(lisp_object_t filename)
+{
+    check_string(filename);
+    size_t len;
+    char *str;
+    get_string_parts(filename, &len, &str);
+    load_str(str);
+    return T;
+}
+
+void load_str(char *str)
+{
+    FILE *f = fopen(str, "r");
+    if (f == NULL) {
+        perror(str);
+        exit(1);
+    }
+    struct string_buffer sb;
+    string_buffer_init(&sb);
+    char buf[1024];
+    while (fgets(buf, 1024, f) != NULL)
+        string_buffer_append(&sb, buf);
+    fclose(f);
+    char *text = string_buffer_to_string(&sb);
+    parse(text, load_eval_callback, NULL);
+    free(text);
+    string_buffer_free_links(&sb);
 }

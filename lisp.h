@@ -24,6 +24,7 @@ char *print_object(lisp_object_t obj);
 void print_object_to_buffer(lisp_object_t, struct string_buffer *);
 
 void load_str(char *str);
+lisp_object_t load(lisp_object_t filename);
 
 #define NIL 0xfffffffffffffff9
 #define T 0xfffffffffffffff1

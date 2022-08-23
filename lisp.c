@@ -194,7 +194,7 @@ void init_interpreter(size_t heap_size)
     }
     bzero(interp->heap, interp->heap_size_bytes);
     interp->next_free = interp->heap;
-    cons_heap_init(&interp->cons_heap, 96);
+    cons_heap_init(&interp->cons_heap, 1024);
     interp->symbol_table = NIL;
     interp->syms.car = sym("CAR");
     interp->syms.cdr = sym("CDR");
@@ -437,9 +437,9 @@ lisp_object_t parse_symbol(char **text)
     strncpy(tmp, *text, len);
     tmp[len] = 0;
     *text += len;
-    if (strcmp(tmp, "nil") == 0)
+    if (strcmp(tmp, "NIL") == 0)
         return NIL;
-    else if (strcmp(tmp, "t") == 0)
+    else if (strcmp(tmp, "T") == 0)
         return T;
     else {
         lisp_object_t lisp_string = allocate_string(len + 1 /* include terminating null */, tmp);
@@ -625,9 +625,9 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
         snprintf(str, length + 1, "%d", value);
         string_buffer_append(sb, str);
     } else if (obj == NIL) {
-        string_buffer_append(sb, "nil");
+        string_buffer_append(sb, "NIL");
     } else if (obj == T) {
-        string_buffer_append(sb, "t");
+        string_buffer_append(sb, "T");
     } else if (consp(obj) != NIL) {
         string_buffer_append(sb, "(");
         print_cons_to_buffer(obj, sb);

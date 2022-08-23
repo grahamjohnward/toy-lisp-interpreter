@@ -4,7 +4,7 @@
 
 (DEFUN TEST2 (X) 
   (COND ((EQ X (QUOTE BOF)) (QUOTE BOO))
-	(t (QUOTE OHNO))))
+	(T (QUOTE OHNO))))
 
 
 (TEST2 (QUOTE BOF))

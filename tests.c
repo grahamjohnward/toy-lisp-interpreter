@@ -196,12 +196,12 @@ static void test_t_is_a_symbol()
 static void test_read_and_print_nil()
 {
     test_name = "read_and_print_nil";
-    char *test_string = "nil";
+    char *test_string = "NIL";
     init_interpreter(256);
     lisp_object_t obj = parse1(&test_string);
-    check(obj == NIL, "is nil");
+    check(obj == NIL, "is NIL");
     char *result = print_object(obj);
-    check(strcmp("nil", result) == 0, "print nil");
+    check(strcmp("NIL", result) == 0, "print NIL");
     free(result);
     free_interpreter();
 }
@@ -209,12 +209,12 @@ static void test_read_and_print_nil()
 static void test_read_and_print_t()
 {
     test_name = "read_and_print_t";
-    char *test_string = "t";
+    char *test_string = "T";
     init_interpreter(256);
     lisp_object_t obj = parse1(&test_string);
-    check(obj == T, "is t");
+    check(obj == T, "is T");
     char *result = print_object(obj);
-    check(strcmp("t", result) == 0, "print t");
+    check(strcmp("T", result) == 0, "print t");
     free(result);
     free_interpreter();
 }
@@ -244,7 +244,7 @@ static void test_print_empty_cons()
     init_interpreter(256);
     lisp_object_t empty = cons(NIL, NIL);
     char *str = print_object(empty);
-    check(strcmp("(nil)", str) == 0, "(nil)");
+    check(strcmp("(NIL)", str) == 0, "(NIL)");
     free(str);
     free_interpreter();
 }
@@ -506,8 +506,8 @@ static void test_sublis()
 static void test_null()
 {
     test_name = "null";
-    check(null(NIL) != NIL, "nil");
-    check(null(T) == NIL, "t");
+    check(null(NIL) != NIL, "NIL");
+    check(null(T) == NIL, "T");
 }
 
 static void test_append()
@@ -607,10 +607,10 @@ static void test_evalquote()
     test_evalquote_helper("CAR", "((A . B))", "A");
     test_evalquote_helper("CDR", "((A . B))", "B");
     test_evalquote_helper("CDR", "((A . B))", "B");
-    test_evalquote_helper("ATOM", "(A)", "t");
-    test_evalquote_helper("ATOM", "((A . B))", "nil");
-    test_evalquote_helper("EQ", "(A A)", "t");
-    test_evalquote_helper("EQ", "(A B)", "nil");
+    test_evalquote_helper("ATOM", "(A)", "T");
+    test_evalquote_helper("ATOM", "((A . B))", "NIL");
+    test_evalquote_helper("EQ", "(A A)", "T");
+    test_evalquote_helper("EQ", "(A B)", "NIL");
 }
 
 static lisp_object_t test_eval_string_helper(char *exprstr)
@@ -647,11 +647,11 @@ static void test_eval_helper(char *exprstr, char *expectedstr)
 static void test_eval()
 {
     test_name = "eval";
-    test_eval_helper("t", "t");
+    test_eval_helper("T", "T");
     test_eval_helper("3", "3");
     test_eval_helper("(CONS (QUOTE A) (QUOTE B))", "(A . B)");
     test_eval_helper("(COND ((EQ (CAR (CONS (QUOTE A) NIL)) (QUOTE A)) (QUOTE OK)))", "OK");
-    test_eval_helper("(COND ((EQ (CAR (CONS (QUOTE A) NIL)) (QUOTE B)) (QUOTE BAD)) (t (QUOTE OK)))", "OK");
+    test_eval_helper("(COND ((EQ (CAR (CONS (QUOTE A) NIL)) (QUOTE B)) (QUOTE BAD)) (T (QUOTE OK)))", "OK");
     test_eval_helper("((LAMBDA (X) (CAR X)) (CONS (QUOTE A) (QUOTE B)))", "A");
 }
 

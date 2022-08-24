@@ -544,7 +544,7 @@ lisp_object_t parse1(char **text)
 {
     skip_whitespace(text);
     if (!**text)
-        return NIL;
+        abort();
     if (**text == '(') {
         (*text)++;
         return parse_cons(text);
@@ -563,11 +563,27 @@ lisp_object_t parse1(char **text)
     return 0;
 }
 
+lisp_object_t parse1_handle_eof(char **text, int *eof)
+{
+    skip_whitespace(text);
+    if (!**text) {
+        *eof = 1;
+        return NIL;
+    }
+    return parse1(text);
+}
+
 void parse(char *text, void (*callback)(void *, lisp_object_t), void *callback_data)
 {
     char **cursor = &text;
-    while (*text)
-        callback(callback_data, parse1(cursor));
+    while (*text) {
+        int eof = 0;
+        lisp_object_t result = parse1_handle_eof(cursor, &eof);
+        if (eof)
+            return;
+        else
+            callback(callback_data, result);
+    }
 }
 
 /* Convenience function */

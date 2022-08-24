@@ -414,6 +414,25 @@ static void test_parse_multiple_objects()
     free_interpreter();
 }
 
+static void test_parse_handle_eof_callback(void *data, lisp_object_t obj)
+{
+    int *count = (int *)data;
+    (*count)++;
+}
+
+static void test_parse_handle_eof()
+{
+    test_name = "parse_handle_eof";
+    char *test_string = "foo bar\n";
+    init_interpreter(256);
+    struct string_buffer sb;
+    string_buffer_init(&sb);
+    int count = 0;
+    parse(test_string, test_parse_handle_eof_callback, &count);
+    check(count == 2, "two objects");
+    free_interpreter();
+}
+
 static void test_vector_initialization()
 {
     init_interpreter(1024);
@@ -802,6 +821,7 @@ int main(int argc, char **argv)
     test_eq();
     test_parser_advances_pointer();
     test_parse_multiple_objects();
+    test_parse_handle_eof();
     test_vector_initialization();
     test_vector_svref();
     test_parse_vector();

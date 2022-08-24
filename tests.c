@@ -31,6 +31,15 @@ static void test_skip_whitespace()
     check(p == test_string + 2, "offset");
 }
 
+static void test_comments()
+{
+    test_name = "comments";
+    char *test_string = "; This is a comment";
+    char *p = test_string;
+    skip_whitespace(&p);
+    check(p == test_string + 19, "offset");
+}
+
 static void test_parse_integer()
 {
     test_name = "parse_integer";
@@ -763,6 +772,7 @@ static void test_load()
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
+    test_comments();
     test_parse_integer();
     test_parse_negative_integer();
     test_parse_single_integer_list();

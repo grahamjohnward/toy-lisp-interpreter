@@ -463,6 +463,11 @@ void skip_whitespace(char **text)
 {
     while (**text && strchr("\r\n\t ", **text) != NULL)
         (*text)++;
+    if (**text == ';') {
+        while (**text && **text != '\n')
+            (*text)++;
+        skip_whitespace(text);
+    }
 }
 
 lisp_object_t parse_cons(char **text)

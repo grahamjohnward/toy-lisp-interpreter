@@ -612,20 +612,6 @@ char *print_object(lisp_object_t obj)
     return result;
 }
 
-void debug_obj(lisp_object_t obj)
-{
-    char *str = print_object(obj);
-    printf("%s", str);
-    free(str);
-}
-
-void debug_obj2(char *msg, lisp_object_t obj)
-{
-    printf("%s: ", msg);
-    debug_obj(obj);
-    printf("\n");
-}
-
 void print_cons_to_buffer(lisp_object_t obj, struct string_buffer *sb)
 {
     print_object_to_buffer(car(obj), sb);

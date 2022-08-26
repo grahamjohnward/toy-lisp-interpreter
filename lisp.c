@@ -543,13 +543,12 @@ lisp_object_t parse_dispatch(char **text)
 lisp_object_t parse1(char **text)
 {
     skip_whitespace(text);
-    if (!**text)
+    if (!**text) {
         abort();
-    if (**text == '\'') {
+    } else if (**text == '\'') {
         (*text)++;
-        return cons(sym("QUOTE"), cons(parse1(text), NIL));
-    }
-    if (**text == '(') {
+        return cons(interp->syms.quote, cons(parse1(text), NIL));
+    } else if (**text == '(') {
         (*text)++;
         return parse_cons(text);
     } else if (**text == ')') {

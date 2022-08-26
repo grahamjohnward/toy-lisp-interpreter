@@ -545,6 +545,10 @@ lisp_object_t parse1(char **text)
     skip_whitespace(text);
     if (!**text)
         abort();
+    if (**text == '\'') {
+        (*text)++;
+        return cons(sym("QUOTE"), cons(parse1(text), NIL));
+    }
     if (**text == '(') {
         (*text)++;
         return parse_cons(text);

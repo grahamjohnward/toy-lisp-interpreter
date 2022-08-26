@@ -433,6 +433,22 @@ static void test_parse_handle_eof()
     free_interpreter();
 }
 
+static void test_parse_quote()
+{
+    test_name = "parse_quote";
+    char *test_string = "'FOO";
+    init_interpreter(256);
+    lisp_object_t result = parse1(&test_string);
+    struct string_buffer sb;
+    string_buffer_init(&sb);
+    print_object_to_buffer(result, &sb);
+    char *str = string_buffer_to_string(&sb);
+    string_buffer_free_links(&sb);
+    check(strcmp("(QUOTE FOO)", str) == 0, "parse quote");
+    free(str);
+    free_interpreter();
+}
+
 static void test_vector_initialization()
 {
     test_name = "vector_initialization";
@@ -823,6 +839,7 @@ int main(int argc, char **argv)
     test_parser_advances_pointer();
     test_parse_multiple_objects();
     test_parse_handle_eof();
+    test_parse_quote();
     test_vector_initialization();
     test_vector_svref();
     test_parse_vector();

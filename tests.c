@@ -435,6 +435,7 @@ static void test_parse_handle_eof()
 
 static void test_vector_initialization()
 {
+    test_name = "vector_initialization";
     init_interpreter(1024);
     lisp_object_t v = allocate_vector(3);
     check(eq(svref(v, 0), NIL) != NIL, "first element nil");

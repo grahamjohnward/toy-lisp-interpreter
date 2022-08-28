@@ -259,6 +259,8 @@ static void mark_object(lisp_object_t obj)
         return;
     else if (consp(obj) == T) {
         struct cons *cons_ptr = ConsPtr(obj);
+        if (cons_ptr->mark_bit)
+            return;
         cons_ptr->mark_bit = 1;
         mark_object(cons_ptr->car);
         if (!cons_ptr->cdr)

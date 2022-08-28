@@ -59,6 +59,8 @@ lisp_object_t vectorp(lisp_object_t obj);
 lisp_object_t cons(lisp_object_t car, lisp_object_t cdr);
 lisp_object_t car(lisp_object_t obj);
 lisp_object_t cdr(lisp_object_t obj);
+lisp_object_t rplaca(lisp_object_t the_cons, lisp_object_t the_car);
+lisp_object_t rplacd(lisp_object_t the_cons, lisp_object_t the_cdr);
 lisp_object_t string_equalp(lisp_object_t s1, lisp_object_t s2);
 lisp_object_t eq(lisp_object_t o1, lisp_object_t o2);
 lisp_object_t sublis(lisp_object_t a, lisp_object_t y);

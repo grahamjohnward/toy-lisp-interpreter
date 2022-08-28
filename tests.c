@@ -785,6 +785,21 @@ static void test_cons_heap_mark_symbol_table()
     free_interpreter();
 }
 
+static void test_gc_cycle()
+{
+    test_name = "gc_cycle";
+    top_of_stack = (lisp_object_t *)get_rbp(1);
+    struct cons_heap heap;
+    cons_heap_init(&heap, 1024);
+    lisp_object_t c1 = cons(NIL, NIL);
+    lisp_object_t c2 = cons(NIL, NIL);
+    rplacd(c1, c2);
+    rplacd(c2, c1);
+    mark_stack(&heap);
+    check(1, "no stack overflow");
+    cons_heap_free(&heap);
+}
+
 static void test_load1()
 {
     test_name = "load";
@@ -862,6 +877,7 @@ int main(int argc, char **argv)
     test_cons_heap_allocate_cons();
     test_cons_heap_mark_stack();
     test_cons_heap_mark_symbol_table();
+    test_gc_cycle();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

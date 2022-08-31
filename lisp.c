@@ -594,11 +594,9 @@ void parse(char *text, void (*callback)(void *, lisp_object_t), void *callback_d
 /* Convenience function */
 lisp_object_t sym(char *string)
 {
-    char *tmp = (char *)malloc(strlen(string) + 1);
-    char *tmp_save = tmp;
+    char *tmp = (char *)alloca(strlen(string) + 1);
     strcpy(tmp, string);
     lisp_object_t result = parse_symbol(&tmp);
-    free(tmp_save);
     return result;
 }
 

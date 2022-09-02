@@ -1,15 +1,15 @@
 ;; Define a function
-(DEFUN TEST1 (X) (CONS (QUOTE HELLO) X))
+(defun test1 (x) (cons (quote hello) x))
 
 ;; Call it
-(TEST1 (QUOTE WORLD))
+(test1 (quote world))
 
 ;; Define another function
-(DEFUN TEST2 (X) 
-  (COND ((EQ X (QUOTE BOF)) (QUOTE BOO))
-	(T (QUOTE OHNO))))
+(defun test2 (x) 
+  (cond ((eq x (quote bof)) (quote boo))
+	(t (quote ohno))))
 
 ;; Test the function
-(TEST2 (QUOTE BOF))
+(test2 (quote bof))
 
-(TEST2 (QUOTE FOO))
+(test2 (quote foo))

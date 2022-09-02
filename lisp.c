@@ -196,17 +196,17 @@ void init_interpreter(size_t heap_size)
     interp->next_free = interp->heap;
     cons_heap_init(&interp->cons_heap, 1024);
     interp->symbol_table = NIL;
-    interp->syms.car = sym("CAR");
-    interp->syms.cdr = sym("CDR");
-    interp->syms.cons = sym("CONS");
-    interp->syms.atom = sym("ATOM");
-    interp->syms.eq = sym("EQ");
-    interp->syms.lambda = sym("LAMBDA");
-    interp->syms.label = sym("LABEL");
-    interp->syms.quote = sym("QUOTE");
-    interp->syms.cond = sym("COND");
-    interp->syms.defun = sym("DEFUN");
-    interp->syms.load = sym("LOAD");
+    interp->syms.car = sym("car");
+    interp->syms.cdr = sym("cdr");
+    interp->syms.cons = sym("cons");
+    interp->syms.atom = sym("atom");
+    interp->syms.eq = sym("eq");
+    interp->syms.lambda = sym("lambda");
+    interp->syms.label = sym("label");
+    interp->syms.quote = sym("quote");
+    interp->syms.cond = sym("cond");
+    interp->syms.defun = sym("defun");
+    interp->syms.load = sym("load");
     interp->environ = NIL;
     interpreter_initialized = 1;
     top_of_stack = NULL;
@@ -439,9 +439,9 @@ lisp_object_t parse_symbol(char **text)
     strncpy(tmp, *text, len);
     tmp[len] = 0;
     *text += len;
-    if (strcmp(tmp, "NIL") == 0)
+    if (strcmp(tmp, "nil") == 0)
         return NIL;
-    else if (strcmp(tmp, "T") == 0)
+    else if (strcmp(tmp, "t") == 0)
         return T;
     else {
         lisp_object_t lisp_string = allocate_string(len + 1 /* include terminating null */, tmp);
@@ -635,9 +635,9 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
         snprintf(str, length + 1, "%d", value);
         string_buffer_append(sb, str);
     } else if (obj == NIL) {
-        string_buffer_append(sb, "NIL");
+        string_buffer_append(sb, "nil");
     } else if (obj == T) {
-        string_buffer_append(sb, "T");
+        string_buffer_append(sb, "t");
     } else if (consp(obj) != NIL) {
         string_buffer_append(sb, "(");
         print_cons_to_buffer(obj, sb);

@@ -205,12 +205,12 @@ static void test_t_is_a_symbol()
 static void test_read_and_print_nil()
 {
     test_name = "read_and_print_nil";
-    char *test_string = "NIL";
+    char *test_string = "nil";
     init_interpreter(256);
     lisp_object_t obj = parse1(&test_string);
-    check(obj == NIL, "is NIL");
+    check(obj == NIL, "is nil");
     char *result = print_object(obj);
-    check(strcmp("NIL", result) == 0, "print NIL");
+    check(strcmp("nil", result) == 0, "print nil");
     free(result);
     free_interpreter();
 }
@@ -218,12 +218,12 @@ static void test_read_and_print_nil()
 static void test_read_and_print_t()
 {
     test_name = "read_and_print_t";
-    char *test_string = "T";
+    char *test_string = "t";
     init_interpreter(256);
     lisp_object_t obj = parse1(&test_string);
     check(obj == T, "is T");
     char *result = print_object(obj);
-    check(strcmp("T", result) == 0, "print t");
+    check(strcmp("t", result) == 0, "print t");
     free(result);
     free_interpreter();
 }
@@ -253,7 +253,7 @@ static void test_print_empty_cons()
     init_interpreter(256);
     lisp_object_t empty = cons(NIL, NIL);
     char *str = print_object(empty);
-    check(strcmp("(NIL)", str) == 0, "(NIL)");
+    check(strcmp("(nil)", str) == 0, "(nil)");
     free(str);
     free_interpreter();
 }
@@ -371,14 +371,14 @@ static void test_parse_list_of_strings()
 static void test_eq()
 {
     test_name = "eq";
-    check(eq(0, 0) == T, "(eq 0 0) is T");
-    check(eq(1, 1) == T, "(eq 1 1) is T");
-    check(eq(NIL, NIL) == T, "(eq nil nil) is T");
-    check(eq(T, T) == T, "(eq t t) is T");
-    check(eq(0, 0) != NIL, "(eq 0 0) is not NIL");
-    check(eq(1, 1) != NIL, "(eq 1 1) is not NIL");
-    check(eq(NIL, NIL) != NIL, "(eq nil nil) is not NIL");
-    check(eq(T, T) != NIL, "(eq t t) is not NIL");
+    check(eq(0, 0) == T, "(eq 0 0) is t");
+    check(eq(1, 1) == T, "(eq 1 1) is t");
+    check(eq(NIL, NIL) == T, "(eq nil nil) is t");
+    check(eq(T, T) == T, "(eq t t) is t");
+    check(eq(0, 0) != NIL, "(eq 0 0) is not nil");
+    check(eq(1, 1) != NIL, "(eq 1 1) is not nil");
+    check(eq(NIL, NIL) != NIL, "(eq nil nil) is not nil");
+    check(eq(T, T) != NIL, "(eq t t) is not nil");
 }
 
 /* The parse updates the pointer passed to it.
@@ -444,7 +444,7 @@ static void test_parse_quote()
     print_object_to_buffer(result, &sb);
     char *str = string_buffer_to_string(&sb);
     string_buffer_free_links(&sb);
-    check(strcmp("(QUOTE FOO)", str) == 0, "parse quote");
+    check(strcmp("(quote FOO)", str) == 0, "parse quote");
     free(str);
     free_interpreter();
 }
@@ -551,8 +551,8 @@ static void test_sublis()
 static void test_null()
 {
     test_name = "null";
-    check(null(NIL) != NIL, "NIL");
-    check(null(T) == NIL, "T");
+    check(null(NIL) != NIL, "nil");
+    check(null(T) == NIL, "t");
 }
 
 static void test_append()
@@ -589,7 +589,7 @@ static void test_assoc()
 {
     test_name = "assoc";
     init_interpreter(4096);
-    char *text1 = "((A . (M N)) (B . (CAR X)) (C . (QUOTE M)) (C . (CDR x)))";
+    char *text1 = "((A . (M N)) (B . (car X)) (C . (quote M)) (C . (cdr x)))";
     char *text2 = "B";
     char *text3 = "X";
     lisp_object_t alist = parse1(&text1);
@@ -597,7 +597,7 @@ static void test_assoc()
     lisp_object_t x = parse1(&text3);
     lisp_object_t result = assoc(b, alist);
     char *str = print_object(result);
-    check(strcmp("(B CAR X)", str) == 0, "match found");
+    check(strcmp("(B car X)", str) == 0, "match found");
     free(str);
     check(assoc(x, alist) == NIL, "match not present");
     free_interpreter();
@@ -649,13 +649,13 @@ static void test_evalquote_helper(char *fnstr, char *exprstr, char *expected)
 static void test_evalquote()
 {
     test_name = "evalquote";
-    test_evalquote_helper("CAR", "((A . B))", "A");
-    test_evalquote_helper("CDR", "((A . B))", "B");
-    test_evalquote_helper("CDR", "((A . B))", "B");
-    test_evalquote_helper("ATOM", "(A)", "T");
-    test_evalquote_helper("ATOM", "((A . B))", "NIL");
-    test_evalquote_helper("EQ", "(A A)", "T");
-    test_evalquote_helper("EQ", "(A B)", "NIL");
+    test_evalquote_helper("car", "((A . B))", "A");
+    test_evalquote_helper("cdr", "((A . B))", "B");
+    test_evalquote_helper("cdr", "((A . B))", "B");
+    test_evalquote_helper("atom", "(A)", "t");
+    test_evalquote_helper("atom", "((A . B))", "nil");
+    test_evalquote_helper("eq", "(A A)", "t");
+    test_evalquote_helper("eq", "(A B)", "nil");
 }
 
 static lisp_object_t test_eval_string_helper(char *exprstr)
@@ -692,22 +692,22 @@ static void test_eval_helper(char *exprstr, char *expectedstr)
 static void test_eval()
 {
     test_name = "eval";
-    test_eval_helper("T", "T");
+    test_eval_helper("t", "t");
     test_eval_helper("3", "3");
-    test_eval_helper("(CONS (QUOTE A) (QUOTE B))", "(A . B)");
-    test_eval_helper("(COND ((EQ (CAR (CONS (QUOTE A) NIL)) (QUOTE A)) (QUOTE OK)))", "OK");
-    test_eval_helper("(COND ((EQ (CAR (CONS (QUOTE A) NIL)) (QUOTE B)) (QUOTE BAD)) (T (QUOTE OK)))", "OK");
-    test_eval_helper("((LAMBDA (X) (CAR X)) (CONS (QUOTE A) (QUOTE B)))", "A");
+    test_eval_helper("(cons (quote A) (quote B))", "(A . B)");
+    test_eval_helper("(cond ((eq (car (cons (quote A) nil)) (quote A)) (quote OK)))", "OK");
+    test_eval_helper("(cond ((eq (car (cons (quote A) nil)) (quote B)) (quote BAD)) (t (quote OK)))", "OK");
+    test_eval_helper("((lambda (X) (car X)) (cons (quote A) (quote B)))", "A");
 }
 
 static void test_defun()
 {
     test_name = "defun";
     init_interpreter(4096);
-    lisp_object_t result1 = test_eval_string_helper("(DEFUN FOO (X) (CONS X (QUOTE BAR)))");
-    lisp_object_t result2 = test_eval_string_helper("(FOO 14)");
+    lisp_object_t result1 = test_eval_string_helper("(defun foo (x) (cons x (quote bar)))");
+    lisp_object_t result2 = test_eval_string_helper("(foo 14)");
     char *str = print_object(result2);
-    check(strcmp("(14 . BAR)", str) == 0, "result");
+    check(strcmp("(14 . bar)", str) == 0, "result");
     free(str);
     free_interpreter();
 }
@@ -803,12 +803,12 @@ static void test_gc_cycle()
 static void test_load1()
 {
     test_name = "load";
-    lisp_object_t result1 = test_eval_string_helper("(LOAD \"/home/graham/toy-lisp-interpreter/test-load.lisp\")");
+    lisp_object_t result1 = test_eval_string_helper("(load \"/home/graham/toy-lisp-interpreter/test-load.lisp\")");
     check(result1 == T, "load returns T");
     printf("%lu conses allocated\n", interp->cons_heap.allocation_count);
-    lisp_object_t result2 = test_eval_string_helper("(TEST1 (QUOTE THERE))");
+    lisp_object_t result2 = test_eval_string_helper("(test1 (quote there))");
     char *str = print_object(result2);
-    check(strcmp("(HELLO . THERE)", str) == 0, "result of TEST1");
+    check(strcmp("(hello . there)", str) == 0, "result of test1");
     free(str);
 }
 

@@ -2,6 +2,7 @@
 #include "string_buffer.h"
 
 #include <alloca.h>
+#include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -821,6 +822,8 @@ lisp_object_t pairlis(lisp_object_t x, lisp_object_t y, lisp_object_t a)
 lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
 {
     if (atom(fn) != NIL) {
+        if (fn == NIL)
+            abort();
         struct symbol *sym = SymbolPtr(fn);
         if (sym->function != NIL)
             /* Function cell of symbol is bound */

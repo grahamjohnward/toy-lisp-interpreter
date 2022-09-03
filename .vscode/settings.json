@@ -9,6 +9,11 @@
         "fstream": "c",
         "istream": "c",
         "streambuf": "c",
-        "ostream": "c"
+        "ostream": "c",
+        "array": "c",
+        "string_view": "c",
+        "initializer_list": "c",
+        "utility": "c",
+        "stddef.h": "c"
     }
 }

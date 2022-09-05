@@ -320,7 +320,7 @@ static void gc(struct cons_heap *cons_heap)
     mark(cons_heap);
     sweep(cons_heap);
     size_t nfreed = before - cons_heap->allocation_count;
-    printf("Garbage collection: %lu conses freed\n", nfreed);
+    printf("; Garbage collection: %lu conses freed\n", nfreed);
 }
 
 lisp_object_t cons_heap_allocate_cons(struct cons_heap *cons_heap)
@@ -916,7 +916,7 @@ static void load_eval_callback(void *ignored, lisp_object_t obj)
 {
     lisp_object_t result = eval_toplevel(obj);
     char *str = print_object(result);
-    printf("; %s\n", str);
+    printf("%s\n", str);
     free(str);
 }
 

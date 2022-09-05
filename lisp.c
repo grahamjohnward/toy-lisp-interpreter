@@ -195,7 +195,7 @@ void init_interpreter(size_t heap_size)
     }
     bzero(interp->heap, interp->heap_size_bytes);
     interp->next_free = interp->heap;
-    cons_heap_init(&interp->cons_heap, 1024);
+    cons_heap_init(&interp->cons_heap, heap_size);
     interp->symbol_table = NIL;
     interp->syms.car = sym("car");
     interp->syms.cdr = sym("cdr");

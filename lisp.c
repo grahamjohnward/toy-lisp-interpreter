@@ -451,7 +451,7 @@ lisp_object_t parse_symbol(char **text)
     }
 }
 
-int parse_integer(char **text)
+int64_t parse_integer(char **text)
 {
     char *start = *text;
     size_t len = 0;
@@ -460,7 +460,7 @@ int parse_integer(char **text)
     char *tmp = (char *)alloca(len + 1);
     strncpy(tmp, start, len);
     tmp[len] = 0;
-    return atoi(tmp);
+    return atoll(tmp);
 }
 
 void skip_whitespace(char **text)
@@ -631,10 +631,10 @@ void print_cons_to_buffer(lisp_object_t obj, struct string_buffer *sb)
 void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
 {
     if (integerp(obj) != NIL) {
-        int value = obj;
-        int length = snprintf(NULL, 0, "%d", value);
+        int64_t value = obj;
+        int length = snprintf(NULL, 0, "%ld", value);
         char *str = alloca(length + 1);
-        snprintf(str, length + 1, "%d", value);
+        snprintf(str, length + 1, "%ld", value);
         string_buffer_append(sb, str);
     } else if (obj == NIL) {
         string_buffer_append(sb, "nil");

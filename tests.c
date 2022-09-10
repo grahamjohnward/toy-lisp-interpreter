@@ -48,12 +48,30 @@ static void test_parse_integer()
     check(result == 13, "value");
 }
 
+static void test_parse_large_integer()
+{
+    test_name = "parse_large_integer";
+    char *test_string = "1152921504606846975";
+    int64_t result = parse_integer(&test_string);
+    check(result == 1152921504606846975, "value");
+    check(integerp((lisp_object_t)result) != NIL, "integerp");
+}
+
 static void test_parse_negative_integer()
 {
     test_name = "parse_negative_integer";
     char *test_string = "-498";
     int result = parse_integer(&test_string);
     check(result == -498, "value");
+}
+
+static void test_parse_large_negative_integer()
+{
+    test_name = "parse_large_negative_integer";
+    char *test_string = "-1152921504606846976";
+    int64_t result = parse_integer(&test_string);
+    check(result == -1152921504606846976, "value");
+    check(integerp((lisp_object_t)result) != NIL, "integerp");
 }
 
 static void test_parse_single_integer_list()
@@ -825,7 +843,9 @@ int main(int argc, char **argv)
     test_skip_whitespace();
     test_comments();
     test_parse_integer();
+    test_parse_large_integer();
     test_parse_negative_integer();
+    test_parse_large_negative_integer();
     test_parse_single_integer_list();
     test_parse_integer_list();
     test_parse_dotted_pair_of_integers();

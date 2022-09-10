@@ -11,7 +11,7 @@
 typedef uint64_t lisp_object_t;
 
 void skip_whitespace(char **text);
-int parse_integer(char **text);
+int64_t parse_integer(char **text);
 lisp_object_t parse_string(char **);
 lisp_object_t parse1(char **);
 void parse(char *text, void (*callback)(void *, lisp_object_t), void *callback_data);

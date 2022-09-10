@@ -113,6 +113,14 @@ lisp_object_t symbolp(lisp_object_t obj)
     return istype(obj, SYMBOL_TYPE);
 }
 
+void check_integer(int64_t obj)
+{
+    if (obj > 0x0fffffffffffffff)
+        abort();
+    if (obj < (int64_t)0xf000000000000000)
+        abort();
+}
+
 lisp_object_t integerp(lisp_object_t obj)
 {
     uint64_t x = obj & TYPE_MASK;
@@ -460,7 +468,9 @@ int64_t parse_integer(char **text)
     char *tmp = (char *)alloca(len + 1);
     strncpy(tmp, start, len);
     tmp[len] = 0;
-    return atoll(tmp);
+    int64_t result = atoll(tmp);
+    check_integer(result);
+    return result;
 }
 
 void skip_whitespace(char **text)

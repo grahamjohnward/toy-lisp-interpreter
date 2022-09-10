@@ -74,6 +74,22 @@ static void test_parse_large_negative_integer()
     check(integerp((lisp_object_t)result) != NIL, "integerp");
 }
 
+static void test_integer_too_large()
+{
+    test_name = "test_integer_too_large";
+    char *test_string = "1152921504606846976";
+    /* Calls abort() */
+    // int64_t result = parse_integer(&test_string);
+}
+
+static void test_integer_too_negative()
+{
+    test_name = "test_integer_too_negative";
+    char *test_string = "-1152921504606846977";
+    /* Calls abort() */
+    // int64_t result = parse_integer(&test_string);
+}
+
 static void test_parse_single_integer_list()
 {
     test_name = "parse_single_integer_list";
@@ -846,7 +862,8 @@ int main(int argc, char **argv)
     test_parse_large_integer();
     test_parse_negative_integer();
     test_parse_large_negative_integer();
-    test_parse_single_integer_list();
+    test_integer_too_large();
+    test_integer_too_negative();
     test_parse_integer_list();
     test_parse_dotted_pair_of_integers();
     test_string_buffer();

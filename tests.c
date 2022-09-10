@@ -65,7 +65,7 @@ static void test_parse_single_integer_list()
     check(consp(result), "consp");
     lisp_object_t result_car = car(result);
     check(integerp(result_car), "car is int");
-    check(result_car == 14 << 3, "car value");
+    check(result_car == 14, "car value");
     lisp_object_t result_cdr = cdr(result);
     check(NIL == result_cdr, "cdr is null");
     free_interpreter();
@@ -80,13 +80,13 @@ static void test_parse_integer_list()
     check(consp(result), "consp");
     lisp_object_t result_car = car(result);
     check(integerp(result_car), "car is int");
-    check(result_car == 23 << 3, "car value");
+    check(result_car == 23, "car value");
     lisp_object_t result_cdr = cdr(result);
     check(NIL != result_cdr, "cdr is not null");
     check(consp(result_cdr), "cdr is a pair");
     lisp_object_t cadr = car(result_cdr);
     check(integerp(cadr), "cadr is int");
-    check(cadr == 71 << 3, "cadr value");
+    check(cadr == 71, "cadr value");
     free_interpreter();
 }
 
@@ -99,8 +99,8 @@ static void test_parse_dotted_pair_of_integers()
     check(consp(result), "consp");
     check(integerp(car(result)), "car is int");
     check(integerp(cdr(result)), "cdr is int");
-    check(car(result) == 45 << 3, "car value");
-    check(cdr(result) == 123 << 3, "cdr value");
+    check(car(result) == 45, "car value");
+    check(cdr(result) == 123, "cdr value");
     free_interpreter();
 }
 

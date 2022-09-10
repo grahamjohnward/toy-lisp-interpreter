@@ -28,11 +28,11 @@ struct vector {
     lisp_object_t storage;
 };
 
-lisp_object_t istype(lisp_object_t obj, int type);
+lisp_object_t istype(lisp_object_t obj, uint64_t type);
 
-static void check_type(lisp_object_t obj, int type)
+static void check_type(lisp_object_t obj, uint64_t type)
 {
-    static char *type_names[5] = { "integer", "symbol", "cons", "string", "vector" };
+    static char *type_names[5] = { "unused", "symbol", "cons", "string", "vector" };
     if (istype(obj, type) == NIL) {
         char *obj_string = print_object(obj);
         printf("Not a %s: %s\n", type_names[type], obj_string);
@@ -98,7 +98,7 @@ lisp_object_t eq(lisp_object_t o1, lisp_object_t o2)
     return o1 == o2 ? T : NIL;
 }
 
-lisp_object_t istype(lisp_object_t obj, int type)
+lisp_object_t istype(lisp_object_t obj, uint64_t type)
 {
     return (obj & TYPE_MASK) == type ? T : NIL;
 }
@@ -115,7 +115,8 @@ lisp_object_t symbolp(lisp_object_t obj)
 
 lisp_object_t integerp(lisp_object_t obj)
 {
-    return istype(obj, INTEGER_TYPE);
+    uint64_t x = obj & TYPE_MASK;
+    return x == 0 || x == TYPE_MASK ? T : NIL;
 }
 
 lisp_object_t consp(lisp_object_t obj)
@@ -557,7 +558,7 @@ lisp_object_t parse1(char **text)
     } else if (**text == ')') {
         printf("Unexpected close paren\n");
     } else if (**text == '-' || (**text >= '0' && **text <= '9')) {
-        return parse_integer(text) << 3;
+        return parse_integer(text);
     } else if (**text == '#') {
         return parse_dispatch(text);
     } else if (**text == '"') {
@@ -630,7 +631,7 @@ void print_cons_to_buffer(lisp_object_t obj, struct string_buffer *sb)
 void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
 {
     if (integerp(obj) != NIL) {
-        int value = obj >> 3;
+        int value = obj;
         int length = snprintf(NULL, 0, "%d", value);
         char *str = alloca(length + 1);
         snprintf(str, length + 1, "%d", value);

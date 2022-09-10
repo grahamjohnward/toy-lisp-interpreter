@@ -26,16 +26,15 @@ void print_object_to_buffer(lisp_object_t, struct string_buffer *);
 void load_str(char *str);
 lisp_object_t load(lisp_object_t filename);
 
-#define NIL 0xfffffffffffffff9
-#define T 0xfffffffffffffff1
+#define NIL 0x17ffffffffffffff
+#define T 0x1fffffffffffffff
 
-#define TYPE_MASK 0x7
-#define PTR_MASK 0xfffffffffffffff8
-#define INTEGER_TYPE 0
-#define SYMBOL_TYPE 1
-#define CONS_TYPE 2
-#define STRING_TYPE 3
-#define VECTOR_TYPE 4
+#define TYPE_MASK 0xf000000000000000
+#define PTR_MASK 0x0fffffffffffffff
+#define SYMBOL_TYPE 0x1000000000000000
+#define CONS_TYPE 0x2000000000000000
+#define STRING_TYPE 0x3000000000000000
+#define VECTOR_TYPE 0x4000000000000000
 
 #define ConsPtr(obj) ((struct cons *)((obj)&PTR_MASK))
 #define SymbolPtr(obj) ((struct symbol *)((obj)&PTR_MASK))

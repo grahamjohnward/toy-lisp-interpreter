@@ -225,7 +225,7 @@ void init_interpreter(size_t heap_size)
     interp->syms.defun = sym("defun");
     interp->syms.built_in_function = sym("built-in-function");
     interp->environ = NIL;
-#define DEFBUILTIN(S, F, A) define_built_in_function(S, (void (*)(void))F, A)
+#define DEFBUILTIN(S, F, A) define_built_in_function(S, (void (*)())F, A)
     DEFBUILTIN("car", car, 1);
     DEFBUILTIN("cdr", cdr, 1);
     DEFBUILTIN("cons", cons, 2);
@@ -861,11 +861,11 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
         return eval(caddr(fn), pairlis(cadr(fn), x, a));
     } else if (eq(car(fn), interp->syms.built_in_function) != NIL) {
         check_function_pointer(cadr(fn));
-        void (*fp)(void *) = FunctionPtr(cadr(fn));
+        void (*fp)() = FunctionPtr(cadr(fn));
         lisp_object_t arity = caddr(fn);
         switch (arity) {
         case 0:
-            return ((lisp_object_t(*)(void))fp)();
+            return ((lisp_object_t(*)())fp)();
         case 1:
             return ((lisp_object_t(*)(lisp_object_t))fp)(car(x));
         case 2:

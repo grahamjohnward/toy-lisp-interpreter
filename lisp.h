@@ -42,7 +42,7 @@ lisp_object_t load(lisp_object_t filename);
 /* StringPtr is different as a string is not a struct */
 #define StringPtr(obj) ((size_t *)((obj)&PTR_MASK))
 #define VectorPtr(obj) ((struct vector *)((obj)&PTR_MASK))
-#define FunctionPtr(obj) ((void (*)(void *))((obj)&PTR_MASK))
+#define FunctionPtr(obj) ((void (*)())((obj)&PTR_MASK))
 
 lisp_object_t svref(lisp_object_t vector, size_t index);
 lisp_object_t svref_set(lisp_object_t vector, size_t index, lisp_object_t newvalue);

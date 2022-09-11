@@ -854,6 +854,23 @@ static void test_load()
     free_interpreter();
 }
 
+lisp_object_t test_fn(lisp_object_t a, lisp_object_t b)
+{
+    return cons(b, a);
+}
+
+static void test_apply_function_pointer()
+{
+    test_name = "apply_function_pointer";
+    init_interpreter(256);
+    lisp_object_t fn = cons(sym("built-in-function"), cons((lisp_object_t)(FUNCTION_POINTER_TYPE | (uint64_t)test_fn), cons(2, NIL)));
+    lisp_object_t result = apply(fn, cons(14, cons(3, NIL)), NIL);
+    char *str = print_object(result);
+    check(strcmp("(3 . 14)", str) == 0, "function called");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -915,6 +932,7 @@ int main(int argc, char **argv)
     test_cons_heap_mark_stack();
     test_cons_heap_mark_symbol_table();
     test_gc_cycle();
+    test_apply_function_pointer();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

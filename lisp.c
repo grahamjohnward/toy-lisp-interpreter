@@ -32,7 +32,7 @@ lisp_object_t istype(lisp_object_t obj, uint64_t type);
 
 static void check_type(lisp_object_t obj, uint64_t type)
 {
-    static char *type_names[5] = { "unused", "symbol", "cons", "string", "vector" };
+    static char *type_names[6] = { "unused", "symbol", "cons", "string", "vector", "function pointer" };
     if (istype(obj, type) == NIL) {
         char *obj_string = print_object(obj);
         printf("Not a %s: %s\n", type_names[type], obj_string);
@@ -59,6 +59,11 @@ static void check_symbol(lisp_object_t obj)
 static void check_vector(lisp_object_t obj)
 {
     check_type(obj, VECTOR_TYPE);
+}
+
+static void check_function_pointer(lisp_object_t obj)
+{
+    check_type(obj, FUNCTION_POINTER_TYPE);
 }
 
 lisp_object_t car(lisp_object_t obj)
@@ -191,6 +196,13 @@ lisp_object_t allocate_vector(size_t size)
     return result;
 }
 
+static void define_built_in_function(char *symbol_name, void (*function_pointer)(void), int arity)
+{
+    struct symbol *symptr = SymbolPtr(sym(symbol_name));
+    lisp_object_t fp = ((uint64_t)function_pointer) | FUNCTION_POINTER_TYPE;
+    symptr->function = cons(interp->syms.built_in_function, cons(fp, cons(arity, NIL)));
+}
+
 void init_interpreter(size_t heap_size)
 {
     interp = (struct lisp_interpreter *)malloc(sizeof(struct lisp_interpreter));
@@ -206,18 +218,21 @@ void init_interpreter(size_t heap_size)
     interp->next_free = interp->heap;
     cons_heap_init(&interp->cons_heap, heap_size);
     interp->symbol_table = NIL;
-    interp->syms.car = sym("car");
-    interp->syms.cdr = sym("cdr");
-    interp->syms.cons = sym("cons");
-    interp->syms.atom = sym("atom");
-    interp->syms.eq = sym("eq");
     interp->syms.lambda = sym("lambda");
     interp->syms.label = sym("label");
     interp->syms.quote = sym("quote");
     interp->syms.cond = sym("cond");
     interp->syms.defun = sym("defun");
-    interp->syms.load = sym("load");
+    interp->syms.built_in_function = sym("built-in-function");
     interp->environ = NIL;
+#define DEFBUILTIN(S, F, A) define_built_in_function(S, (void (*)(void))F, A)
+    DEFBUILTIN("car", car, 1);
+    DEFBUILTIN("cdr", cdr, 1);
+    DEFBUILTIN("cons", cons, 2);
+    DEFBUILTIN("atom", atom, 1);
+    DEFBUILTIN("eq", eq, 2);
+    DEFBUILTIN("load", load, 1);
+#undef DEFBUILTIN
     interpreter_initialized = 1;
     top_of_stack = NULL;
 }
@@ -839,23 +854,25 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
         if (sym->function != NIL)
             /* Function cell of symbol is bound */
             return apply(sym->function, x, a);
-        else if (eq(fn, interp->syms.car) != NIL)
-            return caar(x);
-        else if (eq(fn, interp->syms.cdr) != NIL)
-            return cdar(x);
-        else if (eq(fn, interp->syms.cons) != NIL)
-            return cons(car(x), cadr(x));
-        else if (eq(fn, interp->syms.atom) != NIL)
-            return atom(car(x));
-        else if (eq(fn, interp->syms.eq) != NIL)
-            return eq(car(x), cadr(x));
-        else if (eq(fn, interp->syms.load) != NIL)
-            return load(car(x));
         else
             return apply(eval(fn, a), x, a);
     } else if (eq(car(fn), interp->syms.lambda) != NIL)
         return eval(caddr(fn), pairlis(cadr(fn), x, a));
-    else if (eq(car(fn), interp->syms.label) != NIL)
+    else if (eq(car(fn), interp->syms.built_in_function) != NIL) {
+        check_function_pointer(cadr(fn));
+        void (*fp)(void *) = FunctionPtr(cadr(fn));
+        lisp_object_t arity = caddr(fn);
+        switch (arity) {
+        case 0:
+            return ((lisp_object_t(*)(void))fp)();
+        case 1:
+            return ((lisp_object_t(*)(lisp_object_t))fp)(car(x));
+        case 2:
+            return ((lisp_object_t(*)(lisp_object_t, lisp_object_t))fp)(car(x), cadr(x));
+        default:
+            abort();
+        }
+    } else if (eq(car(fn), interp->syms.label) != NIL)
         return apply(caddr(fn), x, cons(cons(cadr(fn), caddr(fn)), a));
     else {
         char *str = print_object(fn);

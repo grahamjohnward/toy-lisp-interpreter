@@ -35,12 +35,14 @@ lisp_object_t load(lisp_object_t filename);
 #define CONS_TYPE 0x2000000000000000
 #define STRING_TYPE 0x3000000000000000
 #define VECTOR_TYPE 0x4000000000000000
+#define FUNCTION_POINTER_TYPE 0x5000000000000000
 
 #define ConsPtr(obj) ((struct cons *)((obj)&PTR_MASK))
 #define SymbolPtr(obj) ((struct symbol *)((obj)&PTR_MASK))
 /* StringPtr is different as a string is not a struct */
 #define StringPtr(obj) ((size_t *)((obj)&PTR_MASK))
 #define VectorPtr(obj) ((struct vector *)((obj)&PTR_MASK))
+#define FunctionPtr(obj) ((void (*)(void *))((obj)&PTR_MASK))
 
 lisp_object_t svref(lisp_object_t vector, size_t index);
 lisp_object_t svref_set(lisp_object_t vector, size_t index, lisp_object_t newvalue);
@@ -55,6 +57,7 @@ lisp_object_t integerp(lisp_object_t obj);
 lisp_object_t consp(lisp_object_t obj);
 lisp_object_t stringp(lisp_object_t obj);
 lisp_object_t vectorp(lisp_object_t obj);
+lisp_object_t atom(lisp_object_t obj);
 lisp_object_t cons(lisp_object_t car, lisp_object_t cdr);
 lisp_object_t car(lisp_object_t obj);
 lisp_object_t cdr(lisp_object_t obj);
@@ -71,9 +74,10 @@ lisp_object_t pairlis(lisp_object_t x, lisp_object_t y, lisp_object_t a);
 lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x);
 lisp_object_t eval_toplevel(lisp_object_t e);
 lisp_object_t eval(lisp_object_t e, lisp_object_t a);
+lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a);
 
 struct syms {
-    lisp_object_t car, cdr, cons, atom, eq, lambda, label, quote, cond, defun, load;
+    lisp_object_t lambda, label, quote, cond, defun, built_in_function;
 };
 
 struct cons {

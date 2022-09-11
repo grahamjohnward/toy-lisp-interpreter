@@ -280,9 +280,9 @@ void *get_rbp(int offset)
 
 static void mark_object(lisp_object_t obj)
 {
-    if (obj == NIL || obj == T)
+    if (obj == NIL || obj == T) {
         return;
-    else if (consp(obj) == T) {
+    } else if (consp(obj) == T) {
         struct cons *cons_ptr = ConsPtr(obj);
         if (cons_ptr->mark_bit)
             return;
@@ -333,8 +333,9 @@ void sweep(struct cons_heap *cons_heap)
             p->is_allocated = 0;
             cons_heap->free_list_head = p;
             cons_heap->allocation_count--;
-        } else
+        } else {
             p->mark_bit = 0;
+        }
     }
 }
 
@@ -856,9 +857,9 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
             return apply(sym->function, x, a);
         else
             return apply(eval(fn, a), x, a);
-    } else if (eq(car(fn), interp->syms.lambda) != NIL)
+    } else if (eq(car(fn), interp->syms.lambda) != NIL) {
         return eval(caddr(fn), pairlis(cadr(fn), x, a));
-    else if (eq(car(fn), interp->syms.built_in_function) != NIL) {
+    } else if (eq(car(fn), interp->syms.built_in_function) != NIL) {
         check_function_pointer(cadr(fn));
         void (*fp)(void *) = FunctionPtr(cadr(fn));
         lisp_object_t arity = caddr(fn);
@@ -872,9 +873,9 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
         default:
             abort();
         }
-    } else if (eq(car(fn), interp->syms.label) != NIL)
+    } else if (eq(car(fn), interp->syms.label) != NIL) {
         return apply(caddr(fn), x, cons(cons(cadr(fn), caddr(fn)), a));
-    else {
+    } else {
         char *str = print_object(fn);
         printf("Bad function: %s\n", str);
         free(str);

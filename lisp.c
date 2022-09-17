@@ -481,12 +481,16 @@ lisp_object_t parse_symbol(char **text)
 
 int64_t parse_integer(char **text)
 {
-    char *start = *text;
+    static size_t max_integer_length = 24;
+    char *tmp = alloca(max_integer_length);
     size_t len = 0;
-    for (; **text == '-' || (**text >= '0' && **text <= '9'); (*text)++, len++)
-        ;
-    char *tmp = (char *)alloca(len + 1);
-    strncpy(tmp, start, len);
+    while (**text == '-' || (**text >= '0' && **text <= '9')) {
+        tmp[len] = **text;
+        (*text)++;
+        len++;
+        if (len > max_integer_length - 1)
+            abort();
+    }
     tmp[len] = 0;
     int64_t result = atoll(tmp);
     check_integer(result);

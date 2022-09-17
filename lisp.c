@@ -457,14 +457,18 @@ lisp_object_t allocate_symbol(lisp_object_t name)
 lisp_object_t parse_symbol(char **text)
 {
     static char *delimiters = " \n\t\r)\0";
-    char *p = *text;
-    while (!strchr(delimiters, *p))
-        p++;
-    size_t len = p - *text;
-    char *tmp = alloca(len + 1);
-    strncpy(tmp, *text, len);
+    /* Could maybe use string buffer here? */
+    static size_t max_symbol_length = 256;
+    char *tmp = alloca(max_symbol_length);
+    size_t len = 0;
+    while (!strchr(delimiters, **text)) {
+        tmp[len] = **text;
+        len++;
+        if (len >= max_symbol_length - 1) /* leave room for final \0 */
+            abort();
+        (*text)++;
+    }
     tmp[len] = 0;
-    *text += len;
     if (strcmp(tmp, "nil") == 0)
         return NIL;
     else if (strcmp(tmp, "t") == 0)

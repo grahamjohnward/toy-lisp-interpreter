@@ -4,7 +4,7 @@ project(toy-lisp-interpreter VERSION 0.1.0)
 
 add_definitions(-D_DEFAULT_SOURCE)
 
-add_library(lisp STATIC lisp.c string_buffer.c)
+add_library(lisp STATIC lisp.c string_buffer.c text_stream.c)
 
 add_executable(tests tests.c)
 add_executable(main main.c)

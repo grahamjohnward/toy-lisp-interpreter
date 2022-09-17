@@ -1,5 +1,6 @@
 #include "lisp.h"
 #include "string_buffer.h"
+#include "text_stream.h"
 
 #include <alloca.h>
 #include <stdarg.h>
@@ -454,19 +455,19 @@ lisp_object_t allocate_symbol(lisp_object_t name)
     }
 }
 
-lisp_object_t parse_symbol(char **text)
+lisp_object_t parse_symbol(struct text_stream *ts)
 {
     static char *delimiters = " \n\t\r)\0";
     /* Could maybe use string buffer here? */
     static size_t max_symbol_length = 256;
     char *tmp = alloca(max_symbol_length);
     size_t len = 0;
-    while (!strchr(delimiters, **text)) {
-        tmp[len] = **text;
+    while (!strchr(delimiters, text_stream_peek(ts))) {
+        tmp[len] = text_stream_peek(ts);
         len++;
         if (len >= max_symbol_length - 1) /* leave room for final \0 */
             abort();
-        (*text)++;
+        text_stream_advance(ts);
     }
     tmp[len] = 0;
     if (strcmp(tmp, "nil") == 0)
@@ -479,14 +480,14 @@ lisp_object_t parse_symbol(char **text)
     }
 }
 
-int64_t parse_integer(char **text)
+int64_t parse_integer(struct text_stream *ts)
 {
     static size_t max_integer_length = 24;
     char *tmp = alloca(max_integer_length);
     size_t len = 0;
-    while (**text == '-' || (**text >= '0' && **text <= '9')) {
-        tmp[len] = **text;
-        (*text)++;
+    while (text_stream_peek(ts) == '-' || (text_stream_peek(ts) >= '0' && text_stream_peek(ts) <= '9')) {
+        tmp[len] = text_stream_peek(ts);
+        text_stream_advance(ts);
         len++;
         if (len > max_integer_length - 1)
             abort();
@@ -497,32 +498,32 @@ int64_t parse_integer(char **text)
     return result;
 }
 
-void skip_whitespace(char **text)
+void skip_whitespace(struct text_stream *ts)
 {
-    while (**text && strchr("\r\n\t ", **text) != NULL)
-        (*text)++;
-    if (**text == ';') {
-        while (**text && **text != '\n')
-            (*text)++;
-        skip_whitespace(text);
+    while (!text_stream_eof(ts) && strchr("\r\n\t ", text_stream_peek(ts)) != NULL)
+        text_stream_advance(ts);
+    if (text_stream_peek(ts) == ';') {
+        while (!text_stream_eof(ts) && text_stream_peek(ts) != '\n')
+            text_stream_advance(ts);
+        skip_whitespace(ts);
     }
 }
 
-lisp_object_t parse_cons(char **text)
+lisp_object_t parse_cons(struct text_stream *ts)
 {
-    skip_whitespace(text);
-    lisp_object_t new_cons = cons(parse1(text), NIL);
-    skip_whitespace(text);
-    if (**text == '.') {
-        (*text)++;
-        skip_whitespace(text);
-        rplacd(new_cons, parse1(text));
+    skip_whitespace(ts);
+    lisp_object_t new_cons = cons(parse1(ts), NIL);
+    skip_whitespace(ts);
+    if (text_stream_peek(ts) == '.') {
+        text_stream_advance(ts);
+        skip_whitespace(ts);
+        rplacd(new_cons, parse1(ts));
     }
-    if (**text == ')') {
-        (*text)++;
+    if (text_stream_peek(ts) == ')') {
+        text_stream_advance(ts);
         return new_cons;
     } else {
-        rplacd(new_cons, parse_cons(text));
+        rplacd(new_cons, parse_cons(ts));
     }
     return new_cons;
 }
@@ -547,14 +548,12 @@ int length_c(lisp_object_t seq)
     return result;
 }
 
-lisp_object_t parse_vector(char **text)
+lisp_object_t parse_vector(struct text_stream *ts)
 {
-    if (**text != '(')
+    if (text_stream_peek(ts) != '(')
         abort();
-    if (*(*text - 1) != '#')
-        abort();
-    (*text)++;
-    lisp_object_t list = parse_cons(text);
+    text_stream_advance(ts);
+    lisp_object_t list = parse_cons(ts);
     int len = length_c(list);
     lisp_object_t vector = allocate_vector(len);
     /* Copy the list into a vector */
@@ -565,61 +564,59 @@ lisp_object_t parse_vector(char **text)
     return vector;
 }
 
-lisp_object_t parse_dispatch(char **text)
+lisp_object_t parse_dispatch(struct text_stream *ts)
 {
-    if (**text != '#')
+    if (text_stream_peek(ts) != '#')
         abort();
-    (*text)++;
-    if (!**text)
+    text_stream_advance(ts);
+    if (!text_stream_peek(ts))
         abort();
-    char c = **text;
-    if (c == '(')
-        return parse_vector(text);
+    if (text_stream_peek(ts) == '(')
+        return parse_vector(ts);
     abort();
 }
 
-lisp_object_t parse1(char **text)
+lisp_object_t parse1(struct text_stream *ts)
 {
-    skip_whitespace(text);
-    if (!**text) {
+    skip_whitespace(ts);
+    if (!text_stream_peek(ts)) {
         abort();
-    } else if (**text == '\'') {
-        (*text)++;
-        return cons(interp->syms.quote, cons(parse1(text), NIL));
-    } else if (**text == '(') {
-        (*text)++;
-        return parse_cons(text);
-    } else if (**text == ')') {
+    } else if (text_stream_peek(ts) == '\'') {
+        text_stream_advance(ts);
+        return cons(interp->syms.quote, cons(parse1(ts), NIL));
+    } else if (text_stream_peek(ts) == '(') {
+        text_stream_advance(ts);
+        return parse_cons(ts);
+    } else if (text_stream_peek(ts) == ')') {
         printf("Unexpected close paren\n");
-    } else if (**text == '-' || (**text >= '0' && **text <= '9')) {
-        return parse_integer(text);
-    } else if (**text == '#') {
-        return parse_dispatch(text);
-    } else if (**text == '"') {
-        return parse_string(text);
+    } else if (text_stream_peek(ts) == '-' || (text_stream_peek(ts) >= '0' && text_stream_peek(ts) <= '9')) {
+        return parse_integer(ts);
+    } else if (text_stream_peek(ts) == '#') {
+        return parse_dispatch(ts);
+    } else if (text_stream_peek(ts) == '"') {
+        return parse_string(ts);
     } else {
-        lisp_object_t sym = parse_symbol(text);
+        lisp_object_t sym = parse_symbol(ts);
         return sym;
     }
     return 0;
 }
 
-lisp_object_t parse1_handle_eof(char **text, int *eof)
+lisp_object_t parse1_handle_eof(struct text_stream *ts, int *eof)
 {
-    skip_whitespace(text);
-    if (!**text) {
+    skip_whitespace(ts);
+    if (text_stream_eof(ts)) {
         *eof = 1;
         return NIL;
     }
-    return parse1(text);
+    return parse1(ts);
 }
 
-void parse(char *text, void (*callback)(void *, lisp_object_t), void *callback_data)
+void parse(struct text_stream *ts, void (*callback)(void *, lisp_object_t), void *callback_data)
 {
-    char **cursor = &text;
-    while (*text) {
+    while (!text_stream_eof(ts)) {
         int eof = 0;
-        lisp_object_t result = parse1_handle_eof(cursor, &eof);
+        lisp_object_t result = parse1_handle_eof(ts, &eof);
         if (eof)
             return;
         else
@@ -630,9 +627,9 @@ void parse(char *text, void (*callback)(void *, lisp_object_t), void *callback_d
 /* Convenience function */
 lisp_object_t sym(char *string)
 {
-    char *tmp = (char *)alloca(strlen(string) + 1);
-    strcpy(tmp, string);
-    lisp_object_t result = parse_symbol(&tmp);
+    struct text_stream ts;
+    text_stream_init(&ts, string);
+    lisp_object_t result = parse_symbol(&ts);
     return result;
 }
 
@@ -705,39 +702,39 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
     }
 }
 
-lisp_object_t parse_string(char **text)
+lisp_object_t parse_string(struct text_stream *ts)
 {
-    if (**text != '"')
+    if (text_stream_peek(ts) != '"')
         abort();
-    (*text)++;
+    text_stream_advance(ts);
     int len = 0;
     int escaped = 0;
     struct string_buffer sb;
     string_buffer_init(&sb);
-    for (; escaped || **text != '"'; (*text)++) {
-        char *p = *text;
-        if (!escaped && *p == '\\')
+    for (; escaped || text_stream_peek(ts) != '"'; text_stream_advance(ts)) {
+        char p = text_stream_peek(ts);
+        if (!escaped && p == '\\')
             escaped = 1;
         else {
             char c;
             if (escaped) {
-                if (*p == '\\')
+                if (p == '\\')
                     c = '\\';
-                else if (*p == 'n')
+                else if (p == 'n')
                     c = '\n';
-                else if (*p == 'r')
+                else if (p == 'r')
                     c = '\r';
-                else if (*p == 't')
+                else if (p == 't')
                     c = '\t';
-                else if (*p == '"')
+                else if (p == '"')
                     c = '"';
                 else {
-                    printf("Unknown escape character: %c\n", *p);
+                    printf("Unknown escape character: %c\n", p);
                     abort();
                 }
                 escaped = 0;
             } else
-                c = *p;
+                c = p;
             char *tmp = (char *)alloca(2);
             tmp[0] = c;
             tmp[1] = '\0';
@@ -745,10 +742,10 @@ lisp_object_t parse_string(char **text)
             len++;
         }
     }
-    if (**text != '"')
+    if (text_stream_peek(ts) != '"')
         /* No closing " */
         abort();
-    (*text)++; /* Move past closing " */
+    text_stream_advance(ts); /* Move past closing " */
     char *str = string_buffer_to_string(&sb);
     lisp_object_t result = allocate_string(len + 1, str);
     string_buffer_free_links(&sb);
@@ -981,7 +978,9 @@ void load_str(char *str)
         string_buffer_append(&sb, buf);
     fclose(f);
     char *text = string_buffer_to_string(&sb);
-    parse(text, load_eval_callback, NULL);
+    struct text_stream ts;
+    text_stream_init(&ts, text);
+    parse(&ts, load_eval_callback, NULL);
     free(text);
     string_buffer_free_links(&sb);
 }

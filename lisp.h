@@ -4,17 +4,18 @@
 #include <stdint.h>
 
 #include "string_buffer.h"
+#include "text_stream.h"
 
 /* This is actually just a collection of declarations that are
    required by the unit tests */
 
 typedef uint64_t lisp_object_t;
 
-void skip_whitespace(char **text);
-int64_t parse_integer(char **text);
-lisp_object_t parse_string(char **);
-lisp_object_t parse1(char **);
-void parse(char *text, void (*callback)(void *, lisp_object_t), void *callback_data);
+void skip_whitespace(struct text_stream *ts);
+int64_t parse_integer(struct text_stream *ts);
+lisp_object_t parse_string(struct text_stream *ts);
+lisp_object_t parse1(struct text_stream *ts);
+void parse(struct text_stream *ts, void (*callback)(void *, lisp_object_t), void *callback_data);
 lisp_object_t sym(char *string);
 
 void init_interpreter(size_t heap_size);

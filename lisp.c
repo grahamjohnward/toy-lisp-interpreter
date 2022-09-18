@@ -3,6 +3,7 @@
 #include "text_stream.h"
 
 #include <alloca.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -628,7 +629,7 @@ void parse(struct text_stream *ts, void (*callback)(void *, lisp_object_t), void
 lisp_object_t sym(char *string)
 {
     struct text_stream ts;
-    text_stream_init(&ts, string);
+    text_stream_init_str(&ts, string);
     lisp_object_t result = parse_symbol(&ts);
     return result;
 }
@@ -966,21 +967,18 @@ lisp_object_t load(lisp_object_t filename)
 
 void load_str(char *str)
 {
-    FILE *f = fopen(str, "r");
-    if (f == NULL) {
-        perror(str);
-        exit(1);
+    int fd = open(str, O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        abort();
     }
-    struct string_buffer sb;
-    string_buffer_init(&sb);
-    char buf[1024];
-    while (fgets(buf, 1024, f) != NULL)
-        string_buffer_append(&sb, buf);
-    fclose(f);
-    char *text = string_buffer_to_string(&sb);
     struct text_stream ts;
-    text_stream_init(&ts, text);
+    text_stream_init_fd(&ts, fd);
     parse(&ts, load_eval_callback, NULL);
-    free(text);
-    string_buffer_free_links(&sb);
+    text_stream_free(&ts);
+    int rc = close(fd);
+    if (rc < 0) {
+        perror("close");
+        abort();
+    }
 }

@@ -26,28 +26,28 @@ static void check(int boolean, char *tag)
 static lisp_object_t parse_integer_wrapper(char **str)
 {
     struct text_stream ts;
-    text_stream_init(&ts, *str);
+    text_stream_init_str(&ts, *str);
     return parse_integer(&ts);
 }
 
 static lisp_object_t parse1_wrapper(char **str)
 {
     struct text_stream ts;
-    text_stream_init(&ts, *str);
+    text_stream_init_str(&ts, *str);
     return parse1(&ts);
 }
 
 static lisp_object_t parse_string_wrapper(char **str)
 {
     struct text_stream ts;
-    text_stream_init(&ts, *str);
+    text_stream_init_str(&ts, *str);
     return parse_string(&ts);
 }
 
 static void parse_wrapper(char *str, void (*callback)(void *, lisp_object_t), void *callback_data)
 {
     struct text_stream ts;
-    text_stream_init(&ts, str);
+    text_stream_init_str(&ts, str);
     parse(&ts, callback, callback_data);
 }
 
@@ -56,7 +56,7 @@ static void test_skip_whitespace()
     test_name = "skip_whitespace";
     char *test_string = "  hello";
     struct text_stream ts;
-    text_stream_init(&ts, test_string);
+    text_stream_init_str(&ts, test_string);
     skip_whitespace(&ts);
     check(text_stream_peek(&ts) == 'h', "next char");
 }
@@ -66,7 +66,7 @@ static void test_comments()
     test_name = "comments";
     char *test_string = "; This is a comment";
     struct text_stream ts;
-    text_stream_init(&ts, test_string);
+    text_stream_init_str(&ts, test_string);
     skip_whitespace(&ts);
     check(text_stream_eof(&ts), "eof");
 }

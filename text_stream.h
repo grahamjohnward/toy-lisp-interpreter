@@ -1,12 +1,25 @@
 #ifndef TEXT_STREAM_H
 #define TEXT_STREAM_H
 
-struct text_stream {
-    char *buf;
-    char *cursor;
+enum text_stream_type {
+    TEXT_STREAM_TYPE_STRING,
+    TEXT_STREAM_TYPE_FD
 };
 
-void text_stream_init(struct text_stream *stream, char *input_string);
+struct text_stream {
+    enum text_stream_type type;
+    char *buf;
+    char *cursor;
+    int fd;
+    size_t last_read_len;
+    int eof;
+};
+
+void text_stream_init_str(struct text_stream *stream, char *input_string);
+
+void text_stream_init_fd(struct text_stream *stream, int fd);
+
+void text_stream_free(struct text_stream *stream);
 
 char text_stream_peek(struct text_stream *stream);
 

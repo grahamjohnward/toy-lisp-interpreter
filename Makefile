@@ -3,19 +3,25 @@ CFLAGS=-g -I.
 
 PROG1 := tests
 
-PROG1_OBJS = tests.o lisp.o string_buffer.o
+PROG1_OBJS = tests.o
 
 PROG2 := main
 
-PROG2_OBJS = main.o lisp.o string_buffer.o
+PROG2_OBJS = main.o
+
+LIBNAME=lisp
+LIB=lib$(LIBNAME).a
 
 all: $(PROG1) $(PROG2)
 
-$(PROG1): $(PROG1_OBJS)
-	$(CC) -o $@ $^
+$(LIB): lisp.o string_buffer.o text_stream.o
+	$(AR) rs $@ $^
 
-$(PROG2): $(PROG2_OBJS)
-	$(CC) -o $@ $^
+$(PROG1): $(PROG1_OBJS) $(LIB)
+	$(CC) -o $@ $< -L. -l$(LIBNAME)
+
+$(PROG2): $(PROG2_OBJS) $(LIB)
+	$(CC) -o $@ $< -L. -l$(LIBNAME)
 
 clean:
-	-rm *.o $(PROG1) $(PROG2)
+	-rm *.o $(PROG1) $(PROG2) $(LIB)

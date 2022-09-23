@@ -973,7 +973,11 @@ lisp_object_t evalprog(lisp_object_t e, lisp_object_t a)
     for (i = 0; i < n;) {
         lisp_object_t code = table[i];
         if (car(code) == interp->syms.go) {
-            i = cadr(code);
+            lisp_object_t target = assoc(cadr(code), alist);
+            if (target != NIL)
+                i = cdr(target);
+            else
+                abort();
         } else if (car(code) == interp->syms.return_) {
             return eval(cadr(code), extended_env);
         } else {

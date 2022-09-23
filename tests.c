@@ -902,6 +902,18 @@ static void test_apply_function_pointer()
     free_interpreter();
 }
 
+static void test_set()
+{
+    test_name = "set";
+    test_eval_helper("((lambda (x) (prog () (set 'x 14) (return x))) 12)", "14");
+}
+
+static void test_prog()
+{
+    test_name = "prog";
+    test_eval_helper("((lambda (x) (prog (y) (set 'y 12) bof (set 'x 36) boo (return (cons x y)))) 14)", "(36 . 12)");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -964,6 +976,8 @@ int main(int argc, char **argv)
     test_cons_heap_mark_symbol_table();
     test_gc_cycle();
     test_apply_function_pointer();
+    test_set();
+    test_prog();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

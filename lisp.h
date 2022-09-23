@@ -78,7 +78,7 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a);
 lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a);
 
 struct syms {
-    lisp_object_t lambda, label, quote, cond, defun, built_in_function;
+    lisp_object_t lambda, label, quote, cond, defun, built_in_function, prog, set, go, return_;
 };
 
 struct cons {

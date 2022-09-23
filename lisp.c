@@ -226,6 +226,10 @@ void init_interpreter(size_t heap_size)
     interp->syms.cond = sym("cond");
     interp->syms.defun = sym("defun");
     interp->syms.built_in_function = sym("built-in-function");
+    interp->syms.prog = sym("prog");
+    interp->syms.set = sym("set");
+    interp->syms.go = sym("go");
+    interp->syms.return_ = sym("return");
     interp->environ = NIL;
 #define DEFBUILTIN(S, F, A) define_built_in_function(S, (void (*)())F, A)
     DEFBUILTIN("car", car, 1);
@@ -916,6 +920,60 @@ lisp_object_t evaldefun(lisp_object_t e, lisp_object_t a)
     return fname;
 }
 
+lisp_object_t evalset(lisp_object_t e, lisp_object_t a)
+{
+    lisp_object_t sym = eval(cadr(e), a);
+    check_symbol(sym);
+    lisp_object_t new_value = eval(caddr(e), a);
+    lisp_object_t x = assoc(sym, a);
+    if (x == NIL)
+        abort();
+    rplacd(x, new_value);
+    return new_value;
+}
+
+static lisp_object_t extend_env_for_prog(lisp_object_t varlist, lisp_object_t a)
+{
+    if (varlist == NIL)
+        return a;
+    else
+        return extend_env_for_prog(cdr(varlist), cons(cons(car(varlist), NIL), a));
+}
+
+lisp_object_t evalprog(lisp_object_t e, lisp_object_t a)
+{
+    lisp_object_t extended_env = extend_env_for_prog(car(e), a);
+    int n = 0;
+    for (lisp_object_t x = cdr(e); x != NIL; x = cdr(x)) {
+        if (symbolp(car(x)) == NIL)
+            n++;
+    }
+    lisp_object_t *table = alloca(n * sizeof(lisp_object_t));
+    int i = 0;
+    lisp_object_t alist = NIL;
+    for (lisp_object_t x = cdr(e); x != NIL; x = cdr(x)) {
+        if (symbolp(car(x)) == NIL) {
+            table[i] = car(x);
+            i++;
+        } else {
+            alist = cons(cons(car(x), i), alist);
+        }
+    }
+    lisp_object_t retval = NIL;
+    for (i = 0; i < n;) {
+        lisp_object_t code = table[i];
+        if (car(code) == interp->syms.go) {
+            i = cadr(code);
+        } else if (car(code) == interp->syms.return_) {
+            return eval(cadr(code), extended_env);
+        } else {
+            retval = eval(code, extended_env);
+            i++;
+        }
+    }
+    return retval;
+}
+
 lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 {
     if (e == NIL || e == T || integerp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL)
@@ -929,6 +987,10 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
             return evcon(cdr(e), a);
         else if (eq(car(e), interp->syms.defun) != NIL)
             return evaldefun(cdr(e), a);
+        else if (eq(car(e), interp->syms.set) != NIL)
+            return evalset(e, a);
+        else if (eq(car(e), interp->syms.prog) != NIL)
+            return evalprog(cdr(e), a);
         else
             return apply(car(e), evlis(cdr(e), a), a);
     else

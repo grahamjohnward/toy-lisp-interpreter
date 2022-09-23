@@ -293,6 +293,28 @@ static void test_read_and_print_t()
     free_interpreter();
 }
 
+static void test_read_empty_list()
+{
+    test_name = "read_empty_list";
+    init_interpreter(256);
+    char *test_string = "()";
+    lisp_object_t result = parse1_wrapper(&test_string);
+    check(result == NIL, "is nil");
+    free_interpreter();
+}
+
+static void test_read_empty_list_in_list()
+{
+    test_name = "read_empty_list_in_list";
+    init_interpreter(256);
+    char *test_string = "(abc () xyz)";
+    lisp_object_t result = parse1_wrapper(&test_string);
+    char *str = print_object(result);
+    check(strcmp(str, "(abc nil xyz)") == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
 static void test_strings()
 {
     test_name = "strings";
@@ -938,6 +960,8 @@ int main(int argc, char **argv)
     test_t_is_a_symbol();
     test_read_and_print_nil();
     test_read_and_print_t();
+    test_read_empty_list();
+    test_read_empty_list_in_list();
     test_strings();
     test_print_empty_cons();
     test_symbol_pointer();

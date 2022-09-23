@@ -594,7 +594,14 @@ lisp_object_t parse1(struct text_stream *ts)
         return cons(interp->syms.quote, cons(parse1(ts), NIL));
     } else if (text_stream_peek(ts) == '(') {
         text_stream_advance(ts);
-        return parse_cons(ts);
+        skip_whitespace(ts);
+        if (text_stream_peek(ts) == ')') {
+            /* Special case for () */
+            text_stream_advance(ts);
+            return NIL;
+        } else {
+            return parse_cons(ts);
+        }
     } else if (text_stream_peek(ts) == ')') {
         printf("Unexpected close paren\n");
     } else if (text_stream_peek(ts) == '-' || (text_stream_peek(ts) >= '0' && text_stream_peek(ts) <= '9')) {

@@ -76,6 +76,8 @@ lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x);
 lisp_object_t eval_toplevel(lisp_object_t e);
 lisp_object_t eval(lisp_object_t e, lisp_object_t a);
 lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a);
+lisp_object_t lisp_read();
+lisp_object_t print(lisp_object_t fn);
 
 struct syms {
     lisp_object_t lambda, label, quote, cond, defun, built_in_function, prog, set, go, return_;

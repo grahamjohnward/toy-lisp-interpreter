@@ -238,6 +238,9 @@ void init_interpreter(size_t heap_size)
     DEFBUILTIN("atom", atom, 1);
     DEFBUILTIN("eq", eq, 2);
     DEFBUILTIN("load", load, 1);
+    DEFBUILTIN("read", lisp_read, 0);
+    DEFBUILTIN("print", print, 1);
+    DEFBUILTIN("eval", eval_toplevel, 1);
 #undef DEFBUILTIN
     interpreter_initialized = 1;
     top_of_stack = NULL;
@@ -1043,4 +1046,21 @@ void load_str(char *str)
         perror("close");
         abort();
     }
+}
+
+lisp_object_t lisp_read()
+{
+    struct text_stream ts;
+    text_stream_init_fd(&ts, 1);
+    lisp_object_t result = parse1(&ts);
+    text_stream_free(&ts);
+    return result;
+}
+
+lisp_object_t print(lisp_object_t obj)
+{
+    char *str = print_object(obj);
+    printf("%s\n", str);
+    free(str);
+    return obj;
 }

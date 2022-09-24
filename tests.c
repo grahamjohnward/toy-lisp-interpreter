@@ -959,6 +959,20 @@ static void test_stress_gc()
     free_interpreter();
 }
 
+static void test_rest_args()
+{
+    test_name = "rest_args";
+    init_interpreter(16384);
+    top_of_stack = (lisp_object_t *)get_rbp(1);
+    char *teststr = "(defun foo (a b &rest c) (cons c (cons b a)))";
+    eval_toplevel(parse1_wrapper(&teststr));
+    teststr = "(foo 1 2 3)";
+    lisp_object_t result = eval_toplevel(parse1_wrapper(&teststr));
+    char *str = print_object(result);
+    check(strcmp("(3 2 . 1)", str), "result");
+    free(str);
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1028,6 +1042,7 @@ int main(int argc, char **argv)
     test_rplaca();
     test_rplacd();
     //    test_stress_gc();
+    test_rest_args();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

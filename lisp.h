@@ -80,7 +80,7 @@ lisp_object_t lisp_read();
 lisp_object_t print(lisp_object_t fn);
 
 struct syms {
-    lisp_object_t lambda, label, quote, cond, defun, built_in_function, prog, set, go, return_;
+    lisp_object_t lambda, label, quote, cond, defun, built_in_function, prog, set, go, return_, amprest;
 };
 
 struct cons {

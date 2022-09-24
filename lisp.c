@@ -230,6 +230,7 @@ void init_interpreter(size_t heap_size)
     interp->syms.set = sym("set");
     interp->syms.go = sym("go");
     interp->syms.return_ = sym("return");
+    interp->syms.amprest = sym("&rest");
     interp->environ = NIL;
 #define DEFBUILTIN(S, F, A) define_built_in_function(S, (void (*)())F, A)
     DEFBUILTIN("car", car, 1);
@@ -858,6 +859,16 @@ lisp_object_t assoc(lisp_object_t x, lisp_object_t a)
         return assoc(x, cdr(a));
 }
 
+lisp_object_t pairlis2(lisp_object_t x, lisp_object_t y, lisp_object_t a)
+{
+    if (x == NIL)
+        return a;
+    else if (eq(car(x), interp->syms.amprest) != NIL)
+        return cons(cons(cadr(x), y), a);
+    else
+        return cons(cons(car(x), car(y)), pairlis2(cdr(x), cdr(y), a));
+}
+
 lisp_object_t pairlis(lisp_object_t x, lisp_object_t y, lisp_object_t a)
 {
 
@@ -879,7 +890,7 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
         else
             return apply(eval(fn, a), x, a);
     } else if (eq(car(fn), interp->syms.lambda) != NIL) {
-        return eval(caddr(fn), pairlis(cadr(fn), x, a));
+        return eval(caddr(fn), pairlis2(cadr(fn), x, a));
     } else if (eq(car(fn), interp->syms.built_in_function) != NIL) {
         check_function_pointer(cadr(fn));
         void (*fp)() = FunctionPtr(cadr(fn));

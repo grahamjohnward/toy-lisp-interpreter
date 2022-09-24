@@ -936,6 +936,18 @@ static void test_prog()
     test_eval_helper("((lambda (x) (prog (y) (set 'y 12) bof (set 'x 36) boo (return (cons x y)))) 14)", "(36 . 12)");
 }
 
+static void test_rplaca()
+{
+    test_name = "rplaca";
+    test_eval_helper("(prog (x) (set 'x (cons 12 13)) (rplaca x 4) (return (car x)))", "4");
+}
+
+static void test_rplacd()
+{
+    test_name = "rplacd";
+    test_eval_helper("(prog (x) (set 'x (cons 3 5)) (rplacd x 7) (return (cdr x)))", "7");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1002,6 +1014,8 @@ int main(int argc, char **argv)
     test_apply_function_pointer();
     test_set();
     test_prog();
+    test_rplaca();
+    test_rplacd();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

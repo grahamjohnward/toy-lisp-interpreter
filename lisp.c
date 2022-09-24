@@ -241,6 +241,8 @@ void init_interpreter(size_t heap_size)
     DEFBUILTIN("read", lisp_read, 0);
     DEFBUILTIN("print", print, 1);
     DEFBUILTIN("eval", eval_toplevel, 1);
+    DEFBUILTIN("rplaca", rplaca, 2);
+    DEFBUILTIN("rplacd", rplacd, 2);
 #undef DEFBUILTIN
     interpreter_initialized = 1;
     top_of_stack = NULL;

@@ -258,16 +258,17 @@ void cons_heap_init(struct cons_heap *cons_heap, size_t size)
         exit(1);
     }
     cons_heap->free_list_head = cons_heap->actual_heap;
-    struct cons *p = NULL;
-    for (int i = 0; i < size - 1; i++) {
-        p = cons_heap->actual_heap + i;
-        p->cdr = (lisp_object_t)(p + 1);
-    }
+    struct cons *p;
     for (int i = 0; i < size; i++) {
         p = cons_heap->actual_heap + i;
         p->mark_bit = 0;
         p->is_allocated = 0;
         p->car = NIL;
+        p->cdr = NIL;
+    }
+    for (int i = 0; i < size - 1; i++) {
+        p = cons_heap->actual_heap + i;
+        p->cdr = (lisp_object_t)(p + 1);
     }
 }
 
@@ -299,8 +300,6 @@ static void mark_object(lisp_object_t obj)
             return;
         cons_ptr->mark_bit = 1;
         mark_object(cons_ptr->car);
-        if (!cons_ptr->cdr)
-            abort();
         mark_object(cons_ptr->cdr);
     } else if (symbolp(obj) == T) {
         struct symbol *sym = SymbolPtr(obj);
@@ -361,9 +360,9 @@ static void gc(struct cons_heap *cons_heap)
 
 lisp_object_t cons_heap_allocate_cons(struct cons_heap *cons_heap)
 {
-    if (!cons_heap->free_list_head)
+    if ((lisp_object_t)cons_heap->free_list_head == NIL)
         gc(cons_heap);
-    if (!cons_heap->free_list_head)
+    if ((lisp_object_t)cons_heap->free_list_head == NIL)
         abort();
     struct cons *the_cons = cons_heap->free_list_head;
     cons_heap->free_list_head = (struct cons *)the_cons->cdr;

@@ -812,7 +812,7 @@ static void test_cons_heap_init()
     struct cons *last_cons = heap.actual_heap + heap.size - 1;
     struct cons *penultimate_cons = last_cons - 1;
     check(penultimate_cons->cdr == (lisp_object_t)last_cons, "free list last link");
-    check((struct cons *)last_cons->cdr == NULL, "end of free list is NULL");
+    check(last_cons->cdr == NIL, "end of free list is nil");
     check(heap.allocation_count == 0, "allocation count zero");
 }
 
@@ -948,6 +948,17 @@ static void test_rplacd()
     test_eval_helper("(prog (x) (set 'x (cons 3 5)) (rplacd x 7) (return (cdr x)))", "7");
 }
 
+static void test_stress_gc()
+{
+    test_name = "stress_gc";
+    init_interpreter(16384);
+    top_of_stack = (lisp_object_t *)get_rbp(1);
+    char *teststr = "(prog (x) start (set 'x 14) (cons x x) (go start))";
+    lisp_object_t expr = parse1_wrapper(&teststr);
+    eval_toplevel(expr);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1016,6 +1027,7 @@ int main(int argc, char **argv)
     test_prog();
     test_rplaca();
     test_rplacd();
+    //    test_stress_gc();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

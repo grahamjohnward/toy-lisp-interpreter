@@ -1,6 +1,7 @@
 #ifndef LISP_H
 #define LISP_H
 
+#include <setjmp.h>
 #include <stdint.h>
 
 #include "string_buffer.h"
@@ -109,6 +110,12 @@ void mark(struct cons_heap *cons_heap);
 void mark_stack(struct cons_heap *cons_heap);
 void sweep(struct cons_heap *cons_heap);
 
+struct prog_return_context {
+    jmp_buf buf;
+    lisp_object_t return_value;
+    struct prog_return_context *next;
+};
+
 struct lisp_interpreter {
     struct syms syms;
     lisp_object_t environ;
@@ -118,6 +125,8 @@ struct lisp_interpreter {
     lisp_object_t *heap;
     lisp_object_t *next_free;
     size_t heap_size_bytes;
+    /* Machinery for returning from prog */
+    struct prog_return_context *prog_return_stack;
 };
 
 extern struct lisp_interpreter *interp;

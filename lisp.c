@@ -4,6 +4,7 @@
 
 #include <alloca.h>
 #include <fcntl.h>
+#include <setjmp.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -247,6 +248,7 @@ void init_interpreter(size_t heap_size)
     DEFBUILTIN("two-arg-plus", plus, 2);
     DEFBUILTIN("two-arg-minus", minus, 2);
 #undef DEFBUILTIN
+    interp->prog_return_stack = NULL;
     interpreter_initialized = 1;
     top_of_stack = NULL;
 }
@@ -984,19 +986,28 @@ lisp_object_t evalprog(lisp_object_t e, lisp_object_t a)
         }
     }
     lisp_object_t retval = NIL;
-    for (i = 0; i < n;) {
-        lisp_object_t code = table[i];
-        if (car(code) == interp->syms.go) {
-            lisp_object_t target = assoc(cadr(code), alist);
-            if (target != NIL)
-                i = cdr(target);
-            else
-                abort();
-        } else if (car(code) == interp->syms.return_) {
-            return eval(cadr(code), extended_env);
-        } else {
-            retval = eval(code, extended_env);
-            i++;
+    struct prog_return_context *ctxt = malloc(sizeof(struct prog_return_context));
+    ctxt->next = interp->prog_return_stack;
+    ctxt->return_value = NIL;
+    interp->prog_return_stack = ctxt;
+    if (setjmp(interp->prog_return_stack->buf)) {
+        ctxt = interp->prog_return_stack;
+        retval = ctxt->return_value;
+        interp->prog_return_stack = ctxt->next;
+        free(ctxt);
+    } else {
+        for (i = 0; i < n;) {
+            lisp_object_t code = table[i];
+            if (car(code) == interp->syms.go) {
+                lisp_object_t target = assoc(cadr(code), alist);
+                if (target != NIL)
+                    i = cdr(target);
+                else
+                    abort();
+            } else {
+                retval = eval(code, extended_env);
+                i++;
+            }
         }
     }
     return retval;
@@ -1009,18 +1020,22 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
     if (atom(e) != NIL)
         return cdr(assoc(e, a));
     else if (atom(car(e) != NIL))
-        if (eq(car(e), interp->syms.quote) != NIL)
+        if (eq(car(e), interp->syms.quote) != NIL) {
             return car(cdr(e));
-        else if (eq(car(e), interp->syms.cond) != NIL)
+        } else if (eq(car(e), interp->syms.cond) != NIL) {
             return evcon(cdr(e), a);
-        else if (eq(car(e), interp->syms.defun) != NIL)
+        } else if (eq(car(e), interp->syms.defun) != NIL) {
             return evaldefun(cdr(e), a);
-        else if (eq(car(e), interp->syms.set) != NIL)
+        } else if (eq(car(e), interp->syms.set) != NIL) {
             return evalset(e, a);
-        else if (eq(car(e), interp->syms.prog) != NIL)
+        } else if (eq(car(e), interp->syms.prog) != NIL) {
             return evalprog(cdr(e), a);
-        else
+        } else if (eq(car(e), interp->syms.return_) != NIL) {
+            interp->prog_return_stack->return_value = eval(cadr(e), a);
+            longjmp(interp->prog_return_stack->buf, 1);
+        } else {
             return apply(car(e), evlis(cdr(e), a), a);
+        }
     else
         return apply(car(e), evlis(cdr(e), a), a);
 }

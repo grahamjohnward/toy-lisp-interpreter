@@ -985,6 +985,12 @@ static void test_minus()
     test_eval_helper("(two-arg-minus 7 4)", "3");
 }
 
+static void test_return_from_prog()
+{
+    test_name = "return_from_prog";
+    test_eval_helper("(prog (x) (set 'x 12) (cond ((eq x 12) (return 'twelve)) (t nil)) 'bof)", "twelve");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1057,6 +1063,7 @@ int main(int argc, char **argv)
     test_rest_args();
     test_plus();
     test_minus();
+    test_return_from_prog();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

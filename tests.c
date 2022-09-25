@@ -973,6 +973,18 @@ static void test_rest_args()
     free(str);
 }
 
+static void test_plus()
+{
+    test_name = "plus";
+    test_eval_helper("(two-arg-plus 3 4)", "7");
+}
+
+static void test_minus()
+{
+    test_name = "minus";
+    test_eval_helper("(two-arg-minus 7 4)", "3");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1043,6 +1055,8 @@ int main(int argc, char **argv)
     test_rplacd();
     //    test_stress_gc();
     test_rest_args();
+    test_plus();
+    test_minus();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

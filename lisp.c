@@ -244,6 +244,8 @@ void init_interpreter(size_t heap_size)
     DEFBUILTIN("eval", eval_toplevel, 1);
     DEFBUILTIN("rplaca", rplaca, 2);
     DEFBUILTIN("rplacd", rplacd, 2);
+    DEFBUILTIN("two-arg-plus", plus, 2);
+    DEFBUILTIN("two-arg-minus", minus, 2);
 #undef DEFBUILTIN
     interpreter_initialized = 1;
     top_of_stack = NULL;
@@ -1086,4 +1088,22 @@ lisp_object_t print(lisp_object_t obj)
     printf("%s\n", str);
     free(str);
     return obj;
+}
+
+lisp_object_t plus(lisp_object_t x, lisp_object_t y)
+{
+    check_integer(x);
+    check_integer(y);
+    lisp_object_t result = x + y;
+    check_integer(result);
+    return result;
+}
+
+lisp_object_t minus(lisp_object_t x, lisp_object_t y)
+{
+    check_integer(x);
+    check_integer(y);
+    lisp_object_t result = x - y;
+    check_integer(result);
+    return result;
 }

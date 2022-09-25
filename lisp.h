@@ -18,6 +18,7 @@ lisp_object_t parse_string(struct text_stream *ts);
 lisp_object_t parse1(struct text_stream *ts);
 void parse(struct text_stream *ts, void (*callback)(void *, lisp_object_t), void *callback_data);
 lisp_object_t sym(char *string);
+char *read_token(struct text_stream *ts);
 
 void init_interpreter(size_t heap_size);
 void free_interpreter();

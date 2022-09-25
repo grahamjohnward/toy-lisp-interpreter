@@ -23,13 +23,6 @@ static void check(int boolean, char *tag)
     printf("\n");
 }
 
-static lisp_object_t parse_integer_wrapper(char **str)
-{
-    struct text_stream ts;
-    text_stream_init_str(&ts, *str);
-    return parse_integer(&ts);
-}
-
 static lisp_object_t parse1_wrapper(char **str)
 {
     struct text_stream ts;
@@ -75,7 +68,7 @@ static void test_parse_integer()
 {
     test_name = "parse_integer";
     char *test_string = "13";
-    int result = parse_integer_wrapper(&test_string);
+    int result = parse1_wrapper(&test_string);
     check(result == 13, "value");
 }
 
@@ -83,7 +76,7 @@ static void test_parse_large_integer()
 {
     test_name = "parse_large_integer";
     char *test_string = "1152921504606846975";
-    int64_t result = parse_integer_wrapper(&test_string);
+    int64_t result = parse1_wrapper(&test_string);
     check(result == 1152921504606846975, "value");
     check(integerp((lisp_object_t)result) != NIL, "integerp");
 }
@@ -92,7 +85,7 @@ static void test_parse_negative_integer()
 {
     test_name = "parse_negative_integer";
     char *test_string = "-498";
-    int result = parse_integer_wrapper(&test_string);
+    int result = parse1_wrapper(&test_string);
     check(result == -498, "value");
 }
 
@@ -100,7 +93,7 @@ static void test_parse_large_negative_integer()
 {
     test_name = "parse_large_negative_integer";
     char *test_string = "-1152921504606846976";
-    int64_t result = parse_integer_wrapper(&test_string);
+    int64_t result = parse1_wrapper(&test_string);
     check(result == -1152921504606846976, "value");
     check(integerp((lisp_object_t)result) != NIL, "integerp");
 }
@@ -991,6 +984,18 @@ static void test_return_from_prog()
     test_eval_helper("(prog (x) (set 'x 12) (cond ((eq x 12) (return 'twelve)) (t nil)) 'bof)", "twelve");
 }
 
+static void test_read_token()
+{
+    test_name = "read_token";
+    char *test_str = "abc d";
+    struct text_stream ts;
+    text_stream_init_str(&ts, test_str);
+    char *result = read_token(&ts);
+    check(strcmp("abc", result) == 0, "abc");
+    check(text_stream_peek(&ts) == ' ', "stream advanced");
+    free(result);
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1064,6 +1069,7 @@ int main(int argc, char **argv)
     test_plus();
     test_minus();
     test_return_from_prog();
+    test_read_token();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

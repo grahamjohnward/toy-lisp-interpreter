@@ -469,47 +469,17 @@ lisp_object_t allocate_symbol(lisp_object_t name)
     }
 }
 
-lisp_object_t parse_symbol(struct text_stream *ts)
+lisp_object_t parse_symbol(char *str)
 {
     static char *delimiters = " \n\t\r)\0";
-    /* Could maybe use string buffer here? */
-    static size_t max_symbol_length = 256;
-    char *tmp = alloca(max_symbol_length);
-    size_t len = 0;
-    while (!strchr(delimiters, text_stream_peek(ts))) {
-        tmp[len] = text_stream_peek(ts);
-        len++;
-        if (len >= max_symbol_length - 1) /* leave room for final \0 */
-            abort();
-        text_stream_advance(ts);
-    }
-    tmp[len] = 0;
-    if (strcmp(tmp, "nil") == 0)
+    if (strcmp(str, "nil") == 0) {
         return NIL;
-    else if (strcmp(tmp, "t") == 0)
+    } else if (strcmp(str, "t") == 0) {
         return T;
-    else {
-        lisp_object_t lisp_string = allocate_string(len + 1 /* include terminating null */, tmp);
+    } else {
+        lisp_object_t lisp_string = allocate_string(strlen(str) + 1 /* include terminating null */, str);
         return allocate_symbol(lisp_string);
     }
-}
-
-int64_t parse_integer(struct text_stream *ts)
-{
-    static size_t max_integer_length = 24;
-    char *tmp = alloca(max_integer_length);
-    size_t len = 0;
-    while (text_stream_peek(ts) == '-' || (text_stream_peek(ts) >= '0' && text_stream_peek(ts) <= '9')) {
-        tmp[len] = text_stream_peek(ts);
-        text_stream_advance(ts);
-        len++;
-        if (len > max_integer_length - 1)
-            abort();
-    }
-    tmp[len] = 0;
-    int64_t result = atoll(tmp);
-    check_integer(result);
-    return result;
 }
 
 void skip_whitespace(struct text_stream *ts)
@@ -521,6 +491,23 @@ void skip_whitespace(struct text_stream *ts)
             text_stream_advance(ts);
         skip_whitespace(ts);
     }
+}
+
+char *read_token(struct text_stream *ts)
+{
+    struct string_buffer sb;
+    string_buffer_init(&sb);
+    char *str = alloca(2);
+    while (!text_stream_eof(ts) && strchr("\r\n\t )(", text_stream_peek(ts)) == NULL) {
+        char ch = text_stream_peek(ts);
+        str[0] = ch;
+        str[1] = '\0';
+        string_buffer_append(&sb, str);
+        text_stream_advance(ts);
+    }
+    char *result = string_buffer_to_string(&sb);
+    string_buffer_free_links(&sb);
+    return result;
 }
 
 lisp_object_t parse_cons(struct text_stream *ts)
@@ -610,15 +597,21 @@ lisp_object_t parse1(struct text_stream *ts)
         }
     } else if (text_stream_peek(ts) == ')') {
         printf("Unexpected close paren\n");
-    } else if (text_stream_peek(ts) == '-' || (text_stream_peek(ts) >= '0' && text_stream_peek(ts) <= '9')) {
-        return parse_integer(ts);
     } else if (text_stream_peek(ts) == '#') {
         return parse_dispatch(ts);
     } else if (text_stream_peek(ts) == '"') {
         return parse_string(ts);
     } else {
-        lisp_object_t sym = parse_symbol(ts);
-        return sym;
+        char *token = read_token(ts);
+        char *endptr;
+        uint64_t val = strtoll(token, &endptr, 10);
+        if (*endptr == '\0') {
+            return val;
+        } else {
+            lisp_object_t sym = parse_symbol(token);
+            free(token);
+            return sym;
+        }
     }
     return 0;
 }
@@ -648,10 +641,7 @@ void parse(struct text_stream *ts, void (*callback)(void *, lisp_object_t), void
 /* Convenience function */
 lisp_object_t sym(char *string)
 {
-    struct text_stream ts;
-    text_stream_init_str(&ts, string);
-    lisp_object_t result = parse_symbol(&ts);
-    return result;
+    return parse_symbol(string);
 }
 
 /* Printing */

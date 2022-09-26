@@ -326,8 +326,9 @@ void mark_stack(struct cons_heap *cons_heap)
                     mark_object(*s);
             }
         }
-    } else
+    } else {
         abort();
+    }
 }
 
 void mark(struct cons_heap *cons_heap)
@@ -418,9 +419,9 @@ lisp_object_t string_equalp(lisp_object_t s1, lisp_object_t s2)
 {
     check_string(s1);
     check_string(s2);
-    if (eq(s1, s2) != NIL)
+    if (eq(s1, s2) != NIL) {
         return T;
-    else {
+    } else {
         /* Compare lengths */
         size_t *l1p = (size_t *)(s1 & PTR_MASK);
         size_t *l2p = (size_t *)(s2 & PTR_MASK);
@@ -454,9 +455,9 @@ lisp_object_t find_symbol(lisp_object_t list_of_symbols, lisp_object_t name)
 lisp_object_t allocate_symbol(lisp_object_t name)
 {
     lisp_object_t preexisting_symbol = find_symbol(interp->symbol_table, name);
-    if (preexisting_symbol != NIL)
+    if (preexisting_symbol != NIL) {
         return preexisting_symbol;
-    else {
+    } else {
         check_string(name);
         lisp_object_t obj = allocate_lisp_objects(3);
         struct symbol *s = (struct symbol *)obj;
@@ -724,9 +725,9 @@ lisp_object_t parse_string(struct text_stream *ts)
     string_buffer_init(&sb);
     for (; escaped || text_stream_peek(ts) != '"'; text_stream_advance(ts)) {
         char p = text_stream_peek(ts);
-        if (!escaped && p == '\\')
+        if (!escaped && p == '\\') {
             escaped = 1;
-        else {
+        } else {
             char c;
             if (escaped) {
                 if (p == '\\')
@@ -828,9 +829,8 @@ lisp_object_t append(lisp_object_t x, lisp_object_t y)
 {
     if (null(x) != NIL)
         return y;
-    else {
+    else
         return cons(car(x), append(cdr(x), y));
-    }
 }
 
 lisp_object_t member(lisp_object_t x, lisp_object_t y)

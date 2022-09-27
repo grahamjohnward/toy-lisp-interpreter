@@ -1,5 +1,5 @@
 CC=clang-13
-CFLAGS=-g -I.
+CFLAGS=-g
 
 PROG1 := tests
 

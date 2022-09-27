@@ -996,6 +996,13 @@ static void test_read_token()
     free(result);
 }
 
+static void test_numeric_equals()
+{
+    test_name = "numeric_equals";
+    test_eval_helper("(= 3 3)", "t");
+    test_eval_helper("(= 4 3)", "nil");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1070,6 +1077,7 @@ int main(int argc, char **argv)
     test_minus();
     test_return_from_prog();
     test_read_token();
+    test_numeric_equals();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

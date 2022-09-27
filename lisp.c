@@ -248,6 +248,7 @@ void init_interpreter(size_t heap_size)
     DEFBUILTIN("rplacd", rplacd, 2);
     DEFBUILTIN("two-arg-plus", plus, 2);
     DEFBUILTIN("two-arg-minus", minus, 2);
+    DEFBUILTIN("=", eq, 2);
 #undef DEFBUILTIN
     interp->prog_return_stack = NULL;
     interpreter_initialized = 1;

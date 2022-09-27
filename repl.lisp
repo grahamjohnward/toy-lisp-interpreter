@@ -1,4 +1,6 @@
-(prog ()
+(prog (input)
  repl
- (print (eval (read)))
+ (princ "> ")
+ (set 'input (read))
+ (print (eval input))
  (go repl))

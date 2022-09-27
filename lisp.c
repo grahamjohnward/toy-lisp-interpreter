@@ -242,6 +242,7 @@ void init_interpreter(size_t heap_size)
     DEFBUILTIN("load", load, 1);
     DEFBUILTIN("read", lisp_read, 0);
     DEFBUILTIN("print", print, 1);
+    DEFBUILTIN("princ", princ, 1);
     DEFBUILTIN("eval", eval_toplevel, 1);
     DEFBUILTIN("rplaca", rplaca, 2);
     DEFBUILTIN("rplacd", rplacd, 2);
@@ -1091,6 +1092,16 @@ lisp_object_t print(lisp_object_t obj)
 {
     char *str = print_object(obj);
     printf("%s\n", str);
+    fflush(stdout);
+    free(str);
+    return obj;
+}
+
+lisp_object_t princ(lisp_object_t obj)
+{
+    char *str = print_object(obj);
+    printf("%s", str);
+    fflush(stdout);
     free(str);
     return obj;
 }

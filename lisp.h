@@ -79,7 +79,8 @@ lisp_object_t eval_toplevel(lisp_object_t e);
 lisp_object_t eval(lisp_object_t e, lisp_object_t a);
 lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a);
 lisp_object_t lisp_read();
-lisp_object_t print(lisp_object_t fn);
+lisp_object_t print(lisp_object_t obj);
+lisp_object_t princ(lisp_object_t obj);
 lisp_object_t plus(lisp_object_t x, lisp_object_t y);
 lisp_object_t minus(lisp_object_t x, lisp_object_t y);
 

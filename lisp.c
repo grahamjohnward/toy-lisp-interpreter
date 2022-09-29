@@ -145,6 +145,11 @@ lisp_object_t vectorp(lisp_object_t obj)
     return istype(obj, VECTOR_TYPE);
 }
 
+lisp_object_t function_pointer_p(lisp_object_t obj)
+{
+    return istype(obj, FUNCTION_POINTER_TYPE);
+}
+
 lisp_object_t allocate_lisp_objects(size_t n)
 {
     lisp_object_t result = (lisp_object_t)interp->next_free;
@@ -606,10 +611,12 @@ lisp_object_t parse1(struct text_stream *ts)
         return parse_string(ts);
     } else {
         char *token = read_token(ts);
+        char *zeroxprefix = strstr(token, "0x");
+        int base = zeroxprefix == token ? 16 : 10;
         char *endptr;
-        uint64_t val = strtoll(token, &endptr, 10);
+        uint64_t val = strtoll(token, &endptr, base);
         if (*endptr == '\0') {
-            return val;
+            return base == 16 ? val | FUNCTION_POINTER_TYPE : val;
         } else {
             lisp_object_t sym = parse_symbol(token);
             free(token);
@@ -713,6 +720,10 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
         }
         print_object_to_buffer(svref(obj, len - 1), sb);
         string_buffer_append(sb, ")");
+    } else if (function_pointer_p(obj) != NIL) {
+        char *buf = alloca(32);
+        sprintf(buf, "%p", (FunctionPtr(obj)));
+        string_buffer_append(sb, buf);
     }
 }
 

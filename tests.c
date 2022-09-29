@@ -1003,6 +1003,31 @@ static void test_numeric_equals()
     test_eval_helper("(= 4 3)", "nil");
 }
 
+static void test_parse_function_pointer()
+{
+    test_name = "parse_function_pointer";
+    char *teststr = "0x1234";
+    lisp_object_t result = parse1_wrapper(teststr);
+    check(function_pointer_p(result) != NIL, "function_pointer_p");
+    check(FunctionPtr(result) == (void (*)())0x1234, "value");
+}
+
+static void test_print_function_pointer()
+{
+    test_name = "print_function_pointer";
+    lisp_object_t fp = FUNCTION_POINTER_TYPE | 0x1234;
+    char *str = print_object(fp);
+    check(strcmp("0x1234", str) == 0, "0x1234");
+    free(str);
+}
+
+static void test_call_function_pointer()
+{
+    test_name = "call_function_pointer";
+    /* This actually works if you can get the address right */
+    // test_eval_helper("((built-in-function 0x404f90 2) 3 4)", "(3 . 4)");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1078,6 +1103,9 @@ int main(int argc, char **argv)
     test_return_from_prog();
     test_read_token();
     test_numeric_equals();
+    test_parse_function_pointer();
+    test_print_function_pointer();
+    test_call_function_pointer();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

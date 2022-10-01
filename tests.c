@@ -1028,6 +1028,12 @@ static void test_call_function_pointer()
     // test_eval_helper("((built-in-function 0x404f90 2) 3 4)", "(3 . 4)");
 }
 
+static void test_integer_bug()
+{
+    test_name = "integer_bug";
+    test_eval_helper("(two-arg-minus (two-arg-minus 123 12) 312312)", "-312201");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1106,6 +1112,7 @@ int main(int argc, char **argv)
     test_parse_function_pointer();
     test_print_function_pointer();
     test_call_function_pointer();
+    test_integer_bug();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

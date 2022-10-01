@@ -123,9 +123,9 @@ lisp_object_t symbolp(lisp_object_t obj)
 
 void check_integer(int64_t obj)
 {
-    if (obj > ~TYPE_MASK)
+    if ((int64_t)obj > (int64_t)~TYPE_MASK)
         abort();
-    if (obj < (int64_t)TYPE_MASK)
+    if ((int64_t)obj < (int64_t)TYPE_MASK)
         abort();
 }
 

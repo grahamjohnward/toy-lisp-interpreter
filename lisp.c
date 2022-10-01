@@ -3,6 +3,7 @@
 #include "text_stream.h"
 
 #include <alloca.h>
+#include <assert.h>
 #include <fcntl.h>
 #include <setjmp.h>
 #include <stdarg.h>
@@ -214,8 +215,7 @@ static void define_built_in_function(char *symbol_name, void (*function_pointer)
 void init_interpreter(size_t heap_size)
 {
     interp = (struct lisp_interpreter *)malloc(sizeof(struct lisp_interpreter));
-    if (sizeof(lisp_object_t) != sizeof(void *))
-        abort();
+    assert(sizeof(lisp_object_t) == sizeof(void *));
     interp->heap_size_bytes = heap_size * sizeof(lisp_object_t);
     interp->heap = mmap((void *)0x100000000000, interp->heap_size_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
     if (interp->heap == (lisp_object_t *)-1) {
@@ -324,17 +324,14 @@ static void mark_object(lisp_object_t obj)
 void mark_stack(struct cons_heap *cons_heap)
 {
     void *rbp = get_rbp(1);
-    if (top_of_stack) {
-        for (lisp_object_t *s = top_of_stack; s > (lisp_object_t *)rbp; s--) {
-            if (consp(*s)) {
-                struct cons *p = ConsPtr(*s);
-                struct cons *cons_heap_limit = cons_heap->actual_heap + cons_heap->size;
-                if (p >= cons_heap->actual_heap && p < cons_heap_limit && p->is_allocated)
-                    mark_object(*s);
-            }
+    assert(top_of_stack);
+    for (lisp_object_t *s = top_of_stack; s > (lisp_object_t *)rbp; s--) {
+        if (consp(*s)) {
+            struct cons *p = ConsPtr(*s);
+            struct cons *cons_heap_limit = cons_heap->actual_heap + cons_heap->size;
+            if (p >= cons_heap->actual_heap && p < cons_heap_limit && p->is_allocated)
+                mark_object(*s);
         }
-    } else {
-        abort();
     }
 }
 
@@ -349,8 +346,7 @@ void sweep(struct cons_heap *cons_heap)
 {
     for (int i = 0; i < cons_heap->size; i++) {
         struct cons *p = cons_heap->actual_heap + i;
-        if (p->mark_bit && !p->is_allocated)
-            abort();
+        assert(!(p->mark_bit && !p->is_allocated));
         if (p->is_allocated && !p->mark_bit) {
             p->cdr = (lisp_object_t)cons_heap->free_list_head;
             p->is_allocated = 0;
@@ -382,8 +378,7 @@ lisp_object_t cons_heap_allocate_cons(struct cons_heap *cons_heap)
     the_cons->car = NIL;
     the_cons->cdr = NIL;
     the_cons->is_allocated = 1;
-    if (the_cons->mark_bit)
-        abort();
+    assert(!the_cons->mark_bit);
     cons_heap->allocation_count++;
     return (lisp_object_t)the_cons;
 }
@@ -559,8 +554,7 @@ int length_c(lisp_object_t seq)
 
 lisp_object_t parse_vector(struct text_stream *ts)
 {
-    if (text_stream_peek(ts) != '(')
-        abort();
+    assert(text_stream_peek(ts) == '(');
     text_stream_advance(ts);
     lisp_object_t list = parse_cons(ts);
     int len = length_c(list);
@@ -575,14 +569,12 @@ lisp_object_t parse_vector(struct text_stream *ts)
 
 lisp_object_t parse_dispatch(struct text_stream *ts)
 {
-    if (text_stream_peek(ts) != '#')
-        abort();
+    assert(text_stream_peek(ts) == '#');
     text_stream_advance(ts);
     if (!text_stream_peek(ts))
         abort();
-    if (text_stream_peek(ts) == '(')
-        return parse_vector(ts);
-    abort();
+    assert(text_stream_peek(ts) == '(');
+    return parse_vector(ts);
 }
 
 lisp_object_t parse1(struct text_stream *ts)
@@ -729,8 +721,7 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
 
 lisp_object_t parse_string(struct text_stream *ts)
 {
-    if (text_stream_peek(ts) != '"')
-        abort();
+    assert(text_stream_peek(ts) == '"');
     text_stream_advance(ts);
     int len = 0;
     int escaped = 0;
@@ -767,9 +758,7 @@ lisp_object_t parse_string(struct text_stream *ts)
             len++;
         }
     }
-    if (text_stream_peek(ts) != '"')
-        /* No closing " */
-        abort();
+    assert(text_stream_peek(ts) == '"');
     text_stream_advance(ts); /* Move past closing " */
     char *str = string_buffer_to_string(&sb);
     lisp_object_t result = allocate_string(len + 1, str);

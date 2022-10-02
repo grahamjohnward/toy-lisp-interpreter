@@ -474,7 +474,6 @@ lisp_object_t allocate_symbol(lisp_object_t name)
 
 lisp_object_t parse_symbol(char *str)
 {
-    static char *delimiters = " \n\t\r)\0";
     if (strcmp(str, "nil") == 0) {
         return NIL;
     } else if (strcmp(str, "t") == 0) {

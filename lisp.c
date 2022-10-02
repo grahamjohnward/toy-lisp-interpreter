@@ -474,14 +474,12 @@ lisp_object_t allocate_symbol(lisp_object_t name)
 
 lisp_object_t parse_symbol(char *str)
 {
-    if (strcmp(str, "nil") == 0) {
+    if (strcmp(str, "nil") == 0)
         return NIL;
-    } else if (strcmp(str, "t") == 0) {
+    else if (strcmp(str, "t") == 0)
         return T;
-    } else {
-        lisp_object_t lisp_string = allocate_string(strlen(str) + 1 /* include terminating null */, str);
-        return allocate_symbol(lisp_string);
-    }
+    else
+        return allocate_symbol(allocate_string(strlen(str) + 1 /* include terminating null */, str));
 }
 
 void skip_whitespace(struct text_stream *ts)

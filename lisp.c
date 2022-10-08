@@ -486,6 +486,8 @@ void skip_whitespace(struct text_stream *ts)
 {
     while (!text_stream_eof(ts) && strchr("\r\n\t ", text_stream_peek(ts)) != NULL)
         text_stream_advance(ts);
+    if (text_stream_eof(ts))
+        return;
     if (text_stream_peek(ts) == ';') {
         while (!text_stream_eof(ts) && text_stream_peek(ts) != '\n')
             text_stream_advance(ts);

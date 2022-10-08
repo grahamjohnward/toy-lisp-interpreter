@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -36,6 +37,7 @@ void text_stream_free(struct text_stream *stream)
 
 char text_stream_peek(struct text_stream *stream)
 {
+    assert(!text_stream_eof(stream));
     switch (stream->type) {
     case TEXT_STREAM_TYPE_FD:
         if (stream->cursor - stream->buf == stream->last_read_len)
@@ -56,7 +58,7 @@ int text_stream_eof(struct text_stream *stream)
 {
     switch (stream->type) {
     case TEXT_STREAM_TYPE_STRING:
-        return !text_stream_peek(stream);
+        return !*stream->cursor;
     case TEXT_STREAM_TYPE_FD:
         return stream->eof;
     default:

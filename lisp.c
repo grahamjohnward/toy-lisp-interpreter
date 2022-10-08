@@ -873,6 +873,23 @@ lisp_object_t pairlis(lisp_object_t x, lisp_object_t y, lisp_object_t a)
         return cons(cons(car(x), car(y)), pairlis(cdr(x), cdr(y), a));
 }
 
+static void push_return_context()
+{
+    struct prog_return_context *ctxt = malloc(sizeof(struct prog_return_context));
+    ctxt->next = interp->prog_return_stack;
+    ctxt->return_value = NIL;
+    interp->prog_return_stack = ctxt;
+}
+
+static lisp_object_t pop_return_context()
+{
+    struct prog_return_context *ctxt = interp->prog_return_stack;
+    lisp_object_t retval = ctxt->return_value;
+    interp->prog_return_stack = ctxt->next;
+    free(ctxt);
+    return retval;
+}
+
 lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
 {
     if (atom(fn) != NIL) {
@@ -885,7 +902,15 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
         else
             return apply(eval(fn, a), x, a);
     } else if (eq(car(fn), interp->syms.lambda) != NIL) {
-        return eval(caddr(fn), pairlis2(cadr(fn), x, a));
+        push_return_context();
+        if (setjmp(interp->prog_return_stack->buf)) {
+            return pop_return_context();
+        } else {
+            lisp_object_t retval = eval(caddr(fn), pairlis2(cadr(fn), x, a));
+            /* If we get here, we never longjmped */
+            pop_return_context();
+            return retval;
+        }
     } else if (eq(car(fn), interp->syms.built_in_function) != NIL) {
         check_function_pointer(cadr(fn));
         void (*fp)() = FunctionPtr(cadr(fn));
@@ -976,17 +1001,11 @@ lisp_object_t evalprog(lisp_object_t e, lisp_object_t a)
             alist = cons(cons(car(x), i), alist);
         }
     }
-    lisp_object_t retval = NIL;
-    struct prog_return_context *ctxt = malloc(sizeof(struct prog_return_context));
-    ctxt->next = interp->prog_return_stack;
-    ctxt->return_value = NIL;
-    interp->prog_return_stack = ctxt;
+    push_return_context();
     if (setjmp(interp->prog_return_stack->buf)) {
-        ctxt = interp->prog_return_stack;
-        retval = ctxt->return_value;
-        interp->prog_return_stack = ctxt->next;
-        free(ctxt);
+        return pop_return_context();
     } else {
+        lisp_object_t retval = NIL;
         for (i = 0; i < n;) {
             lisp_object_t code = table[i];
             if (car(code) == interp->syms.go) {
@@ -1000,8 +1019,10 @@ lisp_object_t evalprog(lisp_object_t e, lisp_object_t a)
                 i++;
             }
         }
+        /* If we get here, we never longjmped */
+        pop_return_context();
+        return retval;
     }
-    return retval;
 }
 
 lisp_object_t eval(lisp_object_t e, lisp_object_t a)

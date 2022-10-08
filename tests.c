@@ -1034,6 +1034,24 @@ static void test_integer_bug()
     test_eval_helper("(two-arg-minus (two-arg-minus 123 12) 312312)", "-312201");
 }
 
+static void test_return_outside_prog()
+{
+    test_name = "return_outside_prog";
+    init_interpreter(32768);
+    lisp_object_t result1 = test_eval_string_helper("(defun foo (x) (return (cons 'returned x)))");
+    lisp_object_t result2 = test_eval_string_helper("(prog (x) (set 'x 12) (return (cons 'aha (foo x))))");
+    char *result2str = print_object(result2);
+    check(strcmp("(aha returned . 12)", result2str) == 0, "return value");
+    free(result2str);
+    free_interpreter();
+}
+
+static void test_prog_without_return()
+{
+    test_name = "prog_without_return";
+    test_eval_helper("(prog (x y) (set 'x 14) (set 'y 12) (cons x y))", "(14 . 12)");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1113,6 +1131,8 @@ int main(int argc, char **argv)
     test_print_function_pointer();
     test_call_function_pointer();
     test_integer_bug();
+    test_return_outside_prog();
+    test_prog_without_return();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

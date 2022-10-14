@@ -1052,6 +1052,12 @@ static void test_prog_without_return()
     test_eval_helper("(prog (x y) (set 'x 14) (set 'y 12) (cons x y))", "(14 . 12)");
 }
 
+static void test_condition_case()
+{
+    test_name = "condition_case";
+    test_eval_helper("(condition-case e (raise 'ohno 14) (ohno (cons 'error-was e)) (didnt-happen 'frob))", "(error-was ohno 14)");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1133,6 +1139,7 @@ int main(int argc, char **argv)
     test_integer_bug();
     test_return_outside_prog();
     test_prog_without_return();
+    test_condition_case();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

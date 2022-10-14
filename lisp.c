@@ -38,10 +38,10 @@ static void check_type(lisp_object_t obj, uint64_t type)
 {
     static char *type_names[6] = { "unused", "symbol", "cons", "string", "vector", "function pointer" };
     if (istype(obj, type) == NIL) {
+        static char buf[1024];
         char *obj_string = print_object(obj);
-        printf("Not a %s: %s\n", type_names[type], obj_string);
-        free(obj_string);
-        exit(1);
+        int len = snprintf(buf, 1024, "Not a %s: %s", type_names[type >> 60], obj_string);
+        raise(sym("type-error"), allocate_string(len, buf));
     }
 }
 
@@ -237,6 +237,7 @@ void init_interpreter(size_t heap_size)
     interp->syms.go = sym("go");
     interp->syms.return_ = sym("return");
     interp->syms.amprest = sym("&rest");
+    interp->syms.condition_case = sym("condition-case");
     interp->environ = NIL;
 #define DEFBUILTIN(S, F, A) define_built_in_function(S, (void (*)())F, A)
     DEFBUILTIN("car", car, 1);
@@ -254,6 +255,8 @@ void init_interpreter(size_t heap_size)
     DEFBUILTIN("two-arg-plus", plus, 2);
     DEFBUILTIN("two-arg-minus", minus, 2);
     DEFBUILTIN("=", eq, 2);
+    DEFBUILTIN("raise", raise, 2);
+    DEFBUILTIN("exit", exit, 1);
 #undef DEFBUILTIN
     interp->prog_return_stack = NULL;
     interpreter_initialized = 1;
@@ -482,14 +485,22 @@ lisp_object_t parse_symbol(char *str)
         return allocate_symbol(allocate_string(strlen(str) + 1 /* include terminating null */, str));
 }
 
+static char tspeek(struct text_stream *ts)
+{
+    if (text_stream_eof(ts))
+        return raise(sym("end-of-file"), NIL);
+    else
+        return text_stream_peek(ts);
+}
+
 void skip_whitespace(struct text_stream *ts)
 {
-    while (!text_stream_eof(ts) && strchr("\r\n\t ", text_stream_peek(ts)) != NULL)
+    while (!text_stream_eof(ts) && strchr("\r\n\t ", tspeek(ts)) != NULL)
         text_stream_advance(ts);
     if (text_stream_eof(ts))
         return;
-    if (text_stream_peek(ts) == ';') {
-        while (!text_stream_eof(ts) && text_stream_peek(ts) != '\n')
+    if (tspeek(ts) == ';') {
+        while (!text_stream_eof(ts) && tspeek(ts) != '\n')
             text_stream_advance(ts);
         skip_whitespace(ts);
     }
@@ -500,8 +511,8 @@ char *read_token(struct text_stream *ts)
     struct string_buffer sb;
     string_buffer_init(&sb);
     char *str = alloca(2);
-    while (!text_stream_eof(ts) && strchr("\r\n\t )(", text_stream_peek(ts)) == NULL) {
-        char ch = text_stream_peek(ts);
+    while (!text_stream_eof(ts) && strchr("\r\n\t )(", tspeek(ts)) == NULL) {
+        char ch = tspeek(ts);
         str[0] = ch;
         str[1] = '\0';
         string_buffer_append(&sb, str);
@@ -517,12 +528,12 @@ lisp_object_t parse_cons(struct text_stream *ts)
     skip_whitespace(ts);
     lisp_object_t new_cons = cons(parse1(ts), NIL);
     skip_whitespace(ts);
-    if (text_stream_peek(ts) == '.') {
+    if (tspeek(ts) == '.') {
         text_stream_advance(ts);
         skip_whitespace(ts);
         rplacd(new_cons, parse1(ts));
     }
-    if (text_stream_peek(ts) == ')') {
+    if (tspeek(ts) == ')') {
         text_stream_advance(ts);
         return new_cons;
     } else {
@@ -553,7 +564,7 @@ int length_c(lisp_object_t seq)
 
 lisp_object_t parse_vector(struct text_stream *ts)
 {
-    assert(text_stream_peek(ts) == '(');
+    assert(tspeek(ts) == '(');
     text_stream_advance(ts);
     lisp_object_t list = parse_cons(ts);
     int len = length_c(list);
@@ -568,37 +579,37 @@ lisp_object_t parse_vector(struct text_stream *ts)
 
 lisp_object_t parse_dispatch(struct text_stream *ts)
 {
-    assert(text_stream_peek(ts) == '#');
+    assert(tspeek(ts) == '#');
     text_stream_advance(ts);
-    if (!text_stream_peek(ts))
+    if (!tspeek(ts))
         abort();
-    assert(text_stream_peek(ts) == '(');
+    assert(tspeek(ts) == '(');
     return parse_vector(ts);
 }
 
 lisp_object_t parse1(struct text_stream *ts)
 {
     skip_whitespace(ts);
-    if (!text_stream_peek(ts)) {
+    if (!tspeek(ts)) {
         abort();
-    } else if (text_stream_peek(ts) == '\'') {
+    } else if (tspeek(ts) == '\'') {
         text_stream_advance(ts);
         return cons(interp->syms.quote, cons(parse1(ts), NIL));
-    } else if (text_stream_peek(ts) == '(') {
+    } else if (tspeek(ts) == '(') {
         text_stream_advance(ts);
         skip_whitespace(ts);
-        if (text_stream_peek(ts) == ')') {
+        if (tspeek(ts) == ')') {
             /* Special case for () */
             text_stream_advance(ts);
             return NIL;
         } else {
             return parse_cons(ts);
         }
-    } else if (text_stream_peek(ts) == ')') {
+    } else if (tspeek(ts) == ')') {
         printf("Unexpected close paren\n");
-    } else if (text_stream_peek(ts) == '#') {
+    } else if (tspeek(ts) == '#') {
         return parse_dispatch(ts);
-    } else if (text_stream_peek(ts) == '"') {
+    } else if (tspeek(ts) == '"') {
         return parse_string(ts);
     } else {
         char *token = read_token(ts);
@@ -720,14 +731,14 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
 
 lisp_object_t parse_string(struct text_stream *ts)
 {
-    assert(text_stream_peek(ts) == '"');
+    assert(tspeek(ts) == '"');
     text_stream_advance(ts);
     int len = 0;
     int escaped = 0;
     struct string_buffer sb;
     string_buffer_init(&sb);
-    for (; escaped || text_stream_peek(ts) != '"'; text_stream_advance(ts)) {
-        char p = text_stream_peek(ts);
+    for (; escaped || tspeek(ts) != '"'; text_stream_advance(ts)) {
+        char p = tspeek(ts);
         if (!escaped && p == '\\') {
             escaped = 1;
         } else {
@@ -757,7 +768,7 @@ lisp_object_t parse_string(struct text_stream *ts)
             len++;
         }
     }
-    assert(text_stream_peek(ts) == '"');
+    assert(tspeek(ts) == '"');
     text_stream_advance(ts); /* Move past closing " */
     char *str = string_buffer_to_string(&sb);
     lisp_object_t result = allocate_string(len + 1, str);
@@ -876,6 +887,7 @@ lisp_object_t pairlis(lisp_object_t x, lisp_object_t y, lisp_object_t a)
 static void push_return_context()
 {
     struct prog_return_context *ctxt = malloc(sizeof(struct prog_return_context));
+    ctxt->type = interp->syms.return_;
     ctxt->next = interp->prog_return_stack;
     ctxt->return_value = NIL;
     interp->prog_return_stack = ctxt;
@@ -888,6 +900,17 @@ static lisp_object_t pop_return_context()
     interp->prog_return_stack = ctxt->next;
     free(ctxt);
     return retval;
+}
+
+lisp_object_t raise(lisp_object_t sym, lisp_object_t value)
+{
+    while (interp->prog_return_stack && interp->prog_return_stack->type != sym)
+        pop_return_context();
+    if (!interp->prog_return_stack)
+        abort();
+    interp->prog_return_stack->return_value = value;
+    longjmp(interp->prog_return_stack->buf, 1);
+    return NIL; /* we never actually return */
 }
 
 lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
@@ -1025,6 +1048,25 @@ lisp_object_t evalprog(lisp_object_t e, lisp_object_t a)
     }
 }
 
+lisp_object_t eval_condition_case(lisp_object_t e, lisp_object_t a)
+{
+    lisp_object_t var = car(e);
+    lisp_object_t code = cadr(e);
+    lisp_object_t handlers = cddr(e);
+    for (lisp_object_t handler = handlers; handler != NIL; handler = cdr(handler)) {
+        lisp_object_t symbol = caar(handler);
+        push_return_context();
+        interp->prog_return_stack->type = symbol;
+        if (setjmp(interp->prog_return_stack->buf)) {
+            symbol = interp->prog_return_stack->type;
+            lisp_object_t entry = cons(var, cons(symbol, cons(pop_return_context(), NIL)));
+            lisp_object_t env = cons(entry, a);
+            return eval(cadr(assoc(symbol, handlers)), env);
+        }
+    }
+    return eval(code, a);
+}
+
 lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 {
     if (e == NIL || e == T || integerp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL)
@@ -1043,8 +1085,9 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
         } else if (eq(car(e), interp->syms.prog) != NIL) {
             return evalprog(cdr(e), a);
         } else if (eq(car(e), interp->syms.return_) != NIL) {
-            interp->prog_return_stack->return_value = eval(cadr(e), a);
-            longjmp(interp->prog_return_stack->buf, 1);
+            return raise(interp->syms.return_, eval(cadr(e), a));
+        } else if (eq(car(e), interp->syms.condition_case) != NIL) {
+            return eval_condition_case(cdr(e), a);
         } else {
             return apply(car(e), evlis(cdr(e), a), a);
         }

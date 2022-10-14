@@ -84,9 +84,10 @@ lisp_object_t print(lisp_object_t obj);
 lisp_object_t princ(lisp_object_t obj);
 lisp_object_t plus(lisp_object_t x, lisp_object_t y);
 lisp_object_t minus(lisp_object_t x, lisp_object_t y);
+lisp_object_t raise(lisp_object_t sym, lisp_object_t value);
 
 struct syms {
-    lisp_object_t lambda, label, quote, cond, defun, built_in_function, prog, set, go, return_, amprest;
+    lisp_object_t lambda, label, quote, cond, defun, built_in_function, prog, set, go, return_, amprest, condition_case;
 };
 
 struct cons {
@@ -114,6 +115,7 @@ void mark_stack(struct cons_heap *cons_heap);
 void sweep(struct cons_heap *cons_heap);
 
 struct prog_return_context {
+    lisp_object_t type;
     jmp_buf buf;
     lisp_object_t return_value;
     struct prog_return_context *next;

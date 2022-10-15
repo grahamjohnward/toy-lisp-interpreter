@@ -151,6 +151,11 @@ lisp_object_t function_pointer_p(lisp_object_t obj)
     return istype(obj, FUNCTION_POINTER_TYPE);
 }
 
+lisp_object_t functionp(lisp_object_t obj)
+{
+    return consp(obj) != NIL && (eq(car(obj), interp->syms.lambda) != NIL || eq(car(obj), interp->syms.built_in_function) != NIL) ? T : NIL;
+}
+
 lisp_object_t allocate_lisp_objects(size_t n)
 {
     lisp_object_t result = (lisp_object_t)interp->next_free;
@@ -1069,7 +1074,7 @@ lisp_object_t eval_condition_case(lisp_object_t e, lisp_object_t a)
 
 lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 {
-    if (e == NIL || e == T || integerp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL)
+    if (e == NIL || e == T || integerp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL || functionp(e) != NIL)
         return e;
     if (atom(e) != NIL)
         return cdr(assoc(e, a));

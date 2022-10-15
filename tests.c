@@ -1058,6 +1058,24 @@ static void test_condition_case()
     test_eval_helper("(condition-case e (raise 'ohno 14) (ohno (cons 'error-was e)) (didnt-happen 'frob))", "(error-was ohno 14)");
 }
 
+static void test_functionp()
+{
+    test_name = "functionp";
+    init_interpreter(32768);
+    check(functionp(eval_toplevel(parse1_wrapper("(lambda (x) (cons x x))"))) == T, "lambda t");
+    check(functionp(eval_toplevel(parse1_wrapper("(built-in-function 0x1234 2)"))) == T, "built-in t");
+    check(functionp(eval_toplevel(parse1_wrapper("foo"))) == NIL, "symbol nil");
+    check(functionp(eval_toplevel(parse1_wrapper("14"))) == NIL, "integer nil");
+    free_interpreter();
+}
+
+static void test_print_function()
+{
+    test_name = "print_function";
+    test_eval_helper("(lambda (x) (cons x x))", "(lambda (x) (cons x x))");
+    test_eval_helper("(built-in-function 0x1234 2)", "(built-in-function 0x1234 2)");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1140,6 +1158,8 @@ int main(int argc, char **argv)
     test_return_outside_prog();
     test_prog_without_return();
     test_condition_case();
+    test_functionp();
+    test_print_function();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

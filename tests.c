@@ -1064,7 +1064,7 @@ static void test_functionp()
     init_interpreter(32768);
     check(functionp(eval_toplevel(parse1_wrapper("(lambda (x) (cons x x))"))) == T, "lambda t");
     check(functionp(eval_toplevel(parse1_wrapper("(built-in-function 0x1234 2)"))) == T, "built-in t");
-    check(functionp(eval_toplevel(parse1_wrapper("foo"))) == NIL, "symbol nil");
+    check(functionp(parse1_wrapper("foo")) == NIL, "symbol nil");
     check(functionp(eval_toplevel(parse1_wrapper("14"))) == NIL, "integer nil");
     free_interpreter();
 }
@@ -1074,6 +1074,12 @@ static void test_print_function()
     test_name = "print_function";
     test_eval_helper("(lambda (x) (cons x x))", "(lambda (x) (cons x x))");
     test_eval_helper("(built-in-function 0x1234 2)", "(built-in-function 0x1234 2)");
+}
+
+static void test_unbound_variable()
+{
+    test_name = "unbound_variable";
+    test_eval_helper("(condition-case e (print x) (unbound-variable (cons 'ohdear e)))", "(ohdear unbound-variable x)");
 }
 
 int main(int argc, char **argv)
@@ -1160,6 +1166,7 @@ int main(int argc, char **argv)
     test_condition_case();
     test_functionp();
     test_print_function();
+    test_unbound_variable();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

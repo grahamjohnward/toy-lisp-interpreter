@@ -1076,9 +1076,12 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 {
     if (e == NIL || e == T || integerp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL || functionp(e) != NIL)
         return e;
-    if (atom(e) != NIL)
-        return cdr(assoc(e, a));
-    else if (atom(car(e) != NIL))
+    if (atom(e) != NIL) {
+        lisp_object_t x = assoc(e, a);
+        if (x == NIL)
+            raise(sym("unbound-variable"), e);
+        return cdr(x);
+    } else if (atom(car(e) != NIL)) {
         if (eq(car(e), interp->syms.quote) != NIL) {
             return car(cdr(e));
         } else if (eq(car(e), interp->syms.cond) != NIL) {
@@ -1096,8 +1099,9 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
         } else {
             return apply(car(e), evlis(cdr(e), a), a);
         }
-    else
+    } else {
         return apply(car(e), evlis(cdr(e), a), a);
+    }
 }
 
 lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x)

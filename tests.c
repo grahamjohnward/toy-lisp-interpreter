@@ -1082,6 +1082,24 @@ static void test_unbound_variable()
     test_eval_helper("(condition-case e (print x) (unbound-variable (cons 'ohdear e)))", "(ohdear unbound-variable x)");
 }
 
+static void test_plist()
+{
+    test_name = "plist";
+    test_eval_helper("(prog () (putprop 'foo 'greeting '(hello world)) (get 'foo 'greeting))", "(hello world)");
+}
+
+static void test_defmacro()
+{
+    test_name = "defmacro";
+    init_interpreter(32768);
+    eval_toplevel(parse1_wrapper("(defmacro if (test then else) `(cond (,test ,then) (t ,else)))"));
+    lisp_object_t result = eval_toplevel(parse1_wrapper("(if (eq (car (cons 3 4)) 3) (two-arg-plus 9 9) 'bof)"));
+    check(result == 18, "test1");
+    result = eval_toplevel(parse1_wrapper("(if (eq (car (cons 3 4)) 4) (two-arg-plus 9 9) 'bof)"));
+    check(eq(result, sym("bof")) != NIL, "test2");
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1167,6 +1185,8 @@ int main(int argc, char **argv)
     test_functionp();
     test_print_function();
     test_unbound_variable();
+    test_plist();
+    test_defmacro();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

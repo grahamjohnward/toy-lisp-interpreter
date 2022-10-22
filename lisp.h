@@ -86,9 +86,11 @@ lisp_object_t princ(lisp_object_t obj);
 lisp_object_t plus(lisp_object_t x, lisp_object_t y);
 lisp_object_t minus(lisp_object_t x, lisp_object_t y);
 lisp_object_t raise(lisp_object_t sym, lisp_object_t value);
+lisp_object_t getprop(lisp_object_t sym, lisp_object_t ind);
+lisp_object_t putprop(lisp_object_t sym, lisp_object_t ind, lisp_object_t value);
 
 struct syms {
-    lisp_object_t lambda, label, quote, cond, defun, built_in_function, prog, set, go, return_, amprest, condition_case;
+    lisp_object_t lambda, label, quote, cond, defun, built_in_function, prog, set, go, return_, amprest, condition_case, defmacro, quasiquote, unquote;
 };
 
 struct cons {

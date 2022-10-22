@@ -25,6 +25,7 @@ struct symbol {
     lisp_object_t name;
     lisp_object_t value;
     lisp_object_t function;
+    lisp_object_t plist;
 };
 
 struct vector {
@@ -243,6 +244,9 @@ void init_interpreter(size_t heap_size)
     interp->syms.return_ = sym("return");
     interp->syms.amprest = sym("&rest");
     interp->syms.condition_case = sym("condition-case");
+    interp->syms.defmacro = sym("defmacro");
+    interp->syms.quasiquote = sym("quasiquote");
+    interp->syms.unquote = sym("unquote");
     interp->environ = NIL;
 #define DEFBUILTIN(S, F, A) define_built_in_function(S, (void (*)())F, A)
     DEFBUILTIN("car", car, 1);
@@ -262,6 +266,8 @@ void init_interpreter(size_t heap_size)
     DEFBUILTIN("=", eq, 2);
     DEFBUILTIN("raise", raise, 2);
     DEFBUILTIN("exit", exit, 1);
+    DEFBUILTIN("get", getprop, 2);
+    DEFBUILTIN("putprop", putprop, 3);
 #undef DEFBUILTIN
     interp->prog_return_stack = NULL;
     interpreter_initialized = 1;
@@ -469,15 +475,41 @@ lisp_object_t allocate_symbol(lisp_object_t name)
         return preexisting_symbol;
     } else {
         check_string(name);
-        lisp_object_t obj = allocate_lisp_objects(3);
+        lisp_object_t obj = allocate_lisp_objects(4);
         struct symbol *s = (struct symbol *)obj;
         s->name = name;
         s->value = NIL;
         s->function = NIL;
+        s->plist = NIL;
         lisp_object_t symbol = obj | SYMBOL_TYPE;
         interp->symbol_table = cons(symbol, interp->symbol_table);
         return symbol;
     }
+}
+
+lisp_object_t getprop(lisp_object_t sym, lisp_object_t ind)
+{
+    check_symbol(sym);
+    struct symbol *symptr = SymbolPtr(sym);
+    for (lisp_object_t o = symptr->plist; o != NIL; o = cdr(o)) {
+        if (eq(car(car(o)), ind) != NIL)
+            return cdr(car(o));
+    }
+    return NIL;
+}
+
+lisp_object_t putprop(lisp_object_t sym, lisp_object_t ind, lisp_object_t value)
+{
+    check_symbol(sym);
+    struct symbol *symptr = SymbolPtr(sym);
+    for (lisp_object_t o = symptr->plist; o != NIL; o = cdr(o)) {
+        if (eq(car(o), ind) != NIL) {
+            rplacd(o, value);
+            return value;
+        }
+    }
+    symptr->plist = cons(cons(ind, value), symptr->plist);
+    return value;
 }
 
 lisp_object_t parse_symbol(char *str)
@@ -600,6 +632,12 @@ lisp_object_t parse1(struct text_stream *ts)
     } else if (tspeek(ts) == '\'') {
         text_stream_advance(ts);
         return cons(interp->syms.quote, cons(parse1(ts), NIL));
+    } else if (tspeek(ts) == '`') {
+        text_stream_advance(ts);
+        return cons(interp->syms.quasiquote, cons(parse1(ts), NIL));
+    } else if (tspeek(ts) == ',') {
+        text_stream_advance(ts);
+        return cons(interp->syms.unquote, cons(parse1(ts), NIL));
     } else if (tspeek(ts) == '(') {
         text_stream_advance(ts);
         skip_whitespace(ts);
@@ -911,8 +949,10 @@ lisp_object_t raise(lisp_object_t sym, lisp_object_t value)
 {
     while (interp->prog_return_stack && interp->prog_return_stack->type != sym)
         pop_return_context();
-    if (!interp->prog_return_stack)
+    if (!interp->prog_return_stack) {
+        char *message = print_object(cons(sym, value));
         abort();
+    }
     interp->prog_return_stack->return_value = value;
     longjmp(interp->prog_return_stack->buf, 1);
     return NIL; /* we never actually return */
@@ -950,6 +990,8 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
             return ((lisp_object_t(*)(lisp_object_t))fp)(car(x));
         case 2:
             return ((lisp_object_t(*)(lisp_object_t, lisp_object_t))fp)(car(x), cadr(x));
+        case 3:
+            return ((lisp_object_t(*)(lisp_object_t, lisp_object_t, lisp_object_t))fp)(car(x), cadr(x), caddr(x));
         default:
             abort();
         }
@@ -987,6 +1029,13 @@ lisp_object_t evaldefun(lisp_object_t e, lisp_object_t a)
     lisp_object_t fn = cons(interp->syms.lambda, cons(arglist, cons(body, NIL)));
     struct symbol *sym = SymbolPtr(fname);
     sym->function = fn;
+    return fname;
+}
+
+lisp_object_t evaldefmacro(lisp_object_t e, lisp_object_t a)
+{
+    lisp_object_t fname = evaldefun(e, a);
+    putprop(fname, sym("macro"), T);
     return fname;
 }
 
@@ -1072,6 +1121,31 @@ lisp_object_t eval_condition_case(lisp_object_t e, lisp_object_t a)
     return eval(code, a);
 }
 
+lisp_object_t eval_quasiquote(lisp_object_t e, lisp_object_t a)
+{
+    if (e == NIL) {
+        return NIL;
+    } else if (atom(e) != NIL) {
+        return e;
+    } else if (consp(e) != NIL) {
+        if (eq(car(e), interp->syms.unquote) != NIL) {
+            return eval(cadr(e), a);
+        } else {
+            return cons(eval_quasiquote(car(e), a), eval_quasiquote(cdr(e), a));
+        }
+    }
+    abort();
+    return NIL;
+}
+
+static lisp_object_t quote_list(lisp_object_t list)
+{
+    if (list == NIL)
+        return NIL;
+    else
+        return cons(cons(interp->syms.quote, cons(car(list), NIL)), quote_list(cdr(list)));
+}
+
 lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 {
     if (e == NIL || e == T || integerp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL || functionp(e) != NIL)
@@ -1084,10 +1158,16 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
     } else if (atom(car(e) != NIL)) {
         if (eq(car(e), interp->syms.quote) != NIL) {
             return car(cdr(e));
+        } else if (eq(car(e), interp->syms.quasiquote) != NIL) {
+            return eval_quasiquote(cadr(e), a);
+        } else if (eq(car(e), interp->syms.unquote) != NIL) {
+            abort();
         } else if (eq(car(e), interp->syms.cond) != NIL) {
             return evcon(cdr(e), a);
         } else if (eq(car(e), interp->syms.defun) != NIL) {
             return evaldefun(cdr(e), a);
+        } else if (eq(car(e), interp->syms.defmacro) != NIL) {
+            return evaldefmacro(cdr(e), a);
         } else if (eq(car(e), interp->syms.set) != NIL) {
             return evalset(e, a);
         } else if (eq(car(e), interp->syms.prog) != NIL) {
@@ -1096,6 +1176,9 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
             return raise(interp->syms.return_, eval(cadr(e), a));
         } else if (eq(car(e), interp->syms.condition_case) != NIL) {
             return eval_condition_case(cdr(e), a);
+        } else if (symbolp(car(e)) != NIL && getprop(car(e), sym("macro")) != NIL) {
+            struct symbol *symptr = SymbolPtr(car(e));
+            return eval(eval(cons(symptr->function, quote_list(cdr(e))), a), a);
         } else {
             return apply(car(e), evlis(cdr(e), a), a);
         }

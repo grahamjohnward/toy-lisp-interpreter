@@ -1100,6 +1100,15 @@ static void test_defmacro()
     free_interpreter();
 }
 
+static void test_unquote_splice()
+{
+    test_name = "unquote_splice";
+    init_interpreter(32768);
+    eval_toplevel(parse1_wrapper("(defmacro when (test &body then) `(cond (,test (prog () ,@then)) (t nil)))"));
+    lisp_object_t result = eval_toplevel(parse1_wrapper("(when (eq (car (cons 3 2)) 3) (print 'bof) 14)"));
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1187,6 +1196,7 @@ int main(int argc, char **argv)
     test_unbound_variable();
     test_plist();
     test_defmacro();
+    test_unquote_splice();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

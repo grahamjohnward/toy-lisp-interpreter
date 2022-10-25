@@ -243,10 +243,12 @@ void init_interpreter(size_t heap_size)
     interp->syms.go = sym("go");
     interp->syms.return_ = sym("return");
     interp->syms.amprest = sym("&rest");
+    interp->syms.ampbody = sym("&body");
     interp->syms.condition_case = sym("condition-case");
     interp->syms.defmacro = sym("defmacro");
     interp->syms.quasiquote = sym("quasiquote");
     interp->syms.unquote = sym("unquote");
+    interp->syms.unquote_splice = sym("unquote-splice");
     interp->environ = NIL;
 #define DEFBUILTIN(S, F, A) define_built_in_function(S, (void (*)())F, A)
     DEFBUILTIN("car", car, 1);
@@ -637,7 +639,12 @@ lisp_object_t parse1(struct text_stream *ts)
         return cons(interp->syms.quasiquote, cons(parse1(ts), NIL));
     } else if (tspeek(ts) == ',') {
         text_stream_advance(ts);
-        return cons(interp->syms.unquote, cons(parse1(ts), NIL));
+        if (tspeek(ts) == '@') {
+            text_stream_advance(ts);
+            return cons(interp->syms.unquote_splice, cons(parse1(ts), NIL));
+        } else {
+            return cons(interp->syms.unquote, cons(parse1(ts), NIL));
+        }
     } else if (tspeek(ts) == '(') {
         text_stream_advance(ts);
         skip_whitespace(ts);
@@ -912,7 +919,7 @@ lisp_object_t pairlis2(lisp_object_t x, lisp_object_t y, lisp_object_t a)
 {
     if (x == NIL)
         return a;
-    else if (eq(car(x), interp->syms.amprest) != NIL)
+    else if (eq(car(x), interp->syms.amprest) != NIL || eq(car(x), interp->syms.ampbody) != NIL)
         return cons(cons(cadr(x), y), a);
     else
         return cons(cons(car(x), car(y)), pairlis2(cdr(x), cdr(y), a));
@@ -1085,7 +1092,7 @@ lisp_object_t evalprog(lisp_object_t e, lisp_object_t a)
         lisp_object_t retval = NIL;
         for (i = 0; i < n;) {
             lisp_object_t code = table[i];
-            if (car(code) == interp->syms.go) {
+            if (consp(code) != NIL && car(code) == interp->syms.go) {
                 lisp_object_t target = assoc(cadr(code), alist);
                 if (target != NIL)
                     i = cdr(target);
@@ -1130,6 +1137,10 @@ lisp_object_t eval_quasiquote(lisp_object_t e, lisp_object_t a)
     } else if (consp(e) != NIL) {
         if (eq(car(e), interp->syms.unquote) != NIL) {
             return eval(cadr(e), a);
+        } else if (eq(car(e), interp->syms.unquote_splice) != NIL) {
+            return eval(cadr(e), a);
+        } else if (consp(car(e)) != NIL && eq(car(car(e)), interp->syms.unquote_splice) != NIL) {
+            return eval(cadr(car(e)), a);
         } else {
             return cons(eval_quasiquote(car(e), a), eval_quasiquote(cdr(e), a));
         }

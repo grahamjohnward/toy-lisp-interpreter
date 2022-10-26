@@ -118,11 +118,11 @@ void mark(struct cons_heap *cons_heap);
 void mark_stack(struct cons_heap *cons_heap);
 void sweep(struct cons_heap *cons_heap);
 
-struct prog_return_context {
+struct return_context {
     lisp_object_t type;
     jmp_buf buf;
     lisp_object_t return_value;
-    struct prog_return_context *next;
+    struct return_context *next;
 };
 
 struct lisp_interpreter {
@@ -135,7 +135,7 @@ struct lisp_interpreter {
     lisp_object_t *next_free;
     size_t heap_size_bytes;
     /* Machinery for returning from prog */
-    struct prog_return_context *prog_return_stack;
+    struct return_context *prog_return_stack;
 };
 
 extern struct lisp_interpreter *interp;

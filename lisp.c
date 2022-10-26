@@ -936,7 +936,7 @@ lisp_object_t pairlis(lisp_object_t x, lisp_object_t y, lisp_object_t a)
 
 static void push_return_context()
 {
-    struct prog_return_context *ctxt = malloc(sizeof(struct prog_return_context));
+    struct return_context *ctxt = malloc(sizeof(struct return_context));
     ctxt->type = interp->syms.return_;
     ctxt->next = interp->prog_return_stack;
     ctxt->return_value = NIL;
@@ -945,7 +945,7 @@ static void push_return_context()
 
 static lisp_object_t pop_return_context()
 {
-    struct prog_return_context *ctxt = interp->prog_return_stack;
+    struct return_context *ctxt = interp->prog_return_stack;
     lisp_object_t retval = ctxt->return_value;
     interp->prog_return_stack = ctxt->next;
     free(ctxt);

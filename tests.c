@@ -1125,6 +1125,18 @@ static void test_optional_arguments()
     free_interpreter();
 }
 
+static void test_progn()
+{
+    test_name = "progn";
+    init_interpreter(32768);
+    eval_toplevel(parse1_wrapper("(defun foo (x y) (progn (set 'x 12) (set 'y 13) (cons 12 13)))"));
+    lisp_object_t result = eval_toplevel(parse1_wrapper("(foo 3 4)"));
+    char *str = print_object(result);
+    check(strcmp(str, "(12 . 13)") == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1214,6 +1226,7 @@ int main(int argc, char **argv)
     test_defmacro();
     test_unquote_splice();
     test_optional_arguments();
+    test_progn();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

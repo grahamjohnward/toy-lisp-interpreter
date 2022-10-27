@@ -239,6 +239,7 @@ void init_interpreter(size_t heap_size)
     interp->syms.defun = sym("defun");
     interp->syms.built_in_function = sym("built-in-function");
     interp->syms.prog = sym("prog");
+    interp->syms.progn = sym("progn");
     interp->syms.set = sym("set");
     interp->syms.go = sym("go");
     interp->syms.return_ = sym("return");
@@ -1112,6 +1113,14 @@ lisp_object_t evalprog(lisp_object_t e, lisp_object_t a)
     }
 }
 
+lisp_object_t evalprogn(lisp_object_t e, lisp_object_t a)
+{
+    lisp_object_t return_value = NIL;
+    for (lisp_object_t o = e; o != NIL; o = cdr(o))
+        return_value = eval(car(o), a);
+    return return_value;
+}
+
 lisp_object_t eval_condition_case(lisp_object_t e, lisp_object_t a)
 {
     lisp_object_t var = car(e);
@@ -1186,6 +1195,8 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
             return evalset(e, a);
         } else if (eq(car(e), interp->syms.prog) != NIL) {
             return evalprog(cdr(e), a);
+        } else if (eq(car(e), interp->syms.progn) != NIL) {
+            return evalprogn(cdr(e), a);
         } else if (eq(car(e), interp->syms.return_) != NIL) {
             return raise(interp->syms.return_, eval(cadr(e), a));
         } else if (eq(car(e), interp->syms.condition_case) != NIL) {

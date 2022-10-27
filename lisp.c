@@ -244,6 +244,7 @@ void init_interpreter(size_t heap_size)
     interp->syms.return_ = sym("return");
     interp->syms.amprest = sym("&rest");
     interp->syms.ampbody = sym("&body");
+    interp->syms.ampoptional = sym("&optional");
     interp->syms.condition_case = sym("condition-case");
     interp->syms.defmacro = sym("defmacro");
     interp->syms.quasiquote = sym("quasiquote");
@@ -921,6 +922,8 @@ lisp_object_t pairlis2(lisp_object_t x, lisp_object_t y, lisp_object_t a)
         return a;
     else if (eq(car(x), interp->syms.amprest) != NIL || eq(car(x), interp->syms.ampbody) != NIL)
         return cons(cons(cadr(x), y), a);
+    else if (eq(car(x), interp->syms.ampoptional) != NIL)
+        return cons(cons(cadr(x), car(y)), NIL);
     else
         return cons(cons(car(x), car(y)), pairlis2(cdr(x), cdr(y), a));
 }

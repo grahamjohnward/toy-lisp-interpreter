@@ -1109,6 +1109,22 @@ static void test_unquote_splice()
     free_interpreter();
 }
 
+static void test_optional_arguments()
+{
+    test_name = "optional_arguments";
+    init_interpreter(32768);
+    eval_toplevel(parse1_wrapper("(defun test (a &optional b) (cons 'hello (cons a (cons b 'foo))))"));
+    lisp_object_t result = eval_toplevel(parse1_wrapper("(test 3 4)"));
+    char *str = print_object(result);
+    check(strcmp(str, "(hello 3 4 . foo)") == 0, "provided");
+    free(str);
+    result = eval_toplevel(parse1_wrapper("(test 3)"));
+    str = print_object(result);
+    check(strcmp(str, "(hello 3 nil . foo)") == 0, "not provided");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1197,6 +1213,7 @@ int main(int argc, char **argv)
     test_plist();
     test_defmacro();
     test_unquote_splice();
+    test_optional_arguments();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

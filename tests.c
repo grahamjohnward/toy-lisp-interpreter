@@ -1062,10 +1062,10 @@ static void test_functionp()
 {
     test_name = "functionp";
     init_interpreter(32768);
-    check(functionp(eval_toplevel(parse1_wrapper("(lambda (x) (cons x x))"))) == T, "lambda t");
-    check(functionp(eval_toplevel(parse1_wrapper("(built-in-function 0x1234 2)"))) == T, "built-in t");
+    check(functionp(test_eval_string_helper("(lambda (x) (cons x x))")) == T, "lambda t");
+    check(functionp(test_eval_string_helper("(built-in-function 0x1234 2)")) == T, "built-in t");
     check(functionp(parse1_wrapper("foo")) == NIL, "symbol nil");
-    check(functionp(eval_toplevel(parse1_wrapper("14"))) == NIL, "integer nil");
+    check(functionp(test_eval_string_helper("14")) == NIL, "integer nil");
     free_interpreter();
 }
 
@@ -1092,10 +1092,10 @@ static void test_defmacro()
 {
     test_name = "defmacro";
     init_interpreter(32768);
-    eval_toplevel(parse1_wrapper("(defmacro if (test then else) `(cond (,test ,then) (t ,else)))"));
-    lisp_object_t result = eval_toplevel(parse1_wrapper("(if (eq (car (cons 3 4)) 3) (two-arg-plus 9 9) 'bof)"));
+    test_eval_string_helper("(defmacro if (test then else) `(cond (,test ,then) (t ,else)))");
+    lisp_object_t result = test_eval_string_helper("(if (eq (car (cons 3 4)) 3) (two-arg-plus 9 9) 'bof)");
     check(result == 18, "test1");
-    result = eval_toplevel(parse1_wrapper("(if (eq (car (cons 3 4)) 4) (two-arg-plus 9 9) 'bof)"));
+    result = test_eval_string_helper("(if (eq (car (cons 3 4)) 4) (two-arg-plus 9 9) 'bof)");
     check(eq(result, sym("bof")) != NIL, "test2");
     free_interpreter();
 }
@@ -1104,8 +1104,8 @@ static void test_unquote_splice()
 {
     test_name = "unquote_splice";
     init_interpreter(32768);
-    eval_toplevel(parse1_wrapper("(defmacro when (test &body then) `(cond (,test (prog () ,@then)) (t nil)))"));
-    lisp_object_t result = eval_toplevel(parse1_wrapper("(when (eq (car (cons 3 2)) 3) (print 'bof) 14)"));
+    test_eval_string_helper("(defmacro when (test &body then) `(cond (,test (prog () ,@then)) (t nil)))");
+    lisp_object_t result = test_eval_string_helper("(when (eq (car (cons 3 2)) 3) (print 'bof) 14)");
     free_interpreter();
 }
 
@@ -1114,11 +1114,11 @@ static void test_optional_arguments()
     test_name = "optional_arguments";
     init_interpreter(32768);
     eval_toplevel(parse1_wrapper("(defun test (a &optional b) (cons 'hello (cons a (cons b 'foo))))"));
-    lisp_object_t result = eval_toplevel(parse1_wrapper("(test 3 4)"));
+    lisp_object_t result = test_eval_string_helper("(test 3 4)");
     char *str = print_object(result);
     check(strcmp(str, "(hello 3 4 . foo)") == 0, "provided");
     free(str);
-    result = eval_toplevel(parse1_wrapper("(test 3)"));
+    result = test_eval_string_helper("(test 3)");
     str = print_object(result);
     check(strcmp(str, "(hello 3 nil . foo)") == 0, "not provided");
     free(str);
@@ -1129,8 +1129,8 @@ static void test_progn()
 {
     test_name = "progn";
     init_interpreter(32768);
-    eval_toplevel(parse1_wrapper("(defun foo (x y) (progn (set 'x 12) (set 'y 13) (cons 12 13)))"));
-    lisp_object_t result = eval_toplevel(parse1_wrapper("(foo 3 4)"));
+    test_eval_string_helper("(defun foo (x y) (progn (set 'x 12) (set 'y 13) (cons 12 13)))");
+    lisp_object_t result = test_eval_string_helper("(foo 3 4)");
     char *str = print_object(result);
     check(strcmp(str, "(12 . 13)") == 0, "ok");
     free(str);

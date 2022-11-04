@@ -91,7 +91,7 @@ lisp_object_t getprop(lisp_object_t sym, lisp_object_t ind);
 lisp_object_t putprop(lisp_object_t sym, lisp_object_t ind, lisp_object_t value);
 
 struct syms {
-    lisp_object_t lambda, label, quote, cond, defun, built_in_function, prog, progn, set, go, return_, amprest, ampbody, ampoptional, condition_case, defmacro, quasiquote, unquote, unquote_splice;
+    lisp_object_t lambda, label, quote, cond, defun, built_in_function, prog, progn, tagbody, set, go, return_, amprest, ampbody, ampoptional, condition_case, defmacro, quasiquote, unquote, unquote_splice;
 };
 
 struct cons {
@@ -123,6 +123,7 @@ struct return_context {
     jmp_buf buf;
     lisp_object_t return_value;
     struct return_context *next;
+    lisp_object_t *tagbody_forms;
 };
 
 struct lisp_interpreter {

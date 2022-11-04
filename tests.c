@@ -1137,6 +1137,28 @@ static void test_progn()
     free_interpreter();
 }
 
+static void test_tagbody()
+{
+    test_name = "tagbody";
+    init_interpreter(32768);
+    test_eval_string_helper("(defun foo (x) (tagbody iterate (cond ((= x 0) 'done) (t (progn (set 'x (two-arg-minus x 1)) (go iterate))))))");
+    lisp_object_t result = test_eval_string_helper("(foo 10)");
+    char *str = print_object(result);
+    check(strcmp("done", str) == 0, "ok");
+    free(str);
+}
+
+static void test_tagbody_condition_case()
+{
+    test_name = "tagbody_condition_case";
+    init_interpreter(32768);
+    test_eval_string_helper("(defun ooh () (tagbody (condition-case e (raise 'ohno) (ohno (go hello))) (return 'bad) hello (return 'hello)))");
+    lisp_object_t result = test_eval_string_helper("(ooh)");
+    char *str = print_object(result);
+    check(strcmp("hello", str) == 0, "ok");
+    free(str);
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1227,6 +1249,8 @@ int main(int argc, char **argv)
     test_unquote_splice();
     test_optional_arguments();
     test_progn();
+    test_tagbody();
+    test_tagbody_condition_case();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

@@ -1097,7 +1097,6 @@ lisp_object_t evalprog(lisp_object_t e, lisp_object_t a)
     if (setjmp(interp->prog_return_stack->buf)) {
         return pop_return_context();
     } else {
-        lisp_object_t retval = NIL;
         for (i = 0; i < n;) {
             lisp_object_t code = table[i];
             if (consp(code) != NIL && car(code) == interp->syms.go) {
@@ -1107,13 +1106,13 @@ lisp_object_t evalprog(lisp_object_t e, lisp_object_t a)
                 else
                     abort();
             } else {
-                retval = eval(code, extended_env);
+                eval(code, extended_env);
                 i++;
             }
         }
         /* If we get here, we never longjmped */
         pop_return_context();
-        return retval;
+        return NIL;
     }
 }
 
@@ -1129,7 +1128,7 @@ lisp_object_t evaltagbody(lisp_object_t e, lisp_object_t a)
 {
     /* count forms that are not tags */
     int n = 0;
-    for (lisp_object_t x = cdr(e); x != NIL; x = cdr(x)) {
+    for (lisp_object_t x = e; x != NIL; x = cdr(x)) {
         if (symbolp(car(x)) == NIL)
             n++;
     }
@@ -1149,15 +1148,14 @@ lisp_object_t evaltagbody(lisp_object_t e, lisp_object_t a)
     }
     interp->prog_return_stack->tagbody_forms = table;
     interp->prog_return_stack->return_value = alist;
-    lisp_object_t retval = NIL;
     for (int i = 0; i < n; i++) {
         int v = setjmp(interp->prog_return_stack->buf);
         if (v != 0)
             i = v - 1;
-        retval = eval(table[i], a);
+        eval(table[i], a);
     }
     pop_return_context();
-    return retval;
+    return NIL;
 }
 
 lisp_object_t evalgo(lisp_object_t tag)

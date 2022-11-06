@@ -1049,7 +1049,7 @@ static void test_return_outside_prog()
 static void test_prog_without_return()
 {
     test_name = "prog_without_return";
-    test_eval_helper("(prog (x y) (set 'x 14) (set 'y 12) (cons x y))", "(14 . 12)");
+    test_eval_helper("(prog (x y) (set 'x 14) (set 'y 12) (cons x y))", "nil");
 }
 
 static void test_condition_case()
@@ -1085,7 +1085,7 @@ static void test_unbound_variable()
 static void test_plist()
 {
     test_name = "plist";
-    test_eval_helper("(prog () (putprop 'foo 'greeting '(hello world)) (get 'foo 'greeting))", "(hello world)");
+    test_eval_helper("(prog () (putprop 'foo 'greeting '(hello world)) (return (get 'foo 'greeting)))", "(hello world)");
 }
 
 static void test_defmacro()
@@ -1141,11 +1141,27 @@ static void test_tagbody()
 {
     test_name = "tagbody";
     init_interpreter(32768);
-    test_eval_string_helper("(defun foo (x) (tagbody iterate (cond ((= x 0) 'done) (t (progn (set 'x (two-arg-minus x 1)) (go iterate))))))");
+    test_eval_string_helper("(defun foo (x) (tagbody iterate (cond ((= x 0) (return 'done)) (t (progn (set 'x (two-arg-minus x 1)) (go iterate)))))))");
     lisp_object_t result = test_eval_string_helper("(foo 10)");
     char *str = print_object(result);
     check(strcmp("done", str) == 0, "ok");
     free(str);
+}
+
+static void test_tagbody_bug()
+{
+    test_name = "tagbody_bug";
+    init_interpreter(32768);
+    test_eval_string_helper("(defun test (x) (progn (tagbody (set 'x 14)) x))");
+    lisp_object_t result = test_eval_string_helper("(test 2)");
+    check(result == 14, "ok");
+    free_interpreter();
+}
+
+static void test_tagbody_returns_nil()
+{
+    test_name = "tagbody_returns_nil";
+    test_eval_helper("(tagbody 14)", "nil");
 }
 
 static void test_tagbody_condition_case()
@@ -1250,6 +1266,8 @@ int main(int argc, char **argv)
     test_optional_arguments();
     test_progn();
     test_tagbody();
+    test_tagbody_bug();
+    test_tagbody_returns_nil();
     test_tagbody_condition_case();
     if (fail_count)
         printf("%d checks failed\n", fail_count);

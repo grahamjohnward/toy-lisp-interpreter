@@ -1175,6 +1175,12 @@ static void test_tagbody_condition_case()
     free(str);
 }
 
+static void test_let()
+{
+    test_name = "let";
+    test_eval_helper("(let ((a 3) (b (two-arg-plus 10 2)) (c 'frob) (d 14) x) (set 'd 8) (cons (two-arg-plus a b) (cons c (cons x d))))", "(15 frob nil . 8)");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1269,6 +1275,7 @@ int main(int argc, char **argv)
     test_tagbody_bug();
     test_tagbody_returns_nil();
     test_tagbody_condition_case();
+    test_let();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

@@ -252,6 +252,7 @@ void init_interpreter(size_t heap_size)
     interp->syms.quasiquote = sym("quasiquote");
     interp->syms.unquote = sym("unquote");
     interp->syms.unquote_splice = sym("unquote-splice");
+    interp->syms.let = sym("let");
     interp->environ = NIL;
 #define DEFBUILTIN(S, F, A) define_built_in_function(S, (void (*)())F, A)
     DEFBUILTIN("car", car, 1);
@@ -1036,6 +1037,20 @@ lisp_object_t evlis(lisp_object_t m, lisp_object_t a)
         return cons(eval(car(m), a), evlis(cdr(m), a));
 }
 
+lisp_object_t evallet(lisp_object_t e, lisp_object_t a)
+{
+    lisp_object_t varlist = car(e);
+    lisp_object_t extended_env = a;
+    for (lisp_object_t sublist = varlist; sublist != NIL; sublist = cdr(sublist)) {
+        lisp_object_t entry = car(sublist);
+        if (consp(entry) != NIL)
+            extended_env = cons(cons(car(entry), eval(cadr(entry), a)), extended_env);
+        else
+            extended_env = cons(cons(entry, NIL), extended_env);
+    }
+    return eval(cons(interp->syms.progn, cdr(e)), extended_env);
+}
+
 lisp_object_t evaldefun(lisp_object_t e, lisp_object_t a)
 {
     lisp_object_t fname = car(e);
@@ -1239,6 +1254,8 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
             abort();
         } else if (eq(car(e), interp->syms.cond) != NIL) {
             return evcon(cdr(e), a);
+        } else if (eq(car(e), interp->syms.let) != NIL) {
+            return evallet(cdr(e), a);
         } else if (eq(car(e), interp->syms.defun) != NIL) {
             return evaldefun(cdr(e), a);
         } else if (eq(car(e), interp->syms.defmacro) != NIL) {

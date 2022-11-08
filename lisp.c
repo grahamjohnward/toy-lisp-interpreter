@@ -1039,10 +1039,9 @@ lisp_object_t evlis(lisp_object_t m, lisp_object_t a)
 
 lisp_object_t evallet(lisp_object_t e, lisp_object_t a)
 {
-    lisp_object_t varlist = car(e);
     lisp_object_t extended_env = a;
-    for (lisp_object_t sublist = varlist; sublist != NIL; sublist = cdr(sublist)) {
-        lisp_object_t entry = car(sublist);
+    for (lisp_object_t varlist = car(e); varlist != NIL; varlist = cdr(varlist)) {
+        lisp_object_t entry = car(varlist);
         if (consp(entry) != NIL)
             extended_env = cons(cons(car(entry), eval(cadr(entry), a)), extended_env);
         else
@@ -1163,7 +1162,7 @@ lisp_object_t evaltagbody(lisp_object_t e, lisp_object_t a)
     }
     interp->prog_return_stack->tagbody_forms = table;
     interp->prog_return_stack->return_value = alist;
-    for (int i = 0; i < n; i++) {
+    for (i = 0; i < n; i++) {
         int v = setjmp(interp->prog_return_stack->buf);
         if (v != 0)
             i = v - 1;

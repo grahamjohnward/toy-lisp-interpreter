@@ -94,7 +94,7 @@ lisp_object_t macroexpand(lisp_object_t expr, lisp_object_t env);
 lisp_object_t macroexpand_all(lisp_object_t expr);
 
 struct syms {
-    lisp_object_t lambda, label, quote, cond, defun, built_in_function, prog, progn, tagbody, set, go, return_, amprest, ampbody, ampoptional, condition_case, defmacro, quasiquote, unquote, unquote_splice, let;
+    lisp_object_t lambda, quote, cond, defun, built_in_function, prog, progn, tagbody, set, go, return_, amprest, ampbody, ampoptional, condition_case, defmacro, quasiquote, unquote, unquote_splice, let;
 };
 
 struct cons {

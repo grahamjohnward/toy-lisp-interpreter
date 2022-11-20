@@ -233,7 +233,6 @@ void init_interpreter(size_t heap_size)
     cons_heap_init(&interp->cons_heap, heap_size);
     interp->symbol_table = NIL;
     interp->syms.lambda = sym("lambda");
-    interp->syms.label = sym("label");
     interp->syms.quote = sym("quote");
     interp->syms.cond = sym("cond");
     interp->syms.defun = sym("defun");
@@ -1011,8 +1010,6 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
         default:
             abort();
         }
-    } else if (eq(car(fn), interp->syms.label) != NIL) {
-        return apply(caddr(fn), x, cons(cons(cadr(fn), caddr(fn)), a));
     } else {
         char *str = print_object(fn);
         printf("Bad function: %s\n", str);

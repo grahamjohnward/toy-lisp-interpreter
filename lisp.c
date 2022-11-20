@@ -989,7 +989,10 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
         if (setjmp(interp->prog_return_stack->buf)) {
             return pop_return_context();
         } else {
-            lisp_object_t retval = eval(caddr(fn), pairlis2(cadr(fn), x, a));
+            lisp_object_t retval;
+            lisp_object_t env = pairlis2(cadr(fn), x, a);
+            for (lisp_object_t expr = cddr(fn); expr != NIL; expr = cdr(expr))
+                retval = eval(car(expr), env);
             /* If we get here, we never longjmped */
             pop_return_context();
             return retval;

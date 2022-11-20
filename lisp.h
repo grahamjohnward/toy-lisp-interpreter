@@ -89,6 +89,9 @@ lisp_object_t minus(lisp_object_t x, lisp_object_t y);
 lisp_object_t raise(lisp_object_t sym, lisp_object_t value);
 lisp_object_t getprop(lisp_object_t sym, lisp_object_t ind);
 lisp_object_t putprop(lisp_object_t sym, lisp_object_t ind, lisp_object_t value);
+lisp_object_t macroexpand1(lisp_object_t expr, lisp_object_t env);
+lisp_object_t macroexpand(lisp_object_t expr, lisp_object_t env);
+lisp_object_t macroexpand_all(lisp_object_t expr);
 
 struct syms {
     lisp_object_t lambda, label, quote, cond, defun, built_in_function, prog, progn, tagbody, set, go, return_, amprest, ampbody, ampoptional, condition_case, defmacro, quasiquote, unquote, unquote_splice, let;

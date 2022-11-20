@@ -1181,6 +1181,173 @@ static void test_let()
     test_eval_helper("(let ((a 3) (b (two-arg-plus 10 2)) (c 'frob) (d 14) x) (set 'd 8) (cons (two-arg-plus a b) (cons c (cons x d))))", "(15 frob nil . 8)");
 }
 
+static void test_macroexpand1()
+{
+    test_name = "macroexpand1";
+    init_interpreter(32768);
+    test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
+    test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
+    lisp_object_t expr = parse1_wrapper("(ooh (frob))");
+    lisp_object_t result = macroexpand1(expr, NIL);
+    char *str = print_object(result);
+    check(strcmp("((aah (frob)) . t)", str) == 0, "ok");
+    free(str);
+}
+
+static void test_macroexpand()
+{
+    test_name = "macroexpand";
+    init_interpreter(32768);
+    test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
+    test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
+    lisp_object_t expr = parse1_wrapper("(ooh (frob))");
+    lisp_object_t result = macroexpand(expr, NIL);
+    char *str = print_object(result);
+    check(strcmp("(bar (frob))", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
+static void test_macroexpand_all_cond()
+{
+    test_name = "macroexpand_all_cond";
+    init_interpreter(32768);
+    test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
+    test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
+    lisp_object_t expr = parse1_wrapper("(cond (nil 'ooh) (t (ooh (frob))))");
+    lisp_object_t result = macroexpand_all(expr);
+    char *str = print_object(result);
+    check(strcmp("(cond (nil (quote ooh)) (t (bar (frob))))", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
+static void test_macroexpand_all_progn()
+{
+    test_name = "macroexpand_all_progn";
+    init_interpreter(32768);
+    test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
+    test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
+    lisp_object_t expr = parse1_wrapper("(progn (ooh (frob)) (aah (hello)))");
+    lisp_object_t result = macroexpand_all(expr);
+    char *str = print_object(result);
+    check(strcmp("(progn (bar (frob)) (bar (hello)))", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
+static void test_macroexpand_all_lambda()
+{
+    test_name = "macroexpand_all_lambda";
+    init_interpreter(32768);
+    test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
+    test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
+    lisp_object_t expr = parse1_wrapper("(lambda (x) (ooh (frob)) (aah (hello)))");
+    lisp_object_t result = macroexpand_all(expr);
+    char *str = print_object(result);
+    check(strcmp("(lambda (x) (bar (frob)) (bar (hello)))", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
+static void test_macroexpand_all_tagbody()
+{
+    test_name = "macroexpand_all_tagbody";
+    init_interpreter(32768);
+    test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
+    test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
+    lisp_object_t expr = parse1_wrapper("(tagbody (ooh (frob)) foo (aah (hello)) (go foo))");
+    lisp_object_t result = macroexpand_all(expr);
+    char *str = print_object(result);
+    check(strcmp("(tagbody (bar (frob)) foo (bar (hello)) (go foo))", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
+static void test_macroexpand_all_prog()
+{
+    test_name = "macroexpand_all_prog";
+    init_interpreter(32768);
+    test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
+    test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
+    lisp_object_t expr = parse1_wrapper("(prog (a b) (ooh (frob)) foo (aah (hello)) (go foo))");
+    lisp_object_t result = macroexpand_all(expr);
+    char *str = print_object(result);
+    check(strcmp("(prog (a b) (bar (frob)) foo (bar (hello)) (go foo))", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
+static void test_macroexpand_all_set()
+{
+    test_name = "macroexpand_all_set";
+    init_interpreter(32768);
+    test_eval_string_helper("(defmacro frob (x) 'x)");
+    test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
+    lisp_object_t expr = parse1_wrapper("(set (frob) (aah (hello)))");
+    lisp_object_t result = macroexpand_all(expr);
+    char *str = print_object(result);
+    check(strcmp("(set x (bar (hello)))", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
+static void test_macroexpand_all_let()
+{
+    test_name = "macroexpand_all_let";
+    init_interpreter(32768);
+    test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
+    test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
+    lisp_object_t expr = parse1_wrapper("(let ((a 14) (b (ooh y))) (ooh b))");
+    lisp_object_t result = macroexpand_all(expr);
+    char *str = print_object(result);
+    check(strcmp("(let ((a 14) (b (bar y))) (bar b))", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
+static void test_macroexpand_all_defun()
+{
+    test_name = "macroexpand_all_defun";
+    init_interpreter(32768);
+    test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
+    test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
+    lisp_object_t expr = parse1_wrapper("(defun myfun (a b) (ooh a) (aah b))");
+    lisp_object_t result = macroexpand_all(expr);
+    char *str = print_object(result);
+    check(strcmp("(defun myfun (a b) (bar a) (bar b))", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
+static void test_macroexpand_all_defmacro()
+{
+    test_name = "macroexpand_all_defmacro";
+    init_interpreter(32768);
+    test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
+    test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
+    lisp_object_t expr = parse1_wrapper("(defmacro mymacro (a b) (ooh a) (aah b))");
+    lisp_object_t result = macroexpand_all(expr);
+    char *str = print_object(result);
+    check(strcmp("(defmacro mymacro (a b) (bar a) (bar b))", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
+static void test_macroexpand_all_condition_case()
+{
+    test_name = "macroexpand_all_condition_case";
+    init_interpreter(32768);
+    test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
+    test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
+    lisp_object_t expr = parse1_wrapper("(condition-case e (ooh 3) (ohno (aah 9)) (didnt-happen e))");
+    lisp_object_t result = macroexpand_all(expr);
+    char *str = print_object(result);
+    check(strcmp("(condition-case e (bar 3) (ohno (bar 9)) (didnt-happen e))", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1276,6 +1443,18 @@ int main(int argc, char **argv)
     test_tagbody_returns_nil();
     test_tagbody_condition_case();
     test_let();
+    test_macroexpand1();
+    test_macroexpand();
+    test_macroexpand_all_cond();
+    test_macroexpand_all_progn();
+    test_macroexpand_all_lambda();
+    test_macroexpand_all_tagbody();
+    test_macroexpand_all_prog();
+    test_macroexpand_all_set();
+    test_macroexpand_all_let();
+    test_macroexpand_all_defun();
+    test_macroexpand_all_defmacro();
+    test_macroexpand_all_condition_case();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

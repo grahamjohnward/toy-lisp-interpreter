@@ -1235,6 +1235,122 @@ static lisp_object_t quote_list(lisp_object_t list)
         return cons(cons(interp->syms.quote, cons(car(list), NIL)), quote_list(cdr(list)));
 }
 
+/* This returns a pair as we don't have multiple value return */
+/* First element is the macroexpansion, second indicates whether expansion happened */
+lisp_object_t macroexpand1(lisp_object_t e, lisp_object_t a)
+{
+    if (consp(e) != NIL && symbolp(car(e)) != NIL && getprop(car(e), sym("macro")) != NIL) {
+        struct symbol *symptr = SymbolPtr(car(e));
+        return cons(eval(cons(symptr->function, quote_list(cdr(e))), a), T);
+    } else {
+        return cons(e, NIL);
+    }
+}
+
+lisp_object_t macroexpand(lisp_object_t e, lisp_object_t a)
+{
+    lisp_object_t expanded = NIL;
+    do {
+        lisp_object_t return_values = macroexpand1(e, a);
+        e = car(return_values);
+        expanded = cdr(return_values);
+    } while (expanded != NIL);
+    return e;
+}
+
+lisp_object_t macroexpand_all(lisp_object_t e);
+
+static lisp_object_t macroexpand_all_list(lisp_object_t list)
+{
+    if (list == NIL)
+        return NIL;
+    else
+        return cons(macroexpand_all(car(list)), macroexpand_all_list(cdr(list)));
+}
+
+static lisp_object_t macroexpand_all_cond_clauses(lisp_object_t clauses)
+{
+    if (clauses == NIL) {
+        return NIL;
+    } else {
+        lisp_object_t first_clause = car(clauses);
+        lisp_object_t a = car(first_clause);
+        lisp_object_t b = cadr(first_clause);
+        return cons(cons(macroexpand_all(a), cons(macroexpand_all(b), NIL)), macroexpand_all_cond_clauses(cdr(clauses)));
+    }
+}
+
+static lisp_object_t macroexpand_all_tagbody(lisp_object_t tagbody)
+{
+    if (tagbody == NIL) {
+        return NIL;
+    } else if (consp(car(tagbody)) != NIL) { /* not a tag */
+        return cons(macroexpand_all(car(tagbody)), macroexpand_all_tagbody(cdr(tagbody)));
+    } else {
+        return cons(car(tagbody), macroexpand_all_tagbody(cdr(tagbody)));
+    }
+    return NIL;
+}
+
+static lisp_object_t macroexpand_all_let(lisp_object_t vars)
+{
+    if (vars == NIL) {
+        return NIL;
+    } else {
+        lisp_object_t clause = car(vars);
+        if (consp(clause) != NIL) {
+            lisp_object_t var = car(clause);
+            lisp_object_t val = cadr(clause);
+            return cons(cons(var, cons(macroexpand_all(val), NIL)), macroexpand_all_let(cdr(vars)));
+        } else {
+            return cons(clause, macroexpand_all_let(cdr(vars)));
+        }
+    }
+}
+
+lisp_object_t macroexpand_all(lisp_object_t e)
+{
+    if (consp(e) == NIL) {
+        return e;
+    } else if (symbolp(car(e)) != NIL) {
+        lisp_object_t sym = car(e);
+        if (sym == interp->syms.cond) {
+            return cons(sym, macroexpand_all_cond_clauses(cdr(e)));
+        } else if (sym == interp->syms.lambda) {
+            lisp_object_t arglist = cadr(e);
+            lisp_object_t body = cddr(e);
+            return cons(sym, cons(arglist, macroexpand_all_list(body)));
+        } else if (sym == interp->syms.tagbody) {
+            return cons(sym, macroexpand_all_tagbody(cdr(e)));
+        } else if (sym == interp->syms.prog) {
+            lisp_object_t arglist = cadr(e);
+            lisp_object_t body = cddr(e);
+            return cons(sym, cons(arglist, macroexpand_all_tagbody(body)));
+        } else if (sym == interp->syms.progn) {
+            return cons(sym, macroexpand_all_list(cdr(e)));
+        } else if (sym == interp->syms.condition_case) {
+            lisp_object_t exc = cadr(e);
+            lisp_object_t body = caddr(e);
+            lisp_object_t clauses = cdr(cddr(e));
+            return cons(sym, cons(exc, cons(macroexpand_all(body), macroexpand_all_let(clauses))));
+        } else if (sym == interp->syms.let) {
+            lisp_object_t body = cddr(e);
+            return cons(sym, cons(macroexpand_all_let(cadr(e)), macroexpand_all_list(body)));
+        } else if (sym == interp->syms.defun || sym == interp->syms.defmacro) {
+            lisp_object_t name = cadr(e);
+            lisp_object_t arglist = caddr(e);
+            lisp_object_t body = cdr(cddr(e));
+            return cons(sym, cons(name, cons(arglist, macroexpand_all_list(body))));
+        } else {
+            // This covers function calls, but also special forms that look like them,
+            // e.g. `go`, `set`.
+            return macroexpand(cons(car(e), macroexpand_all_list(cdr(e))), NIL);
+        }
+    } else {
+        return macroexpand_all_list(e);
+    }
+}
+
 lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 {
     if (e == NIL || e == T || integerp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL || functionp(e) != NIL)
@@ -1273,9 +1389,6 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
             return raise(interp->syms.return_, eval(cadr(e), a));
         } else if (eq(car(e), interp->syms.condition_case) != NIL) {
             return eval_condition_case(cdr(e), a);
-        } else if (symbolp(car(e)) != NIL && getprop(car(e), sym("macro")) != NIL) {
-            struct symbol *symptr = SymbolPtr(car(e));
-            return eval(eval(cons(symptr->function, quote_list(cdr(e))), a), a);
         } else {
             return apply(car(e), evlis(cdr(e), a), a);
         }
@@ -1293,7 +1406,7 @@ lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x)
 
 lisp_object_t eval_toplevel(lisp_object_t e)
 {
-    return eval(e, interp->environ);
+    return eval(macroexpand_all(e), interp->environ);
 }
 
 static void load_eval_callback(void *ignored, lisp_object_t obj)

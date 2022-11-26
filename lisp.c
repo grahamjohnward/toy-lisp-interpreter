@@ -1023,7 +1023,9 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
 
 lisp_object_t evcon(lisp_object_t c, lisp_object_t a)
 {
-    if (eval(caar(c), a) != NIL)
+    if (c == NIL)
+        return NIL;
+    else if (eval(caar(c), a) != NIL)
         return eval(cadar(c), a);
     else
         return evcon(cdr(c), a);

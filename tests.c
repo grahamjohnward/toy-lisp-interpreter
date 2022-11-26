@@ -1354,6 +1354,12 @@ static void test_lambda_implicit_progn()
     test_eval_helper("((lambda (a b) (set 'a 12) (set 'b 14) (cons a b)) 3 4)", "(12 . 14)");
 }
 
+static void test_cond_default()
+{
+    test_name = "cond_default";
+    test_eval_helper("(cond ((eq 3 4) 'foo))", "nil");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1462,6 +1468,7 @@ int main(int argc, char **argv)
     test_macroexpand_all_defmacro();
     test_macroexpand_all_condition_case();
     test_lambda_implicit_progn();
+    test_cond_default();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

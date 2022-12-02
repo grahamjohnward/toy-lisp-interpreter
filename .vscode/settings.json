@@ -15,6 +15,7 @@
         "initializer_list": "c",
         "utility": "c",
         "stddef.h": "c",
-        "lisp.h": "c"
+        "lisp.h": "c",
+        "tuple": "c"
     }
 }

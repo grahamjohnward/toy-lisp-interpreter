@@ -126,6 +126,8 @@ struct return_context {
     jmp_buf buf;
     lisp_object_t return_value;
     struct return_context *next;
+    /* tagbody_forms is here so it can be freed in pop_return_context() */
+    /* - it is not actually accessed: */
     lisp_object_t *tagbody_forms;
 };
 

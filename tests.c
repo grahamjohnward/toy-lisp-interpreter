@@ -133,7 +133,7 @@ static void test_parse_integer_list()
 {
     test_name = "parse_integer_list";
     char *test_string = "(23 71)";
-    init_interpreter(256);
+    init_interpreter(32768);
     lisp_object_t result = parse1_wrapper(test_string);
     check(consp(result), "consp");
     lisp_object_t result_car = car(result);
@@ -152,7 +152,7 @@ static void test_parse_dotted_pair_of_integers()
 {
     test_name = "parse_dotted_pair_of_integers";
     char *test_string = "(45 . 123)";
-    init_interpreter(256);
+    init_interpreter(32768);
     lisp_object_t result = parse1_wrapper(test_string);
     check(consp(result), "consp");
     check(integerp(car(result)), "car is int");
@@ -180,7 +180,7 @@ static void test_print_integer()
 {
     test_name = "print_integer";
     char *test_string = "93";
-    init_interpreter(256);
+    init_interpreter(32768);
     lisp_object_t obj = parse1_wrapper(test_string);
     char *result = print_object(obj);
     check(strcmp("93", result) == 0, "string value");
@@ -192,7 +192,7 @@ static void test_print_single_integer_list()
 {
     test_name = "print_single_integer_list";
     char *test_string = "(453)";
-    init_interpreter(256);
+    init_interpreter(32768);
     lisp_object_t obj = parse1_wrapper(test_string);
     char *result = print_object(obj);
     check(strcmp("(453)", result) == 0, "string value");
@@ -204,7 +204,7 @@ static void test_print_integer_list()
 {
     test_name = "print_integer_list";
     char *test_string = "(240 -44 902)";
-    init_interpreter(256);
+    init_interpreter(32768);
     lisp_object_t obj = parse1_wrapper(test_string);
     char *result = print_object(obj);
     check(strcmp("(240 -44 902)", result) == 0, "string value");
@@ -216,7 +216,7 @@ static void test_print_dotted_pair()
 {
     test_name = "print_dotted_pair";
     char *test_string = "(65 . 185)";
-    init_interpreter(256);
+    init_interpreter(32768);
     lisp_object_t obj = parse1_wrapper(test_string);
     char *result = print_object(obj);
     check(strcmp("(65 . 185)", result) == 0, "string value");
@@ -228,7 +228,7 @@ static void test_print_complex_list()
 {
     test_name = "print_complex_list";
     char *test_string = "(1 (2 3 4 (5 (6 7 8 (9 . 0)))))";
-    init_interpreter(256);
+    init_interpreter(32768);
     lisp_object_t obj = parse1_wrapper(test_string);
     char *result = print_object(obj);
     check(strcmp("(1 (2 3 4 (5 (6 7 8 (9 . 0)))))", result) == 0, "string value");
@@ -264,7 +264,7 @@ static void test_read_and_print_nil()
 {
     test_name = "read_and_print_nil";
     char *test_string = "nil";
-    init_interpreter(256);
+    init_interpreter(32768);
     lisp_object_t obj = parse1_wrapper(test_string);
     check(obj == NIL, "is nil");
     char *result = print_object(obj);
@@ -277,7 +277,7 @@ static void test_read_and_print_t()
 {
     test_name = "read_and_print_t";
     char *test_string = "t";
-    init_interpreter(256);
+    init_interpreter(32768);
     lisp_object_t obj = parse1_wrapper(test_string);
     check(obj == T, "is T");
     char *result = print_object(obj);
@@ -289,7 +289,7 @@ static void test_read_and_print_t()
 static void test_read_empty_list()
 {
     test_name = "read_empty_list";
-    init_interpreter(256);
+    init_interpreter(32768);
     char *test_string = "()";
     lisp_object_t result = parse1_wrapper(test_string);
     check(result == NIL, "is nil");
@@ -299,7 +299,7 @@ static void test_read_empty_list()
 static void test_read_empty_list_in_list()
 {
     test_name = "read_empty_list_in_list";
-    init_interpreter(256);
+    init_interpreter(32768);
     char *test_string = "(abc () xyz)";
     lisp_object_t result = parse1_wrapper(test_string);
     char *str = print_object(result);
@@ -311,7 +311,7 @@ static void test_read_empty_list_in_list()
 static void test_strings()
 {
     test_name = "strings";
-    init_interpreter(256);
+    init_interpreter(32768);
     lisp_object_t s1 = allocate_string(6, "hello");
     lisp_object_t s2 = allocate_string(6, "hello");
     lisp_object_t s3 = allocate_string(7, "oohaah");
@@ -330,7 +330,7 @@ static void test_strings()
 static void test_print_empty_cons()
 {
     test_name = "print_empty_cons";
-    init_interpreter(256);
+    init_interpreter(32768);
     lisp_object_t empty = cons(NIL, NIL);
     char *str = print_object(empty);
     check(strcmp("(nil)", str) == 0, "(nil)");
@@ -351,7 +351,7 @@ static void test_parse_symbol()
 {
     test_name = "parse_symbol";
     char *test_string = "foo";
-    init_interpreter(256);
+    init_interpreter(32768);
     lisp_object_t result = parse1_wrapper(test_string);
     check(symbolp(result) == T, "symbolp");
     check(consp(result) == NIL, "not consp");
@@ -365,7 +365,7 @@ static void test_parse_multiple_symbols()
 {
     test_name = "parse_multiple_symbols";
     char *s1 = "foo";
-    init_interpreter(1024);
+    init_interpreter(32768);
     interp->symbol_table = NIL;
     lisp_object_t sym1 = parse1_wrapper(s1);
     char *s2 = "bar";
@@ -386,7 +386,7 @@ static void test_parse_list_of_symbols()
 {
     test_name = "parse_list_of_symbols";
     char *test_string = "(hello you are nice)";
-    init_interpreter(16384);
+    init_interpreter(32768);
     lisp_object_t result = parse1_wrapper(test_string); // bad
     check(consp(result) != NIL, "consp");
     check(symbolp(car((result))) != NIL, "first symbolp");
@@ -399,7 +399,7 @@ static void test_parse_list_of_symbols()
 static void test_parse_string()
 {
     test_name = "parse_string";
-    init_interpreter(256);
+    init_interpreter(32768);
     char *string = "\"hello\"";
     lisp_object_t obj = parse_string_wrapper(string);
     check(stringp(obj), "stringp");
@@ -417,7 +417,7 @@ static void test_parse_string()
 static void test_parse_string_with_escape_characters()
 {
     test_name = "parse_string_with_escape_characters";
-    init_interpreter(256);
+    init_interpreter(32768);
     char *string = "\"he\\\"llo\\n\\t\\r\"";
     lisp_object_t obj = parse_string_wrapper(string);
     check(stringp(obj), "stringp");
@@ -432,7 +432,7 @@ static void test_parse_string_with_escape_characters()
 static void test_parse_list_of_strings()
 {
     test_name = "parse_list_of_strings";
-    init_interpreter(256);
+    init_interpreter(32768);
     char *string = "(\"hello\" \"world\")";
     lisp_object_t obj = parse1_wrapper(string);
     check(consp(obj), "list returned");
@@ -483,7 +483,7 @@ static void test_parse_multiple_objects()
 {
     test_name = "parse_multiple_objects";
     char *test_string = "foo bar";
-    init_interpreter(256);
+    init_interpreter(32768);
     struct string_buffer sb;
     string_buffer_init(&sb);
     parse_wrapper(test_string, test_parse_multiple_objects_callback, (void *)&sb);
@@ -504,7 +504,7 @@ static void test_parse_handle_eof()
 {
     test_name = "parse_handle_eof";
     char *test_string = "foo bar\n";
-    init_interpreter(256);
+    init_interpreter(32768);
     struct string_buffer sb;
     string_buffer_init(&sb);
     int count = 0;
@@ -517,7 +517,7 @@ static void test_parse_quote()
 {
     test_name = "parse_quote";
     char *test_string = "'FOO";
-    init_interpreter(256);
+    init_interpreter(32768);
     lisp_object_t result = parse1_wrapper(test_string);
     struct string_buffer sb;
     string_buffer_init(&sb);
@@ -532,7 +532,7 @@ static void test_parse_quote()
 static void test_vector_initialization()
 {
     test_name = "vector_initialization";
-    init_interpreter(1024);
+    init_interpreter(32768);
     lisp_object_t v = allocate_vector(3);
     check(eq(svref(v, 0), NIL) != NIL, "first element nil");
     check(eq(svref(v, 1), NIL) != NIL, "second element nil");
@@ -543,7 +543,7 @@ static void test_vector_initialization()
 static void test_vector_svref()
 {
     test_name = "vector_svref";
-    init_interpreter(1024);
+    init_interpreter(32768);
     char *symbol_text = "foo";
     lisp_object_t sym = parse1_wrapper(symbol_text);
     lisp_object_t v = allocate_vector(3);
@@ -562,7 +562,7 @@ static void test_parse_vector()
 {
     test_name = "parse_vector";
     char *text = "#(a b c)";
-    init_interpreter(1024);
+    init_interpreter(32768);
     lisp_object_t result = parse1_wrapper(text);
     check(vectorp(result) == T, "vectorp");
     char *a_text = "a";
@@ -581,7 +581,7 @@ static void test_print_vector()
 {
     test_name = "print_vector";
     char *text = "#(a b c)";
-    init_interpreter(1024);
+    init_interpreter(32768);
     lisp_object_t result = parse1_wrapper(text);
     char *str = print_object(result);
     check(strcmp("#(a b c)", str) == 0, "correct string");
@@ -604,7 +604,7 @@ static void test_cdr_of_nil()
 static void test_parse_list_of_dotted_pairs()
 {
     test_name = "parse_list_of_dotted_pairs";
-    init_interpreter(4096);
+    init_interpreter(32768);
     char *text1 = "((X . SHAKESPEARE) (Y . (THE TEMPEST)))";
     lisp_object_t obj = parse1_wrapper(text1);
     char *str = print_object(obj);
@@ -616,7 +616,7 @@ static void test_parse_list_of_dotted_pairs()
 static void test_sublis()
 {
     test_name = "test_sublis";
-    init_interpreter(4096);
+    init_interpreter(32768);
     char *text1 = "((X . SHAKESPEARE) (Y . (THE TEMPEST)))";
     char *text2 = "(X WROTE Y)";
     lisp_object_t obj1 = parse1_wrapper(text1);
@@ -638,7 +638,7 @@ static void test_null()
 static void test_append()
 {
     test_name = "append";
-    init_interpreter(4096);
+    init_interpreter(32768);
     char *text1 = "(A B)";
     char *text2 = "(C D E)";
     lisp_object_t obj1 = parse1_wrapper(text1);
@@ -653,7 +653,7 @@ static void test_append()
 static void test_member()
 {
     test_name = "member";
-    init_interpreter(4096);
+    init_interpreter(32768);
     char *text1 = "A";
     char *text2 = "X";
     char *text3 = "(A B C D)";
@@ -668,7 +668,7 @@ static void test_member()
 static void test_assoc()
 {
     test_name = "assoc";
-    init_interpreter(4096);
+    init_interpreter(32768);
     char *text1 = "((A . (M N)) (B . (car X)) (C . (quote M)) (C . (cdr x)))";
     char *text2 = "B";
     char *text3 = "X";
@@ -686,7 +686,7 @@ static void test_assoc()
 static void test_pairlis()
 {
     test_name = "pairlis";
-    init_interpreter(4096);
+    init_interpreter(32768);
     char *text1 = "(A B C)";
     char *text2 = "(U V W)";
     char *text3 = "((D . X) (E . Y))";
@@ -703,7 +703,7 @@ static void test_pairlis()
 static void test_sym()
 {
     test_name = "sym";
-    init_interpreter(1024);
+    init_interpreter(32768);
     lisp_object_t x1 = sym("x");
     lisp_object_t x2 = sym("x");
     lisp_object_t y = sym("y");
@@ -715,7 +715,7 @@ static void test_sym()
 
 static void test_evalquote_helper(char *fnstr, char *exprstr, char *expected)
 {
-    init_interpreter(4096);
+    init_interpreter(32768);
     char *fnstr_copy = fnstr;
     lisp_object_t fn = parse1_wrapper(fnstr);
     lisp_object_t expr = parse1_wrapper(exprstr);
@@ -747,7 +747,7 @@ static lisp_object_t test_eval_string_helper(char *exprstr)
 
 static void test_eval_helper(char *exprstr, char *expectedstr)
 {
-    init_interpreter(4096);
+    init_interpreter(32768);
     char *exprstr_save = exprstr;
     lisp_object_t result = test_eval_string_helper(exprstr);
     char *resultstr = print_object(result);
@@ -783,7 +783,7 @@ static void test_eval()
 static void test_defun()
 {
     test_name = "defun";
-    init_interpreter(4096);
+    init_interpreter(32768);
     lisp_object_t result1 = test_eval_string_helper("(defun foo (x) (cons x (quote bar)))");
     lisp_object_t result2 = test_eval_string_helper("(foo 14)");
     char *str = print_object(result2);
@@ -792,100 +792,11 @@ static void test_defun()
     free_interpreter();
 }
 
-static void test_cons_heap_init()
-{
-    test_name = "cons_heap_init";
-    struct cons_heap heap;
-    cons_heap_init(&heap, 4);
-    check(heap.size == 4, "size");
-    check(heap.actual_heap == heap.free_list_head, "free_list_head");
-    struct cons *c0 = heap.actual_heap;
-    struct cons *c1 = heap.actual_heap + 1;
-    check(c0->cdr == (lisp_object_t)c1, "free list first link");
-    struct cons *last_cons = heap.actual_heap + heap.size - 1;
-    struct cons *penultimate_cons = last_cons - 1;
-    check(penultimate_cons->cdr == (lisp_object_t)last_cons, "free list last link");
-    check(last_cons->cdr == NIL, "end of free list is nil");
-    check(heap.allocation_count == 0, "allocation count zero");
-}
-
-static void test_cons_heap_allocate_cons()
-{
-    test_name = "cons_heap_allocate_cons";
-    struct cons_heap heap;
-    cons_heap_init(&heap, 4);
-    lisp_object_t new_cons = cons_heap_allocate_cons(&heap);
-    struct cons *struct_cons = ConsPtr(new_cons);
-    check(!struct_cons->mark_bit, "mark bit not set on new cons");
-    check(heap.free_list_head == heap.actual_heap + 1, "free list pointer moved");
-    check(heap.allocation_count == 1, "allocation count incremented");
-}
-
-static void test_cons_heap_mark_stack1()
-{
-    test_name = "cons_heap_mark_stack";
-    struct lisp_interpreter bof;
-    interp = &bof;
-    cons_heap_init(&bof.cons_heap, 4);
-    lisp_object_t my_lovely_cons = cons(T, T);
-    mark_stack(&bof.cons_heap);
-    check(bof.cons_heap.actual_heap[0].mark_bit, "0 marked");
-    check(bof.cons_heap.actual_heap[0].is_allocated, "0 allocated");
-    check(!bof.cons_heap.actual_heap[1].mark_bit, "1 not marked");
-    check(!bof.cons_heap.actual_heap[1].is_allocated, "1 not allocated");
-    check(!bof.cons_heap.actual_heap[2].mark_bit, "2 not marked");
-    check(!bof.cons_heap.actual_heap[2].is_allocated, "2 not allocated");
-    check(!bof.cons_heap.actual_heap[3].mark_bit, "3 not marked");
-    check(!bof.cons_heap.actual_heap[3].is_allocated, "3 not allocated");
-    lisp_object_t my_new_cons = cons(T, T); /* We expect this to be freed */
-    struct cons *p = ConsPtr(my_new_cons);
-    check(p == bof.cons_heap.actual_heap + 1, "new cons ok");
-    check(p->is_allocated, "new cons allocated");
-    check(!p->mark_bit, "new cons not marked");
-}
-
-static void test_cons_heap_mark_stack()
-{
-    top_of_stack = (lisp_object_t *)get_rbp(1);
-    test_cons_heap_mark_stack1();
-}
-
-static void test_cons_heap_mark_symbol_table1()
-{
-    mark(&interp->cons_heap);
-    sweep(&interp->cons_heap);
-}
-
-static void test_cons_heap_mark_symbol_table()
-{
-    init_interpreter(1024);
-    lisp_object_t will_be_freed = cons(sym("BOF"), NIL);
-    top_of_stack = (lisp_object_t *)get_rbp(1);
-    test_cons_heap_mark_symbol_table1();
-    free_interpreter();
-}
-
-static void test_gc_cycle()
-{
-    test_name = "gc_cycle";
-    top_of_stack = (lisp_object_t *)get_rbp(1);
-    struct cons_heap heap;
-    cons_heap_init(&heap, 1024);
-    lisp_object_t c1 = cons(NIL, NIL);
-    lisp_object_t c2 = cons(NIL, NIL);
-    rplacd(c1, c2);
-    rplacd(c2, c1);
-    mark_stack(&heap);
-    check(1, "no stack overflow");
-    cons_heap_free(&heap);
-}
-
 static void test_load1()
 {
     test_name = "load";
     lisp_object_t result1 = test_eval_string_helper("(load \"/home/graham/toy-lisp-interpreter/test-load.lisp\")");
     check(result1 == T, "load returns T");
-    printf("%lu conses allocated\n", interp->cons_heap.allocation_count);
     lisp_object_t result2 = test_eval_string_helper("(test1 (quote there))");
     char *str = print_object(result2);
     check(strcmp("(hello . there)", str) == 0, "result of test1");
@@ -908,7 +819,7 @@ lisp_object_t test_fn(lisp_object_t a, lisp_object_t b)
 static void test_apply_function_pointer()
 {
     test_name = "apply_function_pointer";
-    init_interpreter(256);
+    init_interpreter(32768);
     lisp_object_t fn = cons(sym("built-in-function"), cons((lisp_object_t)(FUNCTION_POINTER_TYPE | (uint64_t)test_fn), cons(2, NIL)));
     lisp_object_t result = apply(fn, cons(14, cons(3, NIL)), NIL);
     char *str = print_object(result);
@@ -941,21 +852,10 @@ static void test_rplacd()
     test_eval_helper("(prog (x) (set 'x (cons 3 5)) (rplacd x 7) (return (cdr x)))", "7");
 }
 
-static void test_stress_gc()
-{
-    test_name = "stress_gc";
-    init_interpreter(16384);
-    top_of_stack = (lisp_object_t *)get_rbp(1);
-    char *teststr = "(prog (x) start (set 'x 14) (cons x x) (go start))";
-    lisp_object_t expr = parse1_wrapper(teststr);
-    eval_toplevel(expr);
-    free_interpreter();
-}
-
 static void test_rest_args()
 {
     test_name = "rest_args";
-    init_interpreter(16384);
+    init_interpreter(32768);
     top_of_stack = (lisp_object_t *)get_rbp(1);
     char *teststr = "(defun foo (a b &rest c) (cons c (cons b a)))";
     eval_toplevel(parse1_wrapper(teststr));
@@ -1360,6 +1260,48 @@ static void test_cond_default()
     test_eval_helper("(cond ((eq 3 4) 'foo))", "nil");
 }
 
+static void test_lisp_heap_cons()
+{
+    test_name = "lisp_heap_cons";
+    init_interpreter(32768);
+    struct lisp_heap *heap = &interp->new_heap;
+    char *oldfreeptr = heap->freeptr;
+    lisp_object_t new_cons = lisp_heap_cons(NIL, T);
+    struct cons *consptr = ConsPtr(new_cons);
+    check(consptr->car == NIL, "car");
+    check(consptr->cdr == T, "cdr");
+    check(consptr->header == CONS_TYPE, "header");
+    check(heap->freeptr - oldfreeptr == sizeof(struct cons), "freeptr");
+    free_interpreter();
+}
+
+static void test_lisp_heap_copy_single_object()
+{
+    test_name = "lisp_heap_copy_single_object";
+    struct lisp_heap heap;
+    lisp_heap_init(&heap, 1024);
+    struct cons *new_cons = (struct cons *)heap.freeptr;
+    lisp_object_t new_cons_obj = (uint64_t)new_cons | CONS_TYPE;
+
+    /* Start allocating in the to-space as if we are doing GC */
+    heap.freeptr = heap.to_space;
+
+    lisp_heap_copy_single_object(&heap, &new_cons_obj);
+
+    lisp_heap_free(&heap);
+}
+
+static void test_lisp_heap_gc_simple()
+{
+    test_name = "lisp_heap_gc_simple";
+    init_interpreter(32768);
+    char *orig_from_space = interp->new_heap.from_space;
+    char *orig_to_space = interp->new_heap.to_space;
+    check(orig_from_space == interp->new_heap.heap, "from_space");
+    check(orig_to_space == orig_from_space + interp->new_heap.size_bytes / 2, "to_space");
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1418,17 +1360,11 @@ int main(int argc, char **argv)
     test_eval();
     test_defun();
     test_load();
-    test_cons_heap_init();
-    test_cons_heap_allocate_cons();
-    test_cons_heap_mark_stack();
-    test_cons_heap_mark_symbol_table();
-    test_gc_cycle();
     test_apply_function_pointer();
     test_set();
     test_prog();
     test_rplaca();
     test_rplacd();
-    //    test_stress_gc();
     test_rest_args();
     test_plus();
     test_minus();
@@ -1469,6 +1405,9 @@ int main(int argc, char **argv)
     test_macroexpand_all_condition_case();
     test_lambda_implicit_progn();
     test_cond_default();
+    test_lisp_heap_cons();
+    test_lisp_heap_copy_single_object();
+    test_lisp_heap_gc_simple();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

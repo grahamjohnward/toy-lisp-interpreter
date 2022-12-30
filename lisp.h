@@ -12,6 +12,8 @@
 
 typedef uint64_t lisp_object_t;
 
+typedef uint64_t object_header_t;
+
 void skip_whitespace(struct text_stream *ts);
 int64_t parse_integer(struct text_stream *ts);
 lisp_object_t parse_string(struct text_stream *ts);
@@ -39,6 +41,7 @@ lisp_object_t load(lisp_object_t filename);
 #define STRING_TYPE           0x3000000000000000
 #define VECTOR_TYPE           0x4000000000000000
 #define FUNCTION_POINTER_TYPE 0x5000000000000000
+#define FORWARDING_POINTER    0x8000000000000000
 // clang-format on
 
 #define ConsPtr(obj) ((struct cons *)((obj)&PTR_MASK))
@@ -98,9 +101,11 @@ struct syms {
 };
 
 struct cons {
-    /* Basically padding to ensure structs are 8-byte aligned */
+    object_header_t header;
+    uint64_t padding;
+    /*
     uint64_t mark_bit;
-    uint64_t is_allocated;
+    uint64_t is_allocated;*/
     lisp_object_t car;
     lisp_object_t cdr;
 };
@@ -112,14 +117,26 @@ struct cons_heap {
     struct cons *free_list_head;
 };
 
+#define LISP_HEAP_BASE 0x400000000000
+
+#define CONS_HEADER 0L
+
+struct lisp_heap {
+    size_t size_bytes;
+    char *heap;
+    char *freeptr;
+    /* These are flipped after a GC */
+    char *from_space;
+    char *to_space;
+};
+
 extern lisp_object_t *top_of_stack;
 void *get_rbp(int n);
-void cons_heap_init(struct cons_heap *heap, size_t size);
-void cons_heap_free(struct cons_heap *cons_heap);
-lisp_object_t cons_heap_allocate_cons(struct cons_heap *cons_heap);
-void mark(struct cons_heap *cons_heap);
-void mark_stack(struct cons_heap *cons_heap);
-void sweep(struct cons_heap *cons_heap);
+
+void lisp_heap_init(struct lisp_heap *heap, size_t bytes);
+void lisp_heap_free(struct lisp_heap *heap);
+lisp_object_t lisp_heap_cons(lisp_object_t car, lisp_object_t cdr);
+void lisp_heap_copy_single_object(struct lisp_heap *heap, lisp_object_t *p);
 
 struct return_context {
     lisp_object_t type;
@@ -135,13 +152,14 @@ struct lisp_interpreter {
     struct syms syms;
     lisp_object_t environ;
     lisp_object_t symbol_table; /* A root for GC */
-    struct cons_heap cons_heap;
     /* Legacy heap stuff */
     lisp_object_t *heap;
     lisp_object_t *next_free;
     size_t heap_size_bytes;
     /* Machinery for returning from prog */
     struct return_context *prog_return_stack;
+    /* New improved heap */
+    struct lisp_heap new_heap;
 };
 
 extern struct lisp_interpreter *interp;

@@ -1450,7 +1450,7 @@ void load_str(char *str)
 lisp_object_t lisp_read()
 {
     struct text_stream ts;
-    text_stream_init_fd(&ts, 1);
+    text_stream_init_fd(&ts, 0);
     lisp_object_t result = parse1(&ts);
     text_stream_free(&ts);
     return result;

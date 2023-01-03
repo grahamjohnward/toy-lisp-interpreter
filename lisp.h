@@ -102,24 +102,11 @@ struct syms {
 
 struct cons {
     object_header_t header;
-    uint64_t padding;
-    /*
-    uint64_t mark_bit;
-    uint64_t is_allocated;*/
     lisp_object_t car;
     lisp_object_t cdr;
 };
 
-struct cons_heap {
-    size_t size;
-    size_t allocation_count;
-    struct cons *actual_heap;
-    struct cons *free_list_head;
-};
-
 #define LISP_HEAP_BASE 0x400000000000
-
-#define CONS_HEADER 0L
 
 struct lisp_heap {
     size_t size_bytes;
@@ -135,8 +122,7 @@ void *get_rbp(int n);
 
 void lisp_heap_init(struct lisp_heap *heap, size_t bytes);
 void lisp_heap_free(struct lisp_heap *heap);
-lisp_object_t lisp_heap_cons(lisp_object_t car, lisp_object_t cdr);
-void lisp_heap_copy_single_object(struct lisp_heap *heap, lisp_object_t *p);
+void gc_copy(struct lisp_heap *heap, lisp_object_t *p);
 
 struct return_context {
     lisp_object_t type;

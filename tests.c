@@ -1266,7 +1266,7 @@ static void test_lisp_heap_cons()
     init_interpreter(32768);
     struct lisp_heap *heap = &interp->new_heap;
     char *oldfreeptr = heap->freeptr;
-    lisp_object_t new_cons = lisp_heap_cons(NIL, T);
+    lisp_object_t new_cons = cons(NIL, T);
     struct cons *consptr = ConsPtr(new_cons);
     check(consptr->car == NIL, "car");
     check(consptr->cdr == T, "cdr");
@@ -1286,7 +1286,7 @@ static void test_lisp_heap_copy_single_object()
     /* Start allocating in the to-space as if we are doing GC */
     heap.freeptr = heap.to_space;
 
-    lisp_heap_copy_single_object(&heap, &new_cons_obj);
+    gc_copy(&heap, &new_cons_obj);
 
     lisp_heap_free(&heap);
 }

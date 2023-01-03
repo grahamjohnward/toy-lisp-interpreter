@@ -40,6 +40,7 @@ static void check_type(lisp_object_t obj, uint64_t type)
 {
     static char *type_names[6] = { "unused", "symbol", "cons", "string", "vector", "function pointer" };
     if (istype(obj, type) == NIL) {
+        printf("Bad type for %p (not %p)\n", (void *)obj, (void *)type);
         static char buf[1024];
         char *obj_string = print_object(obj);
         int len = snprintf(buf, 1024, "Not a %s: %s", type_names[type >> 60], obj_string);
@@ -167,7 +168,11 @@ lisp_object_t allocate_lisp_objects(size_t n)
 
 lisp_object_t cons(lisp_object_t car, lisp_object_t cdr)
 {
-    return lisp_heap_cons(car, cdr);
+    lisp_object_t result = lisp_heap_cons(car, cdr);
+    if (result == 0x2000400000008718) {
+        printf("bREak\n");
+    }
+    return result;
     /*
     lisp_object_t new_cons = cons_heap_allocate_cons(&interp->cons_heap);
     new_cons |= CONS_TYPE;
@@ -303,6 +308,14 @@ void lisp_heap_init(struct lisp_heap *heap, size_t bytes)
     }
 }
 
+static void assert_heap_invariants()
+{
+    struct lisp_heap *heap = &interp->new_heap;
+    assert(heap->freeptr >= heap->heap);
+    assert(heap->freeptr <= heap->heap + heap->size_bytes);
+    assert(heap->to_space == heap->heap || heap->from_space == heap->heap);
+}
+
 void lisp_heap_free(struct lisp_heap *heap)
 {
     int rc = munmap(heap->heap, heap->size_bytes);
@@ -314,6 +327,7 @@ void lisp_heap_free(struct lisp_heap *heap)
 
 static int gc_needed(struct lisp_heap *heap, size_t bytes_needed)
 {
+    assert_heap_invariants();
     return heap->freeptr + bytes_needed - heap->from_space > heap->size_bytes / 2;
 }
 
@@ -328,10 +342,10 @@ lisp_object_t lisp_heap_cons(lisp_object_t car, lisp_object_t cdr)
     if (heap->freeptr >= heap->from_space + heap->size_bytes / 2)
         abort();
     struct cons *the_cons = (struct cons *)heap->freeptr;
-    heap->freeptr += sizeof(struct cons);
     the_cons->header = CONS_TYPE;
     the_cons->car = car;
     the_cons->cdr = cdr;
+    heap->freeptr += sizeof(struct cons);
     return ((lisp_object_t)the_cons) | CONS_TYPE;
 }
 
@@ -375,6 +389,7 @@ static size_t objsize(lisp_object_t obj)
 
 static int object_is_in_from_space(struct lisp_heap *heap, lisp_object_t obj)
 {
+    assert_heap_invariants();
     uint64_t type = obj & TYPE_MASK;
     char *p = (char *)(obj & PTR_MASK);
     return type > 0 && p >= heap->from_space && p < heap->from_space + heap->size_bytes / 2;
@@ -382,6 +397,7 @@ static int object_is_in_from_space(struct lisp_heap *heap, lisp_object_t obj)
 
 static int object_is_in_to_space(struct lisp_heap *heap, lisp_object_t obj)
 {
+    assert_heap_invariants();
     uint64_t type = obj & TYPE_MASK;
     char *p = (char *)(obj & PTR_MASK);
     return type > 0 && p >= heap->to_space && p < heap->to_space + heap->size_bytes / 2;
@@ -390,6 +406,7 @@ static int object_is_in_to_space(struct lisp_heap *heap, lisp_object_t obj)
 /* heap is passed for the unit tests */
 void lisp_heap_copy_single_object(struct lisp_heap *heap, lisp_object_t *p)
 {
+    assert_heap_invariants();
     if (*p == NIL || *p == T)
         return;
     if (consp(*p) == NIL && symbolp(*p) == NIL)
@@ -397,13 +414,15 @@ void lisp_heap_copy_single_object(struct lisp_heap *heap, lisp_object_t *p)
     if (symbolp(*p) != NIL) {
         struct symbol *symptr = SymbolPtr(*p);
         if (symptr->name & FORWARDING_POINTER) {
-            *p = symptr->name & ~FORWARDING_POINTER;
+            printf("Found forwarding pointer for %p: %p\n", *p, symptr->name);
+            *p = symptr->name & 0x7fffffffffffffff;
             return;
         }
     } else if (consp(*p) != NIL) {
         struct cons *consptr = ConsPtr(*p);
         if (consptr->car & FORWARDING_POINTER) {
-            *p = consptr->car & ~FORWARDING_POINTER;
+            printf("Found forwarding pointer for %p: %p\n", *p, consptr->car);
+            *p = consptr->car & 0x7fffffffffffffff;
             return;
         }
     } else {
@@ -413,19 +432,22 @@ void lisp_heap_copy_single_object(struct lisp_heap *heap, lisp_object_t *p)
     /* Copy to to-space */
     size_t size = objsize(*p);
     void *ptr = (void *)(*p & PTR_MASK);
-    if (heap->freeptr == 0x400000008000) {
-        printf("break\n");
-    }
+    printf("Moving %p to %p\n", *p, heap->freeptr);
     memcpy(heap->freeptr, ptr, size);
     uint64_t type = *p & TYPE_MASK;
     lisp_object_t moved_obj = ((uint64_t)heap->freeptr) | type;
     heap->freeptr += size;
-    if (symbolp(*p))
-        SymbolPtr(*p)->name = moved_obj | FORWARDING_POINTER;
-    else if (consp(*p))
-        ConsPtr(*p)->car = moved_obj | FORWARDING_POINTER;
-    else
+    if (symbolp(*p) != NIL) {
+        struct symbol *sym = SymbolPtr(*p);
+        printf("Setting a forwarding pointer for %p: %p\n", *p, moved_obj | FORWARDING_POINTER);
+        sym->name = moved_obj | FORWARDING_POINTER;
+    } else if (consp(*p) != NIL) {
+        struct cons *consptr = ConsPtr(*p);
+        printf("Setting a forwarding pointer for %p: %p\n", *p, moved_obj | FORWARDING_POINTER);
+        consptr->car = moved_obj | FORWARDING_POINTER;
+    } else {
         abort();
+    }
     *p = moved_obj;
     /* Postconditions */
     /*
@@ -439,35 +461,73 @@ static int thing(lisp_object_t obj)
     if (integerp(obj) != NIL || stringp(obj) != NIL || obj == T || obj == NIL)
         return 1;
     else {
+        if (obj & FORWARDING_POINTER) {
+            abort();
+        }
         char *p = (char *)(obj & PTR_MASK);
         return p >= interp->new_heap.from_space && p < interp->new_heap.from_space + interp->new_heap.size_bytes / 2;
     }
 }
 
+static uint64_t omg(uint64_t thing)
+{
+    asm("movq %fs:0x30, %rsi");
+    asm("movq %rsi, -0x8(%rbp)");
+    return thing;
+}
+
+// I think this actually works
+static void *ptr_demangle(void *ptr)
+{
+    asm("ror $0x11, %rdi");
+    asm("xor %fs:0x30, %rdi");
+    asm("movq %rdi, -0x8(%rbp)");
+    return ptr;
+}
+
+static int is_mangled[] = { 0, 1, 0, 0, 0, 0, 1, 1 };
+
 void gc()
 {
-    printf("GC..\n");
+    size_t bytes_in_use_before_gc = interp->new_heap.freeptr - interp->new_heap.from_space;
+    uint64_t woo = omg(0);
+    printf("OMG = %p\n", woo);
+    printf("; Garbage collecting ... ");
     struct lisp_heap *heap = &interp->new_heap;
     heap->freeptr = heap->to_space;
     void *rbp = get_rbp(1);
     assert(top_of_stack);
+    printf("top_of_stack = %p; rbp = %p\n", top_of_stack, rbp);
     for (lisp_object_t *p = top_of_stack; p > (lisp_object_t *)rbp; p--) {
         if (object_is_in_from_space(heap, *p)) {
-            void *bof = (void *)(*p & PTR_MASK);
-            printf("# %p\n", *p);
+            printf("Stack %p %p\n", p, *p);
             lisp_heap_copy_single_object(&interp->new_heap, p);
         }
     }
     // Return contexts
+    int frob = 0;
     for (struct return_context *ctxt = interp->prog_return_stack; ctxt; ctxt = ctxt->next) {
         lisp_heap_copy_single_object(heap, &ctxt->return_value);
         lisp_heap_copy_single_object(heap, &ctxt->type);
-        /* Theoretically needed, but never used: */
+        for (int i = 0; i < ctxt->tagbody_forms_len; i++)
+            lisp_heap_copy_single_object(heap, &ctxt->tagbody_forms[i]);
         for (int i = 0; i < 8; i++) {
-            lisp_object_t *p = (lisp_object_t *)&ctxt->buf->__jmpbuf[i];
-            if (object_is_in_from_space(heap, *p))
-                lisp_heap_copy_single_object(&interp->new_heap, p);
+#ifdef __GLIBC__
+            void *jmpbuf_entry = (void *)(ctxt->buf->__jmpbuf[i]);
+            uint64_t *p = ptr_demangle(jmpbuf_entry);
+#else
+            void *jmpbuf_entry = (void *)(ctxt->buf->__jb[i]);
+            uint64_t *p = jmpbuf_entry;
+#endif
+            if (is_mangled[i]) {
+                printf("%d __jmpbuf[%d] %p %p %p\n", is_mangled[i], i, jmpbuf_entry, p, *p);
+                if (object_is_in_from_space(heap, *p)) {
+                    printf("ooh amazing\n");
+                    lisp_heap_copy_single_object(&interp->new_heap, p);
+                }
+            }
         }
+        frob++;
     }
     // Symbol table
     lisp_heap_copy_single_object(heap, &interp->symbol_table);
@@ -494,6 +554,7 @@ void gc()
     FOO(unquote_splice);
     FOO(let);
 #undef FOO
+
     /* Update pointers inside to-space objects */
     char *scanptr;
     for (scanptr = heap->to_space; scanptr < heap->freeptr;) {
@@ -502,6 +563,8 @@ void gc()
             struct cons *consptr = (struct cons *)scanptr;
             lisp_heap_copy_single_object(heap, &consptr->car);
             lisp_heap_copy_single_object(heap, &consptr->cdr);
+            if (consptr->car == 0x1ffefff820)
+                abort();
             scanptr += sizeof(struct cons);
         } else if (*headerptr == SYMBOL_TYPE) {
             struct symbol *symptr = (struct symbol *)scanptr;
@@ -538,6 +601,9 @@ void gc()
             abort();
         }
     }
+
+    size_t bytes_in_use_now = interp->new_heap.freeptr - interp->new_heap.from_space;
+    printf("%lu bytes freed\n", bytes_in_use_before_gc - bytes_in_use_now);
     if (gc_needed(heap, 1))
         abort();
 }
@@ -704,13 +770,16 @@ lisp_object_t parse_cons(struct text_stream *ts)
     if (tspeek(ts) == '.') {
         text_stream_advance(ts);
         skip_whitespace(ts);
-        rplacd(new_cons, parse1(ts));
+        lisp_object_t tmp = parse1(ts);
+        rplacd(new_cons, tmp);
     }
     if (tspeek(ts) == ')') {
         text_stream_advance(ts);
         return new_cons;
     } else {
-        rplacd(new_cons, parse_cons(ts));
+        /* This temporary is needed to get the value on the stack for the GC to see */
+        lisp_object_t tmp = parse_cons(ts);
+        rplacd(new_cons, tmp);
     }
     return new_cons;
 }
@@ -805,7 +874,6 @@ static lisp_object_t parse1_(struct text_stream *ts)
             return base == 16 ? val | FUNCTION_POINTER_TYPE : val;
         } else {
             lisp_object_t sym = parse_symbol(token);
-            printf("PARSED A SYMBOL -> %s\n", token);
             free(token);
             return sym;
         }
@@ -813,20 +881,9 @@ static lisp_object_t parse1_(struct text_stream *ts)
     return 0;
 }
 
-static int foo = 0;
-
 lisp_object_t parse1(struct text_stream *ts)
 {
-    foo++;
     lisp_object_t obj = parse1_(ts);
-    char *str = print_object(obj);
-    for (int i = 0; i < foo; i++) {
-        printf(" ");
-    }
-    printf("HIYA %s\n", str);
-    free(str);
-    foo--;
-
     return obj;
 }
 
@@ -983,7 +1040,8 @@ lisp_object_t parse_string(struct text_stream *ts)
 
 lisp_object_t caar(lisp_object_t obj)
 {
-    return car(car(obj));
+    lisp_object_t x = car(obj);
+    return car(x);
 }
 
 lisp_object_t cadr(lisp_object_t obj)
@@ -1061,6 +1119,8 @@ lisp_object_t assoc(lisp_object_t x, lisp_object_t a)
 {
     if (null(a) != NIL) /* McCarthy's ASSOC does not have this! */
         return NIL;
+    if (a == 0x1ffefff820)
+        abort();
     if (eq(caar(a), x) != NIL)
         return car(a);
     else
@@ -1095,6 +1155,7 @@ static void push_return_context(lisp_object_t type)
     ctxt->next = interp->prog_return_stack;
     ctxt->return_value = NIL;
     ctxt->tagbody_forms = NULL;
+    ctxt->tagbody_forms_len = 0;
     interp->prog_return_stack = ctxt;
 }
 
@@ -1184,8 +1245,11 @@ lisp_object_t evlis(lisp_object_t m, lisp_object_t a)
 {
     if (null(m) != NIL)
         return NIL;
-    else
+    else {
+        struct cons *foo = ConsPtr(m);
+
         return cons(eval(car(m), a), evlis(cdr(m), a));
+    }
 }
 
 lisp_object_t evallet(lisp_object_t e, lisp_object_t a)
@@ -1317,6 +1381,7 @@ lisp_object_t evaltagbody(lisp_object_t e, lisp_object_t a)
             /* add symbol -> table index mapping to alist */
             alist = cons(cons(car(x), i), alist);
     }
+    interp->prog_return_stack->tagbody_forms_len = i;
     interp->prog_return_stack->tagbody_forms = table;
     interp->prog_return_stack->return_value = alist;
     for (i = 0; i < n; i++) {
@@ -1355,6 +1420,7 @@ lisp_object_t eval_condition_case(lisp_object_t e, lisp_object_t a)
         push_return_context(symbol);
         if (setjmp(interp->prog_return_stack->buf)) {
             symbol = interp->prog_return_stack->type;
+            char *str = print_object(symbol);
             lisp_object_t entry = cons(var, cons(symbol, cons(pop_return_context(), NIL)));
             lisp_object_t env = cons(entry, a);
             return eval(cadr(assoc(symbol, handlers)), env);
@@ -1514,8 +1580,11 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
         return e;
     if (atom(e) != NIL) {
         lisp_object_t x = assoc(e, a);
-        if (x == NIL)
+        if (x == NIL) {
+            // e is A000400000009038 - a forwarding pointer
+            char *str = print_object(e);
             raise(sym("unbound-variable"), e);
+        }
         return cdr(x);
     } else if (atom(car(e) != NIL)) {
         if (eq(car(e), interp->syms.quote) != NIL) {
@@ -1529,9 +1598,6 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
         } else if (eq(car(e), interp->syms.let) != NIL) {
             return evallet(cdr(e), a);
         } else if (eq(car(e), interp->syms.defun) != NIL) {
-            char *str = print_object(e);
-            printf("; %s\n", str);
-            free(str);
             return evaldefun(cdr(e), a);
         } else if (eq(car(e), interp->syms.defmacro) != NIL) {
             return evaldefmacro(cdr(e), a);
@@ -1571,12 +1637,7 @@ lisp_object_t eval_toplevel(lisp_object_t e)
 
 static void load_eval_callback(void *ignored, lisp_object_t obj)
 {
-    char *foo = print_object(obj);
-    printf("JUST PARSED %s\n", foo);
-    free(foo);
     lisp_object_t result = eval_toplevel(obj);
-    gc();
-
     char *str = print_object(result);
     printf("%s\n", str);
     free(str);

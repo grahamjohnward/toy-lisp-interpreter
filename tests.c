@@ -991,7 +991,7 @@ static void test_plist()
 static void test_defmacro()
 {
     test_name = "defmacro";
-    init_interpreter(32768);
+    init_interpreter(65536);
     test_eval_string_helper("(defmacro if (test then else) `(cond (,test ,then) (t ,else)))");
     lisp_object_t result = test_eval_string_helper("(if (eq (car (cons 3 4)) 3) (two-arg-plus 9 9) 'bof)");
     check(result == 18, "test1");
@@ -1040,7 +1040,7 @@ static void test_progn()
 static void test_tagbody()
 {
     test_name = "tagbody";
-    init_interpreter(32768);
+    init_interpreter(65536);
     test_eval_string_helper("(defun foo (x) (tagbody iterate (cond ((= x 0) (return 'done)) (t (progn (set 'x (two-arg-minus x 1)) (go iterate)))))))");
     lisp_object_t result = test_eval_string_helper("(foo 10)");
     char *str = print_object(result);
@@ -1167,7 +1167,7 @@ static void test_macroexpand_all_tagbody()
 static void test_macroexpand_all_prog()
 {
     test_name = "macroexpand_all_prog";
-    init_interpreter(32768);
+    init_interpreter(65536);
     test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
     test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
     lisp_object_t expr = parse1_wrapper("(prog (a b) (ooh (frob)) foo (aah (hello)) (go foo))");
@@ -1195,7 +1195,7 @@ static void test_macroexpand_all_set()
 static void test_macroexpand_all_let()
 {
     test_name = "macroexpand_all_let";
-    init_interpreter(32768);
+    init_interpreter(65536);
     test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
     test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
     lisp_object_t expr = parse1_wrapper("(let ((a 14) (b (ooh y))) (ooh b))");

@@ -146,6 +146,7 @@ struct return_context {
     /* tagbody_forms is here so it can be freed in pop_return_context() */
     /* - it is not actually accessed: */
     lisp_object_t *tagbody_forms;
+    size_t tagbody_forms_len;
 };
 
 struct lisp_interpreter {

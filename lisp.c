@@ -309,19 +309,27 @@ void lisp_heap_free(struct lisp_heap *heap)
     }
 }
 
-static int gc_needed(struct lisp_heap *heap, size_t bytes_needed)
-{
-    assert_heap_invariants(heap);
-    return heap->freeptr + bytes_needed - heap->from_space > heap->size_bytes / 2;
-}
-
 void gc();
+
+static void gc_if_needed(size_t bytes_needed)
+{
+    struct lisp_heap *heap = &interp->new_heap;
+    assert_heap_invariants(heap);
+    if (heap->freeptr + bytes_needed - heap->from_space > heap->size_bytes / 2) {
+        gc();
+        size_t bytes_in_use_now = heap->freeptr - heap->from_space;
+        size_t bytes_free = heap->size_bytes / 2 - bytes_in_use_now;
+        if (bytes_free < bytes_needed) {
+            printf("Heap exhausted\n");
+            exit(1);
+        }
+    }
+}
 
 lisp_object_t cons(lisp_object_t car, lisp_object_t cdr)
 {
     struct lisp_heap *heap = &interp->new_heap;
-    if (gc_needed(heap, sizeof(struct cons)))
-        gc();
+    gc_if_needed(sizeof(struct cons));
     struct cons *the_cons = (struct cons *)heap->freeptr;
     the_cons->header = CONS_TYPE;
     the_cons->car = car;
@@ -334,8 +342,7 @@ static lisp_object_t allocate_new_symbol(lisp_object_t name)
 {
     check_string(name);
     struct lisp_heap *heap = &interp->new_heap;
-    if (gc_needed(heap, sizeof(struct symbol)))
-        gc();
+    gc_if_needed(sizeof(struct symbol));
     if (heap->freeptr >= heap->from_space + heap->size_bytes / 2)
         abort();
     struct symbol *s = (struct symbol *)heap->freeptr;
@@ -565,9 +572,6 @@ void gc()
     /* Say how much memory was freed */
     size_t bytes_in_use_now = interp->new_heap.freeptr - interp->new_heap.from_space;
     printf("%lu bytes freed\n", bytes_in_use_before_gc - bytes_in_use_now);
-    /* If we still need GC, memory is exhausted */
-    if (gc_needed(heap, 1))
-        abort();
 }
 
 void free_interpreter()
@@ -594,8 +598,7 @@ lisp_object_t allocate_string(size_t len, char *str)
      */
     size_t bytes_to_allocate_for_actual_string = ((len / 8) + 1) * 8;
     size_t total_bytes_to_allocate = sizeof(struct string_header) + bytes_to_allocate_for_actual_string;
-    if (gc_needed(&interp->new_heap, total_bytes_to_allocate))
-        gc();
+    gc_if_needed(total_bytes_to_allocate);
     struct string_header *new_string = (struct string_header *)interp->new_heap.freeptr;
     new_string->header = STRING_TYPE;
     new_string->allocated_length = bytes_to_allocate_for_actual_string;

@@ -365,6 +365,8 @@ static size_t objsize(lisp_object_t obj)
         return sizeof(struct cons);
     if (symbolp(obj) != NIL)
         return sizeof(struct symbol);
+    if (stringp(obj) != NIL)
+        return StringPtr(obj)->allocated_length + sizeof(struct string_header);
     abort();
 }
 
@@ -390,7 +392,7 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
     assert_heap_invariants(heap);
     if (*p == NIL || *p == T)
         return;
-    if (consp(*p) == NIL && symbolp(*p) == NIL)
+    if (consp(*p) == NIL && symbolp(*p) == NIL && stringp(*p) == NIL)
         return;
     if (symbolp(*p) != NIL) {
         struct symbol *symptr = SymbolPtr(*p);
@@ -402,6 +404,12 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
         struct cons *consptr = ConsPtr(*p);
         if (consptr->car & FORWARDING_POINTER) {
             *p = consptr->car & ~FORWARDING_POINTER;
+            return;
+        }
+    } else if (stringp(*p) != NIL) {
+        struct string_header *string = StringPtr(*p);
+        if (string->allocated_length & FORWARDING_POINTER) {
+            *p = string->allocated_length & ~FORWARDING_POINTER;
             return;
         }
     } else {
@@ -419,6 +427,8 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
         SymbolPtr(*p)->name = moved_obj | FORWARDING_POINTER;
     else if (consp(*p) != NIL)
         ConsPtr(*p)->car = moved_obj | FORWARDING_POINTER;
+    else if (stringp(*p) != NIL)
+        StringPtr(*p)->allocated_length = moved_obj | FORWARDING_POINTER;
     else
         abort();
     *p = moved_obj;
@@ -516,6 +526,9 @@ void gc()
             gc_copy(heap, &symptr->function);
             gc_copy(heap, &symptr->plist);
             scanptr += sizeof(struct symbol);
+        } else if (*headerptr == STRING_TYPE) {
+            struct string_header *strptr = (struct string_header *)scanptr;
+            scanptr += strptr->allocated_length + sizeof(struct string_header);
         } else {
             abort();
         }
@@ -542,6 +555,9 @@ void gc()
             gc_check_copied_object(sym->value);
             gc_check_copied_object(sym->plist);
             p += sizeof(struct symbol);
+        } else if (*headerptr == STRING_TYPE) {
+            struct string_header *strptr = (struct string_header *)p;
+            p += strptr->allocated_length + sizeof(struct string_header);
         } else {
             abort();
         }
@@ -571,21 +587,31 @@ void free_interpreter()
 /* len here includes the terminating null byte of str */
 lisp_object_t allocate_string(size_t len, char *str)
 {
+    assert(!str[len - 1]);
     size_t size = 2 + (len - 1) / 8;
-    lisp_object_t obj = allocate_lisp_objects(size);
-    size_t *header_address = (size_t *)obj;
-    *header_address = len;
-    char *straddr = (char *)(header_address + 1);
-    strncpy(straddr, str, len);
-    return obj | STRING_TYPE;
+    /* I want to make this a multiple of 8
+     * but not sure that is actually needed
+     */
+    size_t bytes_to_allocate_for_actual_string = ((len / 8) + 1) * 8;
+    size_t total_bytes_to_allocate = sizeof(struct string_header) + bytes_to_allocate_for_actual_string;
+    if (gc_needed(&interp->new_heap, total_bytes_to_allocate))
+        gc();
+    struct string_header *new_string = (struct string_header *)interp->new_heap.freeptr;
+    new_string->header = STRING_TYPE;
+    new_string->allocated_length = bytes_to_allocate_for_actual_string;
+    new_string->string_length = len;
+    char *new_string_storage = ((char *)new_string) + sizeof(struct string_header);
+    interp->new_heap.freeptr += total_bytes_to_allocate;
+    strncpy(new_string_storage, str, len);
+    return (lisp_object_t)new_string | STRING_TYPE;
 }
 
 void get_string_parts(lisp_object_t string, size_t *lenptr, char **strptr)
 {
     check_string(string);
-    size_t *name_length_ptr = StringPtr(string);
-    *lenptr = *name_length_ptr - 1;
-    *strptr = (char *)(name_length_ptr + 1);
+    struct string_header *header = StringPtr(string);
+    *lenptr = header->string_length - 1;
+    *strptr = ((char *)header) + sizeof(struct string_header);
 }
 
 lisp_object_t string_equalp(lisp_object_t s1, lisp_object_t s2)
@@ -595,14 +621,13 @@ lisp_object_t string_equalp(lisp_object_t s1, lisp_object_t s2)
     if (eq(s1, s2) != NIL) {
         return T;
     } else {
-        /* Compare lengths */
-        size_t *l1p = (size_t *)(s1 & PTR_MASK);
-        size_t *l2p = (size_t *)(s2 & PTR_MASK);
-        if (*l1p != *l2p)
+        size_t l1, l2;
+        char *str1, *str2;
+        get_string_parts(s1, &l1, &str1);
+        get_string_parts(s2, &l2, &str2);
+        if (l1 != l2)
             return NIL;
-        char *str1 = (char *)(l1p + 1);
-        char *str2 = (char *)(l2p + 1);
-        return strncmp(str1, str2, *l1p) == 0 ? T : NIL;
+        return strncmp(str1, str2, l1) == 0 ? T : NIL;
     }
 }
 

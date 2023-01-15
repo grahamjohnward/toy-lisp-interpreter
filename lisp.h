@@ -46,8 +46,7 @@ lisp_object_t load(lisp_object_t filename);
 
 #define ConsPtr(obj) ((struct cons *)((obj)&PTR_MASK))
 #define SymbolPtr(obj) ((struct symbol *)((obj)&PTR_MASK))
-/* StringPtr is different as a string is not a struct */
-#define StringPtr(obj) ((size_t *)((obj)&PTR_MASK))
+#define StringPtr(obj) ((struct string_header *)((obj)&PTR_MASK))
 #define VectorPtr(obj) ((struct vector *)((obj)&PTR_MASK))
 #define FunctionPtr(obj) ((void (*)())((obj)&PTR_MASK))
 
@@ -104,6 +103,14 @@ struct cons {
     object_header_t header;
     lisp_object_t car;
     lisp_object_t cdr;
+};
+
+/* String storage is one of these immediately followed by the
+ * null-terminated string */
+struct string_header {
+    object_header_t header;
+    size_t allocated_length;
+    size_t string_length;
 };
 
 #define LISP_HEAP_BASE 0x400000000000

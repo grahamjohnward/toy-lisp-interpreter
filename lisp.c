@@ -178,20 +178,20 @@ static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, size
     return storage;
 }
 
-lisp_object_t svref(lisp_object_t vector, size_t index)
+lisp_object_t svref(lisp_object_t vector, lisp_object_t index)
 {
     lisp_object_t *storage = check_vector_bounds_get_storage(vector, index);
     return storage[index];
 }
 
-lisp_object_t svref_set(lisp_object_t vector, size_t index, lisp_object_t newvalue)
+lisp_object_t svref_set(lisp_object_t vector, lisp_object_t index, lisp_object_t newvalue)
 {
     lisp_object_t *storage = check_vector_bounds_get_storage(vector, index);
     storage[index] = newvalue;
     return newvalue;
 }
 
-lisp_object_t allocate_vector(size_t size)
+lisp_object_t allocate_vector(lisp_object_t size)
 {
     /* Allocate header */
     struct vector *v = (struct vector *)allocate_lisp_objects(2);
@@ -266,6 +266,9 @@ void init_interpreter(size_t heap_size)
     DEFBUILTIN("exit", exit, 1);
     DEFBUILTIN("get", getprop, 2);
     DEFBUILTIN("putprop", putprop, 3);
+    DEFBUILTIN("make-vector", allocate_vector, 1);
+    DEFBUILTIN("svref", svref, 2);
+    DEFBUILTIN("set-svref", svref_set, 3);
 #undef DEFBUILTIN
     interp->prog_return_stack = NULL;
     interpreter_initialized = 1;

@@ -1302,6 +1302,12 @@ static void test_lisp_heap_gc_simple()
     free_interpreter();
 }
 
+static void test_vector_builtins()
+{
+    test_name = "vector_builtins";
+    test_eval_helper("(let ((x (make-vector 4))) (set-svref x 3 'frob) (set-svref x 2 14) (cons x (cons (svref x 3) (cons (svref x 2)))))", "(#(nil nil 14 frob) frob 14)");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1408,6 +1414,7 @@ int main(int argc, char **argv)
     test_lisp_heap_cons();
     test_lisp_heap_copy_single_object();
     test_lisp_heap_gc_simple();
+    test_vector_builtins();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

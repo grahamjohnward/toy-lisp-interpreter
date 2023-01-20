@@ -30,6 +30,7 @@ struct symbol {
 };
 
 struct vector {
+    object_header_t header;
     size_t len;
     lisp_object_t storage;
 };
@@ -166,15 +167,16 @@ lisp_object_t allocate_lisp_objects(size_t n)
     return result;
 }
 
-static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, size_t index)
+static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, lisp_object_t index)
 {
     check_vector(vector);
     struct vector *v = VectorPtr(vector);
     if (index >= v->len) {
+        // This should be an exception
         printf("Index %zu out of bounds for vector (len=%lu)\n", index, v->len);
         abort();
     }
-    lisp_object_t *storage = (lisp_object_t *)v->storage;
+    lisp_object_t *storage = (lisp_object_t *)(((char *)v) + sizeof(struct vector));
     return storage;
 }
 
@@ -191,16 +193,20 @@ lisp_object_t svref_set(lisp_object_t vector, lisp_object_t index, lisp_object_t
     return newvalue;
 }
 
+static void gc_if_needed(size_t);
+
 lisp_object_t allocate_vector(lisp_object_t size)
 {
-    /* Allocate header */
-    struct vector *v = (struct vector *)allocate_lisp_objects(2);
+    size_t bytes_to_allocate = sizeof(struct vector) + size * sizeof(lisp_object_t);
+    gc_if_needed(bytes_to_allocate);
+    struct vector *v = (struct vector *)interp->new_heap.freeptr;
+    interp->new_heap.freeptr += bytes_to_allocate;
+    v->header = VECTOR_TYPE;
     v->len = size;
-    /* Allocate storage */
-    v->storage = allocate_lisp_objects(size);
+    lisp_object_t *storage = (lisp_object_t *)(((char *)v) + sizeof(struct vector));
     lisp_object_t result = (lisp_object_t)v | VECTOR_TYPE;
     for (int i = 0; i < size; i++)
-        svref_set(result, i, NIL);
+        storage[i] = NIL;
     return result;
 }
 
@@ -377,6 +383,8 @@ static size_t objsize(lisp_object_t obj)
         return sizeof(struct symbol);
     if (stringp(obj) != NIL)
         return StringPtr(obj)->allocated_length + sizeof(struct string_header);
+    if (vectorp(obj) != NIL)
+        return VectorPtr(obj)->len * sizeof(lisp_object_t) + sizeof(struct vector);
     abort();
 }
 
@@ -402,7 +410,7 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
     assert_heap_invariants(heap);
     if (*p == NIL || *p == T)
         return;
-    if (consp(*p) == NIL && symbolp(*p) == NIL && stringp(*p) == NIL)
+    if (consp(*p) == NIL && symbolp(*p) == NIL && stringp(*p) == NIL && vectorp(*p) == NIL)
         return;
     if (symbolp(*p) != NIL) {
         struct symbol *symptr = SymbolPtr(*p);
@@ -422,6 +430,12 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
             *p = string->allocated_length & ~FORWARDING_POINTER;
             return;
         }
+    } else if (vectorp(*p) != NIL) {
+        struct vector *vector = VectorPtr(*p);
+        if (vector->len & FORWARDING_POINTER) {
+            *p = vector->len & ~FORWARDING_POINTER;
+            return;
+        }
     } else {
         abort();
     }
@@ -439,6 +453,8 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
         ConsPtr(*p)->car = moved_obj | FORWARDING_POINTER;
     else if (stringp(*p) != NIL)
         StringPtr(*p)->allocated_length = moved_obj | FORWARDING_POINTER;
+    else if (vectorp(*p) != NIL)
+        VectorPtr(*p)->len = moved_obj | FORWARDING_POINTER;
     else
         abort();
     *p = moved_obj;
@@ -447,7 +463,7 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
 
 static void gc_check_copied_object(lisp_object_t obj)
 {
-    if (integerp(obj) != NIL || stringp(obj) != NIL || function_pointer_p(obj) != NIL || obj == T || obj == NIL)
+    if (integerp(obj) != NIL || stringp(obj) != NIL || vectorp(obj) != NIL || function_pointer_p(obj) != NIL || obj == T || obj == NIL)
         return;
     assert(!(obj & FORWARDING_POINTER));
     char *p = (char *)(obj & PTR_MASK);
@@ -539,6 +555,12 @@ void gc()
         } else if (*headerptr == STRING_TYPE) {
             struct string_header *strptr = (struct string_header *)scanptr;
             scanptr += strptr->allocated_length + sizeof(struct string_header);
+        } else if (*headerptr == VECTOR_TYPE) {
+            struct vector *v = (struct vector *)scanptr;
+            lisp_object_t *storage = (lisp_object_t *)(scanptr + sizeof(struct vector));
+            for (int i = 0; i < v->len; i++)
+                gc_copy(heap, storage + i);
+            scanptr += v->len * sizeof(lisp_object_t) + sizeof(struct vector);
         } else {
             abort();
         }
@@ -569,7 +591,11 @@ void gc()
             struct string_header *strptr = (struct string_header *)p;
             p += strptr->allocated_length + sizeof(struct string_header);
         } else {
-            abort();
+            struct vector *v = (struct vector *)p;
+            lisp_object_t *storage = (lisp_object_t *)(p + sizeof(struct vector));
+            for (int i = 0; i < v->len; i++)
+                gc_check_copied_object(storage[i]);
+            p += v->len * sizeof(lisp_object_t) + sizeof(struct vector);
         }
     }
     /* Say how much memory was freed */

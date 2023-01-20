@@ -595,7 +595,6 @@ void free_interpreter()
 lisp_object_t allocate_string(size_t len, char *str)
 {
     assert(!str[len - 1]);
-    size_t size = 2 + (len - 1) / 8;
     /* I want to make this a multiple of 8
      * but not sure that is actually needed
      */

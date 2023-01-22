@@ -368,8 +368,9 @@ static lisp_object_t allocate_new_symbol(lisp_object_t name)
 
 void *get_rbp(int offset)
 {
-    uint64_t dummy = 0;
-    uint64_t *rbp = (&dummy) + 2;
+    uint64_t *rbp;
+    asm("movq %%rbp, %0"
+        : "=r"(rbp));
     for (int i = 0; i < offset; i++)
         rbp = *((uint64_t **)rbp);
     return rbp;

@@ -146,14 +146,10 @@ struct lisp_interpreter {
     struct syms syms;
     lisp_object_t environ;
     lisp_object_t symbol_table; /* A root for GC */
-    /* Legacy heap stuff */
-    lisp_object_t *heap;
-    lisp_object_t *next_free;
-    size_t heap_size_bytes;
     /* Machinery for returning from prog */
     struct return_context *prog_return_stack;
     /* New improved heap */
-    struct lisp_heap new_heap;
+    struct lisp_heap heap;
 };
 
 extern struct lisp_interpreter *interp;

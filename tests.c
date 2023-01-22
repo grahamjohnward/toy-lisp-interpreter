@@ -1264,7 +1264,7 @@ static void test_lisp_heap_cons()
 {
     test_name = "lisp_heap_cons";
     init_interpreter(32768);
-    struct lisp_heap *heap = &interp->new_heap;
+    struct lisp_heap *heap = &interp->heap;
     char *oldfreeptr = heap->freeptr;
     lisp_object_t new_cons = cons(NIL, T);
     struct cons *consptr = ConsPtr(new_cons);
@@ -1295,10 +1295,10 @@ static void test_lisp_heap_gc_simple()
 {
     test_name = "lisp_heap_gc_simple";
     init_interpreter(32768);
-    char *orig_from_space = interp->new_heap.from_space;
-    char *orig_to_space = interp->new_heap.to_space;
-    check(orig_from_space == interp->new_heap.heap, "from_space");
-    check(orig_to_space == orig_from_space + interp->new_heap.size_bytes / 2, "to_space");
+    char *orig_from_space = interp->heap.from_space;
+    char *orig_to_space = interp->heap.to_space;
+    check(orig_from_space == interp->heap.heap, "from_space");
+    check(orig_to_space == orig_from_space + interp->heap.size_bytes / 2, "to_space");
     free_interpreter();
 }
 

@@ -160,13 +160,6 @@ lisp_object_t functionp(lisp_object_t obj)
     return consp(obj) != NIL && (eq(car(obj), interp->syms.lambda) != NIL || eq(car(obj), interp->syms.built_in_function) != NIL) ? T : NIL;
 }
 
-lisp_object_t allocate_lisp_objects(size_t n)
-{
-    lisp_object_t result = (lisp_object_t)interp->next_free;
-    interp->next_free += n;
-    return result;
-}
-
 static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, lisp_object_t index)
 {
     check_vector(vector);
@@ -199,8 +192,8 @@ lisp_object_t allocate_vector(lisp_object_t size)
 {
     size_t bytes_to_allocate = sizeof(struct vector) + size * sizeof(lisp_object_t);
     gc_if_needed(bytes_to_allocate);
-    struct vector *v = (struct vector *)interp->new_heap.freeptr;
-    interp->new_heap.freeptr += bytes_to_allocate;
+    struct vector *v = (struct vector *)interp->heap.freeptr;
+    interp->heap.freeptr += bytes_to_allocate;
     v->header = VECTOR_TYPE;
     v->len = size;
     lisp_object_t *storage = (lisp_object_t *)(((char *)v) + sizeof(struct vector));
@@ -221,16 +214,8 @@ void init_interpreter(size_t heap_size)
 {
     interp = (struct lisp_interpreter *)malloc(sizeof(struct lisp_interpreter));
     assert(sizeof(lisp_object_t) == sizeof(void *));
-    interp->heap_size_bytes = heap_size * sizeof(lisp_object_t);
-    interp->heap = mmap((void *)0x100000000000, interp->heap_size_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-    if (interp->heap == (lisp_object_t *)-1) {
-        perror("init_interpreter: mmap failed");
-        exit(1);
-    }
-    bzero(interp->heap, interp->heap_size_bytes);
-    interp->next_free = interp->heap;
     interp->symbol_table = NIL;
-    lisp_heap_init(&interp->new_heap, heap_size);
+    lisp_heap_init(&interp->heap, heap_size);
     interp->syms.lambda = sym("lambda");
     interp->syms.quote = sym("quote");
     interp->syms.cond = sym("cond");
@@ -292,14 +277,14 @@ void lisp_heap_init(struct lisp_heap *heap, size_t bytes)
     assert(bytes % sizeof(lisp_object_t) == 0);
     check_object_sizes();
     heap->heap = (char *)mmap((void *)LISP_HEAP_BASE, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    if (heap->heap == (char *)-1) {
+        perror("lisp_heap_init: mmap failed");
+        exit(1);
+    }
     heap->freeptr = heap->heap;
     heap->size_bytes = bytes;
     heap->from_space = heap->heap;
     heap->to_space = heap->heap + bytes / 2;
-    if (interp->heap == (lisp_object_t *)-1) {
-        perror("lisp_heap_init: mmap failed");
-        exit(1);
-    }
 }
 
 static void assert_heap_invariants(struct lisp_heap *heap)
@@ -322,7 +307,7 @@ void gc();
 
 static void gc_if_needed(size_t bytes_needed)
 {
-    struct lisp_heap *heap = &interp->new_heap;
+    struct lisp_heap *heap = &interp->heap;
     assert_heap_invariants(heap);
     if (heap->freeptr + bytes_needed - heap->from_space > heap->size_bytes / 2) {
         gc();
@@ -337,7 +322,7 @@ static void gc_if_needed(size_t bytes_needed)
 
 lisp_object_t cons(lisp_object_t car, lisp_object_t cdr)
 {
-    struct lisp_heap *heap = &interp->new_heap;
+    struct lisp_heap *heap = &interp->heap;
     gc_if_needed(sizeof(struct cons));
     struct cons *the_cons = (struct cons *)heap->freeptr;
     the_cons->header = CONS_TYPE;
@@ -350,7 +335,7 @@ lisp_object_t cons(lisp_object_t car, lisp_object_t cdr)
 static lisp_object_t allocate_new_symbol(lisp_object_t name)
 {
     check_string(name);
-    struct lisp_heap *heap = &interp->new_heap;
+    struct lisp_heap *heap = &interp->heap;
     gc_if_needed(sizeof(struct symbol));
     if (heap->freeptr >= heap->from_space + heap->size_bytes / 2)
         abort();
@@ -468,7 +453,7 @@ static void gc_check_copied_object(lisp_object_t obj)
         return;
     assert(!(obj & FORWARDING_POINTER));
     char *p = (char *)(obj & PTR_MASK);
-    assert(p >= interp->new_heap.from_space && p < interp->new_heap.from_space + interp->new_heap.size_bytes / 2);
+    assert(p >= interp->heap.from_space && p < interp->heap.from_space + interp->heap.size_bytes / 2);
 }
 
 static void *ptr_demangle(void *ptr)
@@ -483,16 +468,16 @@ static int jmp_buf_entry_is_pointer[] = { 0, 1, 0, 0, 0, 0, 1, 1 };
 
 void gc()
 {
-    size_t bytes_in_use_before_gc = interp->new_heap.freeptr - interp->new_heap.from_space;
+    size_t bytes_in_use_before_gc = interp->heap.freeptr - interp->heap.from_space;
     printf("; Garbage collecting ... ");
-    struct lisp_heap *heap = &interp->new_heap;
+    struct lisp_heap *heap = &interp->heap;
     heap->freeptr = heap->to_space;
     /* Roots - stack */
     void *rbp = get_rbp(1);
     assert(top_of_stack);
     for (lisp_object_t *p = top_of_stack; p > (lisp_object_t *)rbp; p--)
         if (object_is_in_from_space(heap, *p))
-            gc_copy(&interp->new_heap, p);
+            gc_copy(&interp->heap, p);
     /* Roots - return contexts */
     for (struct return_context *ctxt = interp->prog_return_stack; ctxt; ctxt = ctxt->next) {
         gc_copy(heap, &ctxt->return_value);
@@ -509,7 +494,7 @@ void gc()
                 lisp_object_t *p = (lisp_object_t *)(ctxt->buf->__jb[i]);
 #endif
                 if (object_is_in_from_space(heap, *p))
-                    gc_copy(&interp->new_heap, p);
+                    gc_copy(&interp->heap, p);
             }
         }
     }
@@ -600,19 +585,14 @@ void gc()
         }
     }
     /* Say how much memory was freed */
-    size_t bytes_in_use_now = interp->new_heap.freeptr - interp->new_heap.from_space;
+    size_t bytes_in_use_now = interp->heap.freeptr - interp->heap.from_space;
     printf("%lu bytes freed\n", bytes_in_use_before_gc - bytes_in_use_now);
 }
 
 void free_interpreter()
 {
     if (interpreter_initialized) {
-        int rc = munmap(interp->heap, interp->heap_size_bytes);
-        if (rc != 0) {
-            perror("free_interpreter: munmap failed");
-            exit(1);
-        }
-        lisp_heap_free(&interp->new_heap);
+        lisp_heap_free(&interp->heap);
         free(interp);
         interpreter_initialized = 0;
     }
@@ -628,12 +608,12 @@ lisp_object_t allocate_string(size_t len, char *str)
     size_t bytes_to_allocate_for_actual_string = ((len / 8) + 1) * 8;
     size_t total_bytes_to_allocate = sizeof(struct string_header) + bytes_to_allocate_for_actual_string;
     gc_if_needed(total_bytes_to_allocate);
-    struct string_header *new_string = (struct string_header *)interp->new_heap.freeptr;
+    struct string_header *new_string = (struct string_header *)interp->heap.freeptr;
     new_string->header = STRING_TYPE;
     new_string->allocated_length = bytes_to_allocate_for_actual_string;
     new_string->string_length = len;
     char *new_string_storage = ((char *)new_string) + sizeof(struct string_header);
-    interp->new_heap.freeptr += total_bytes_to_allocate;
+    interp->heap.freeptr += total_bytes_to_allocate;
     strncpy(new_string_storage, str, len);
     return (lisp_object_t)new_string | STRING_TYPE;
 }

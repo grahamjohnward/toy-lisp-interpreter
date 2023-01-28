@@ -1308,6 +1308,12 @@ static void test_vector_builtins()
     test_eval_helper("(let ((x (make-vector 4))) (set-svref x 3 'frob) (set-svref x 2 14) (cons x (cons (svref x 3) (cons (svref x 2)))))", "(#(nil nil 14 frob) frob 14)");
 }
 
+static void test_non_symbol_in_function_position()
+{
+    test_name = "non_symbol_in_function_position";
+    test_eval_helper("(condition-case e (2 2) (illegal-function-call e))", "(illegal-function-call 2)");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1415,6 +1421,7 @@ int main(int argc, char **argv)
     test_lisp_heap_copy_single_object();
     test_lisp_heap_gc_simple();
     test_vector_builtins();
+    test_non_symbol_in_function_position();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

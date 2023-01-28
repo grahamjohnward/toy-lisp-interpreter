@@ -1216,12 +1216,17 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
     if (atom(fn) != NIL) {
         if (fn == NIL)
             abort();
-        struct symbol *sym = SymbolPtr(fn);
-        if (sym->function != NIL)
-            /* Function cell of symbol is bound */
-            return apply(sym->function, x, a);
-        else
-            return apply(eval(fn, a), x, a);
+        if (symbolp(fn) == NIL) {
+            raise(sym("illegal-function-call"), fn);
+            return NIL;
+        } else {
+            struct symbol *sym = SymbolPtr(fn);
+            if (sym->function != NIL)
+                /* Function cell of symbol is bound */
+                return apply(sym->function, x, a);
+            else
+                return apply(eval(fn, a), x, a);
+        }
     } else if (eq(car(fn), interp->syms.lambda) != NIL) {
         push_return_context(interp->syms.return_);
         if (setjmp(interp->prog_return_stack->buf)) {

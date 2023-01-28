@@ -5,7 +5,7 @@
 
 #include "text_stream.h"
 
-void do_read(struct text_stream *stream);
+static void do_read(struct text_stream *stream);
 
 #define BUFFER_SIZE 1024
 
@@ -66,7 +66,7 @@ int text_stream_eof(struct text_stream *stream)
     }
 }
 
-void do_read(struct text_stream *stream)
+static void do_read(struct text_stream *stream)
 {
     if (stream->type != TEXT_STREAM_TYPE_FD)
         abort();

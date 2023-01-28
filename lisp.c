@@ -210,12 +210,22 @@ static void define_built_in_function(char *symbol_name, void (*function_pointer)
     symptr->function = cons(interp->syms.built_in_function, cons(fp, cons(arity, NIL)));
 }
 
-void init_interpreter(size_t heap_size)
+void do_read(int fd, char *dest, size_t len)
 {
-    interp = (struct lisp_interpreter *)malloc(sizeof(struct lisp_interpreter));
-    assert(sizeof(lisp_object_t) == sizeof(void *));
-    interp->symbol_table = NIL;
-    lisp_heap_init(&interp->heap, heap_size);
+    int n = read(fd, dest, len);
+    if (n < 0) {
+        perror("read");
+        exit(1);
+    }
+    if (n != len) {
+        fprintf(stderr, "incomplete read\n");
+        exit(1);
+    }
+    return;
+}
+
+static void init_symbols()
+{
     interp->syms.lambda = sym("lambda");
     interp->syms.quote = sym("quote");
     interp->syms.cond = sym("cond");
@@ -236,7 +246,10 @@ void init_interpreter(size_t heap_size)
     interp->syms.unquote = sym("unquote");
     interp->syms.unquote_splice = sym("unquote-splice");
     interp->syms.let = sym("let");
-    interp->environ = NIL;
+}
+
+static void init_builtins()
+{
 #define DEFBUILTIN(S, F, A) define_built_in_function(S, (void (*)())F, A)
     DEFBUILTIN("car", car, 1);
     DEFBUILTIN("cdr", cdr, 1);
@@ -260,10 +273,48 @@ void init_interpreter(size_t heap_size)
     DEFBUILTIN("make-vector", allocate_vector, 1);
     DEFBUILTIN("svref", svref, 2);
     DEFBUILTIN("set-svref", svref_set, 3);
+    DEFBUILTIN("save-image", save_image, 1);
 #undef DEFBUILTIN
+}
+
+void init_interpeter_from_image(char *image)
+{
+    int fd = open(image, O_RDONLY);
+    if (fd < 0) {
+        perror("open");
+        exit(1);
+    }
+    interp = (struct lisp_interpreter *)malloc(sizeof(struct lisp_interpreter));
+    assert(sizeof(lisp_object_t) == sizeof(void *));
+    interp->environ = NIL;
     interp->prog_return_stack = NULL;
-    interpreter_initialized = 1;
     top_of_stack = NULL;
+    do_read(fd, (char *)&interp->symbol_table, sizeof(lisp_object_t));
+    do_read(fd, (char *)&interp->heap, sizeof(struct lisp_heap));
+    void *rc = mmap(interp->heap.heap, interp->heap.size_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    if (rc == MAP_FAILED) {
+        perror("mmap");
+        exit(1);
+    }
+    assert(rc == interp->heap.heap);
+    do_read(fd, interp->heap.heap, interp->heap.size_bytes);
+    init_symbols();
+    init_builtins();
+    interpreter_initialized = 1;
+}
+
+void init_interpreter(size_t heap_size)
+{
+    interp = (struct lisp_interpreter *)malloc(sizeof(struct lisp_interpreter));
+    assert(sizeof(lisp_object_t) == sizeof(void *));
+    interp->symbol_table = NIL;
+    interp->prog_return_stack = NULL;
+    interp->environ = NIL;
+    top_of_stack = NULL;
+    lisp_heap_init(&interp->heap, heap_size);
+    init_symbols();
+    init_builtins();
+    interpreter_initialized = 1;
 }
 
 static void check_object_sizes()
@@ -1680,4 +1731,36 @@ lisp_object_t minus(lisp_object_t x, lisp_object_t y)
     lisp_object_t result = x - y;
     check_integer(result);
     return result;
+}
+
+static void do_write(int fd, char *p, size_t len)
+{
+    size_t bytes_written = 0;
+    do {
+        int n = write(fd, p, len - bytes_written);
+        if (n < 0) {
+            perror("write");
+            abort();
+        }
+        p += n;
+        bytes_written += n;
+    } while (bytes_written < len);
+}
+
+lisp_object_t save_image(lisp_object_t name)
+{
+    size_t len;
+    char *str;
+    get_string_parts(name, &len, &str);
+    int fd = open(str, O_CREAT | O_WRONLY | O_APPEND | O_TRUNC, S_IRUSR | S_IWUSR);
+    if (fd < 0) {
+        perror("save_image: open");
+        exit(1);
+    }
+    gc();
+    do_write(fd, (char *)&interp->symbol_table, sizeof(lisp_object_t));
+    do_write(fd, (char *)&interp->heap, sizeof(struct lisp_heap));
+    do_write(fd, interp->heap.heap, interp->heap.size_bytes);
+    close(fd);
+    exit(0);
 }

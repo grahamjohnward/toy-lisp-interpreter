@@ -23,6 +23,7 @@ lisp_object_t sym(char *string);
 char *read_token(struct text_stream *ts);
 
 void init_interpreter(size_t heap_size);
+void init_interpeter_from_image(char *image);
 void free_interpreter();
 
 char *print_object(lisp_object_t obj);
@@ -94,6 +95,7 @@ lisp_object_t putprop(lisp_object_t sym, lisp_object_t ind, lisp_object_t value)
 lisp_object_t macroexpand1(lisp_object_t expr, lisp_object_t env);
 lisp_object_t macroexpand(lisp_object_t expr, lisp_object_t env);
 lisp_object_t macroexpand_all(lisp_object_t expr);
+lisp_object_t save_image(lisp_object_t name);
 
 struct syms {
     lisp_object_t lambda, quote, cond, defun, built_in_function, prog, progn, tagbody, set, go, return_, amprest, ampbody, ampoptional, condition_case, defmacro, quasiquote, unquote, unquote_splice, let;

@@ -1632,7 +1632,8 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
         } else if (eq(car(e), interp->syms.quasiquote) != NIL) {
             return eval_quasiquote(cadr(e), a);
         } else if (eq(car(e), interp->syms.unquote) != NIL) {
-            abort();
+            raise(sym("runtime-error"), sym("comma-not-inside-backquote"));
+            return NIL;
         } else if (eq(car(e), interp->syms.cond) != NIL) {
             return evcon(cdr(e), a);
         } else if (eq(car(e), interp->syms.let) != NIL) {

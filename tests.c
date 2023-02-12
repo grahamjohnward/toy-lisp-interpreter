@@ -1324,6 +1324,12 @@ static void test_type_of()
     test_eval_helper("(type-of #(1 2 3))", "vector");
 }
 
+static void test_comma_not_inside_backquote()
+{
+    test_name = "comma_not_inside_backquote";
+    test_eval_helper("(condition-case e ,foo (runtime-error e))", "(runtime-error comma-not-inside-backquote)");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1433,6 +1439,7 @@ int main(int argc, char **argv)
     test_vector_builtins();
     test_non_symbol_in_function_position();
     test_type_of();
+    test_comma_not_inside_backquote();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

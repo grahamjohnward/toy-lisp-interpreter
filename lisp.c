@@ -253,6 +253,11 @@ static void init_symbols()
     interp->syms.unquote = sym("unquote");
     interp->syms.unquote_splice = sym("unquote-splice");
     interp->syms.let = sym("let");
+    interp->syms.integer = sym("integer");
+    interp->syms.symbol = sym("symbol");
+    interp->syms.cons = sym("cons");
+    interp->syms.string = sym("string");
+    interp->syms.vector = sym("vector");
 }
 
 static void init_builtins()
@@ -281,6 +286,7 @@ static void init_builtins()
     DEFBUILTIN("svref", svref, 2);
     DEFBUILTIN("set-svref", svref_set, 3);
     DEFBUILTIN("save-image", save_image, 1);
+    DEFBUILTIN("type-of", type_of, 1);
 #undef DEFBUILTIN
 }
 
@@ -579,6 +585,11 @@ void gc()
     GC_COPY_SYMBOL(unquote);
     GC_COPY_SYMBOL(unquote_splice);
     GC_COPY_SYMBOL(let);
+    GC_COPY_SYMBOL(integer);
+    GC_COPY_SYMBOL(symbol);
+    GC_COPY_SYMBOL(cons);
+    GC_COPY_SYMBOL(string);
+    GC_COPY_SYMBOL(vector);
 #undef GC_COPY_SYMBOL
     /* Update pointers inside to-space objects */
     char *scanptr;
@@ -1743,6 +1754,24 @@ lisp_object_t minus(lisp_object_t x, lisp_object_t y)
     lisp_object_t result = x - y;
     check_integer(result);
     return result;
+}
+
+lisp_object_t type_of(lisp_object_t obj)
+{
+    switch (obj & TYPE_MASK) {
+    case 0:
+        return interp->syms.integer;
+    case SYMBOL_TYPE:
+        return interp->syms.symbol;
+    case CONS_TYPE:
+        return interp->syms.cons;
+    case STRING_TYPE:
+        return interp->syms.string;
+    case VECTOR_TYPE:
+        return interp->syms.vector;
+    default:
+        abort();
+    }
 }
 
 static void do_write(int fd, char *p, size_t len)

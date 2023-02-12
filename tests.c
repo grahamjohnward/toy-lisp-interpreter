@@ -1314,6 +1314,16 @@ static void test_non_symbol_in_function_position()
     test_eval_helper("(condition-case e (2 2) (illegal-function-call e))", "(illegal-function-call 2)");
 }
 
+static void test_type_of()
+{
+    test_name = "type_of";
+    test_eval_helper("(type-of 14)", "integer");
+    test_eval_helper("(type-of 'foo)", "symbol");
+    test_eval_helper("(type-of (cons 'a 'b))", "cons");
+    test_eval_helper("(type-of \"hello\")", "string");
+    test_eval_helper("(type-of #(1 2 3))", "vector");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1422,6 +1432,7 @@ int main(int argc, char **argv)
     test_lisp_heap_gc_simple();
     test_vector_builtins();
     test_non_symbol_in_function_position();
+    test_type_of();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

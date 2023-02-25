@@ -1482,7 +1482,7 @@ lisp_object_t eval_quasiquote(lisp_object_t e, lisp_object_t a)
         if (eq(car(e), interp->syms.unquote) != NIL) {
             return eval(cadr(e), a);
         } else if (eq(car(e), interp->syms.unquote_splice) != NIL) {
-            return eval(cadr(e), a);
+            abort();
         } else if (consp(car(e)) != NIL && eq(car(car(e)), interp->syms.unquote_splice) != NIL) {
             return eval(cadr(car(e)), a);
         } else {
@@ -1574,8 +1574,19 @@ static lisp_object_t macroexpand_all_let(lisp_object_t vars)
     }
 }
 
+static lisp_object_t macroexpand_all_quasiquote(lisp_object_t e)
+{
+    if (atom(e) != NIL)
+        return e;
+    else if (car(e) == interp->syms.unquote || car(e) == interp->syms.unquote_splice)
+        return cons(car(e), cons(macroexpand_all(cadr(e)), NIL));
+    else
+        return cons(car(e), cons(macroexpand_all_quasiquote(cadr(e)), NIL));
+}
+
 lisp_object_t macroexpand_all(lisp_object_t e)
 {
+    e = macroexpand(e, NIL);
     if (consp(e) == NIL) {
         return e;
     } else if (symbolp(car(e)) != NIL) {
@@ -1607,10 +1618,12 @@ lisp_object_t macroexpand_all(lisp_object_t e)
             lisp_object_t arglist = caddr(e);
             lisp_object_t body = cdr(cddr(e));
             return cons(sym, cons(name, cons(arglist, macroexpand_all_list(body))));
+        } else if (sym == interp->syms.quasiquote) {
+            return cons(sym, macroexpand_all_quasiquote(cdr(e)));
         } else {
             // This covers function calls, but also special forms that look like them,
             // e.g. `go`, `set`.
-            return macroexpand(cons(car(e), macroexpand_all_list(cdr(e))), NIL);
+            return cons(car(e), macroexpand_all_list(cdr(e)));
         }
     } else {
         return macroexpand_all_list(e);

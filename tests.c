@@ -1248,6 +1248,34 @@ static void test_macroexpand_all_condition_case()
     free_interpreter();
 }
 
+static void test_macroexpansion_bug()
+{
+    test_name = "macroexpansion_bug";
+    init_interpreter(65536);
+    test_eval_string_helper("(defmacro if (p a &optional b) (cond (b `(cond (,p ,a) (t ,b))) (t `(cond (,p ,a) (t nil)))))");
+    test_eval_string_helper("(defun %%and (things) (if (eq things nil) nil (let ((x (car things))) `(if ,x ,(%%and (cdr things)) nil))))");
+    lisp_object_t result = test_eval_string_helper("(%%and (cons 'a (cons 'b (cons 'c nil))))");
+    char *str = print_object(result);
+    check(strcmp("(if a (if b (if c nil nil) nil) nil)", str) == 0, "ok");
+    free(str);
+    str = print_object(macroexpand_all(result));
+    check(strcmp("(cond (a (cond (b (cond (c nil) (t nil))) (t nil))) (t nil))", str) == 0, "macroexpand_all ok");
+    free(str);
+    free_interpreter();
+}
+
+static void test_macroexpansion_bug2()
+{
+    test_name = "macroexpansion_bug2";
+    init_interpreter(65536);
+    test_eval_string_helper("(defmacro if (p a &optional b) (cond (b `(cond (,p ,a) (t ,b))) (t `(cond (,p ,a) (t nil)))))");
+    test_eval_string_helper("(defmacro foo (x) `(if ,x 'ab 'cd))");
+    lisp_object_t result = macroexpand_all(parse1_wrapper("(foo 14)"));
+    char *str = print_object(result);
+    free(str);
+    free_interpreter();
+}
+
 static void test_lambda_implicit_progn()
 {
     test_name = "lambda_implicit_progn";
@@ -1431,6 +1459,8 @@ int main(int argc, char **argv)
     test_macroexpand_all_defun();
     test_macroexpand_all_defmacro();
     test_macroexpand_all_condition_case();
+    test_macroexpansion_bug();
+    test_macroexpansion_bug2();
     test_lambda_implicit_progn();
     test_cond_default();
     test_lisp_heap_cons();

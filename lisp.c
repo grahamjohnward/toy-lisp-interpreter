@@ -287,6 +287,7 @@ static void init_builtins()
     DEFBUILTIN("set-svref", svref_set, 3);
     DEFBUILTIN("save-image", save_image, 1);
     DEFBUILTIN("type-of", type_of, 1);
+    DEFBUILTIN("string-equal-p", string_equalp, 2);
 #undef DEFBUILTIN
 }
 

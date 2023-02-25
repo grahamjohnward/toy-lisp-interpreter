@@ -1358,6 +1358,13 @@ static void test_comma_not_inside_backquote()
     test_eval_helper("(condition-case e ,foo (runtime-error e))", "(runtime-error comma-not-inside-backquote)");
 }
 
+static void test_string_equalp()
+{
+    test_name = "string_equalp";
+    test_eval_helper("(string-equal-p \"foo\" \"foo\")", "t");
+    test_eval_helper("(string-equal-p \"foo\" \"bar\")", "nil");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1470,6 +1477,7 @@ int main(int argc, char **argv)
     test_non_symbol_in_function_position();
     test_type_of();
     test_comma_not_inside_backquote();
+    test_string_equalp();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

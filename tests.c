@@ -1365,6 +1365,23 @@ static void test_string_equalp()
     test_eval_helper("(string-equal-p \"foo\" \"bar\")", "nil");
 }
 
+static void test_length_builtin()
+{
+    test_name = "length_builtin";
+    test_eval_helper("(length '(a b c))", "3");
+    test_eval_helper("(length #(1 2 3 4 5))", "5");
+    test_eval_helper("(length #( ))", "0");
+    test_eval_helper("(length nil)", "0");
+}
+
+static void test_parse_empty_vector()
+{
+    test_name = "parse_empty_vector";
+    test_eval_helper("(type-of #())", "vector");
+    test_eval_helper("(length #())", "0");
+    test_eval_helper("#()", "#()");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1478,6 +1495,8 @@ int main(int argc, char **argv)
     test_type_of();
     test_comma_not_inside_backquote();
     test_string_equalp();
+    test_length_builtin();
+    test_parse_empty_vector();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

@@ -260,6 +260,8 @@ static void init_symbols()
     interp->syms.vector = sym("vector");
 }
 
+int length(lisp_object_t seq);
+
 static void init_builtins()
 {
 #define DEFBUILTIN(S, F, A) define_built_in_function(S, (void (*)())F, A)
@@ -288,6 +290,7 @@ static void init_builtins()
     DEFBUILTIN("save-image", save_image, 1);
     DEFBUILTIN("type-of", type_of, 1);
     DEFBUILTIN("string-equal-p", string_equalp, 2);
+    DEFBUILTIN("length", length, 1);
 #undef DEFBUILTIN
 }
 
@@ -838,7 +841,7 @@ lisp_object_t parse_cons(struct text_stream *ts)
 }
 
 /* Returns a C int, not a Lisp integer */
-int length_c(lisp_object_t seq)
+int length(lisp_object_t seq)
 {
     int result = 0;
     if (seq == NIL)
@@ -861,8 +864,14 @@ lisp_object_t parse_vector(struct text_stream *ts)
 {
     assert(tspeek(ts) == '(');
     text_stream_advance(ts);
+    skip_whitespace(ts);
+    if (tspeek(ts) == ')') {
+        /* Special case empty vector */
+        text_stream_advance(ts);
+        return allocate_vector(0);
+    }
     lisp_object_t list = parse_cons(ts);
-    int len = length_c(list);
+    int len = length(list);
     lisp_object_t vector = allocate_vector(len);
     /* Copy the list into a vector */
     int i;
@@ -1020,13 +1029,14 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
         get_string_parts(obj, &len, &str);
         string_buffer_append(sb, str);
     } else if (vectorp(obj) != NIL) {
-        int len = length_c(obj);
+        int len = length(obj);
         string_buffer_append(sb, "#(");
         for (int i = 0; i < len - 1; i++) {
             print_object_to_buffer(svref(obj, i), sb);
             string_buffer_append(sb, " ");
         }
-        print_object_to_buffer(svref(obj, len - 1), sb);
+        if (len > 0)
+            print_object_to_buffer(svref(obj, len - 1), sb);
         string_buffer_append(sb, ")");
     } else if (function_pointer_p(obj) != NIL) {
         char *buf = alloca(32);

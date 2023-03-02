@@ -258,6 +258,7 @@ static void init_symbols()
     interp->syms.cons = sym("cons");
     interp->syms.string = sym("string");
     interp->syms.vector = sym("vector");
+    interp->syms.macro = sym("macro");
 }
 
 int length(lisp_object_t seq);
@@ -594,6 +595,7 @@ void gc()
     GC_COPY_SYMBOL(cons);
     GC_COPY_SYMBOL(string);
     GC_COPY_SYMBOL(vector);
+    GC_COPY_SYMBOL(macro);
 #undef GC_COPY_SYMBOL
     /* Update pointers inside to-space objects */
     char *scanptr;
@@ -1340,7 +1342,7 @@ lisp_object_t evaldefun(lisp_object_t e, lisp_object_t a)
 lisp_object_t evaldefmacro(lisp_object_t e, lisp_object_t a)
 {
     lisp_object_t fname = evaldefun(e, a);
-    putprop(fname, sym("macro"), T);
+    putprop(fname, interp->syms.macro, T);
     return fname;
 }
 
@@ -1516,7 +1518,7 @@ static lisp_object_t quote_list(lisp_object_t list)
 /* First element is the macroexpansion, second indicates whether expansion happened */
 lisp_object_t macroexpand1(lisp_object_t e, lisp_object_t a)
 {
-    if (consp(e) != NIL && symbolp(car(e)) != NIL && getprop(car(e), sym("macro")) != NIL) {
+    if (consp(e) != NIL && symbolp(car(e)) != NIL && getprop(car(e), interp->syms.macro) != NIL) {
         struct symbol *symptr = SymbolPtr(car(e));
         return cons(eval(cons(symptr->function, quote_list(cdr(e))), a), T);
     } else {

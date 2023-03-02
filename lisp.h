@@ -99,7 +99,7 @@ lisp_object_t save_image(lisp_object_t name);
 lisp_object_t type_of(lisp_object_t obj);
 
 struct syms {
-    lisp_object_t lambda, quote, cond, defun, built_in_function, prog, progn, tagbody, set, go, return_, amprest, ampbody, ampoptional, condition_case, defmacro, quasiquote, unquote, unquote_splice, let, integer, symbol, cons, string, vector;
+    lisp_object_t lambda, quote, cond, defun, built_in_function, prog, progn, tagbody, set, go, return_, amprest, ampbody, ampoptional, condition_case, defmacro, quasiquote, unquote, unquote_splice, let, integer, symbol, cons, string, vector, macro;
 };
 
 struct cons {

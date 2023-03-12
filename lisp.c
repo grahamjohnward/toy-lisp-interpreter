@@ -1786,8 +1786,6 @@ lisp_object_t minus(lisp_object_t x, lisp_object_t y)
 lisp_object_t type_of(lisp_object_t obj)
 {
     switch (obj & TYPE_MASK) {
-    case 0:
-        return interp->syms.integer;
     case SYMBOL_TYPE:
         return interp->syms.symbol;
     case CONS_TYPE:
@@ -1797,7 +1795,10 @@ lisp_object_t type_of(lisp_object_t obj)
     case VECTOR_TYPE:
         return interp->syms.vector;
     default:
-        abort();
+        if (integerp(obj))
+            return interp->syms.integer;
+        else
+            abort();
     }
 }
 

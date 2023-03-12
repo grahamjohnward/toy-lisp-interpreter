@@ -1382,6 +1382,14 @@ static void test_parse_empty_vector()
     test_eval_helper("#()", "#()");
 }
 
+static void test_quasiquote_bug()
+{
+    test_name = "quasiquote_bug";
+    test_eval_helper("``(foo ,bar)", "(quasiquote (foo (unquote bar)))");
+    test_eval_helper("(let ((bar 14)) ``(foo ,,bar))", "(quasiquote (foo (unquote 14)))");
+    test_eval_helper("``(foo ,@bar)", "(quasiquote (foo (unquote-splice bar)))");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1497,6 +1505,7 @@ int main(int argc, char **argv)
     test_string_equalp();
     test_length_builtin();
     test_parse_empty_vector();
+    test_quasiquote_bug();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

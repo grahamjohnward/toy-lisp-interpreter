@@ -1485,21 +1485,29 @@ lisp_object_t eval_condition_case(lisp_object_t e, lisp_object_t a)
     return eval(code, a);
 }
 
-lisp_object_t eval_quasiquote(lisp_object_t e, lisp_object_t a)
+lisp_object_t eval_quasiquote(lisp_object_t e, lisp_object_t a, int depth)
 {
     if (e == NIL) {
         return NIL;
     } else if (atom(e) != NIL) {
         return e;
     } else if (consp(e) != NIL) {
-        if (eq(car(e), interp->syms.unquote) != NIL) {
-            return eval(cadr(e), a);
+        if (eq(car(e), interp->syms.quasiquote) != NIL) {
+            return cons(interp->syms.quasiquote, cons(eval_quasiquote(cadr(e), a, depth + 1), NIL));
+        } else if (eq(car(e), interp->syms.unquote) != NIL) {
+            if (depth == 0)
+                return eval(cadr(e), a);
+            else
+                return cons(interp->syms.unquote, cons(eval_quasiquote(cadr(e), a, depth - 1), NIL));
         } else if (eq(car(e), interp->syms.unquote_splice) != NIL) {
             abort();
         } else if (consp(car(e)) != NIL && eq(car(car(e)), interp->syms.unquote_splice) != NIL) {
-            return eval(cadr(car(e)), a);
+            if (depth == 0)
+                return eval(cadr(car(e)), a);
+            else
+                return cons(cons(interp->syms.unquote_splice, cons(eval_quasiquote(cadar(e), a, depth - 1), NIL)), NIL);
         } else {
-            return cons(eval_quasiquote(car(e), a), eval_quasiquote(cdr(e), a));
+            return cons(eval_quasiquote(car(e), a, depth), eval_quasiquote(cdr(e), a, depth));
         }
     }
     abort();
@@ -1656,7 +1664,7 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
         if (eq(car(e), interp->syms.quote) != NIL) {
             return car(cdr(e));
         } else if (eq(car(e), interp->syms.quasiquote) != NIL) {
-            return eval_quasiquote(cadr(e), a);
+            return eval_quasiquote(cadr(e), a, 0);
         } else if (eq(car(e), interp->syms.unquote) != NIL) {
             raise(sym("runtime-error"), sym("comma-not-inside-backquote"));
             return NIL;

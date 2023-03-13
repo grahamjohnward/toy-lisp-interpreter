@@ -283,6 +283,11 @@ lisp_object_t do_apply(lisp_object_t fn, lisp_object_t args)
     return apply(fn, args, NIL);
 }
 
+lisp_object_t quit()
+{
+    exit(0);
+}
+
 static void init_builtins()
 {
 #define DEFBUILTIN(S, F, A) define_built_in_function(S, (void (*)())F, A)
@@ -315,6 +320,7 @@ static void init_builtins()
     DEFBUILTIN("two-arg-greater-than", greater_than, 2);
     DEFBUILTIN("two-arg-less-than", less_than, 2);
     DEFBUILTIN("apply", do_apply, 2);
+    DEFBUILTIN("quit", quit, 0);
 #undef DEFBUILTIN
 }
 

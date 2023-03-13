@@ -263,6 +263,26 @@ static void init_symbols()
 
 int length(lisp_object_t seq);
 
+lisp_object_t greater_than(lisp_object_t o1, lisp_object_t o2)
+{
+    check_integer(o1);
+    check_integer(o2);
+    return ((int32_t)o1) > ((int32_t)o2) ? T : NIL;
+}
+
+lisp_object_t less_than(lisp_object_t o1, lisp_object_t o2)
+{
+    check_integer(o1);
+    check_integer(o2);
+    return ((int32_t)o1) < ((int32_t)o2) ? T : NIL;
+}
+
+lisp_object_t do_apply(lisp_object_t fn, lisp_object_t args)
+{
+    /* We apply in a null environment */
+    return apply(fn, args, NIL);
+}
+
 static void init_builtins()
 {
 #define DEFBUILTIN(S, F, A) define_built_in_function(S, (void (*)())F, A)
@@ -292,6 +312,9 @@ static void init_builtins()
     DEFBUILTIN("type-of", type_of, 1);
     DEFBUILTIN("string-equal-p", string_equalp, 2);
     DEFBUILTIN("length", length, 1);
+    DEFBUILTIN("two-arg-greater-than", greater_than, 2);
+    DEFBUILTIN("two-arg-less-than", less_than, 2);
+    DEFBUILTIN("apply", do_apply, 2);
 #undef DEFBUILTIN
 }
 

@@ -73,3 +73,17 @@
 		   (set 'i (+ i 1))
 		   (go iterate)))))
 	   (t (eq a b)))))
+
+(defun > (first &rest rest)
+  (progn
+    (if (eq rest nil)
+	(return (eq (type-of first) 'integer))
+	(if (two-arg-greater-than first (car rest))
+	    (apply '> rest)))))
+
+(defun < (first &rest rest)
+  (progn
+    (if (eq rest nil)
+	(return (eq (type-of first) 'integer))
+	(if (two-arg-less-than first (car rest))
+	    (apply '< rest)))))

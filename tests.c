@@ -1390,6 +1390,12 @@ static void test_quasiquote_bug()
     test_eval_helper("``(foo ,@bar)", "(quasiquote (foo (unquote-splice bar)))");
 }
 
+static void test_apply()
+{
+    test_name = "apply";
+    test_eval_helper("(apply 'cons '(a b))", "(a . b)");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1506,6 +1512,7 @@ int main(int argc, char **argv)
     test_length_builtin();
     test_parse_empty_vector();
     test_quasiquote_bug();
+    test_apply();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

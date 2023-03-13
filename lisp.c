@@ -1035,9 +1035,23 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
     } else if (obj == T) {
         string_buffer_append(sb, "t");
     } else if (consp(obj) != NIL) {
-        string_buffer_append(sb, "(");
-        print_cons_to_buffer(obj, sb);
-        string_buffer_append(sb, ")");
+        if (car(obj) == interp->syms.quote) {
+            string_buffer_append(sb, "'");
+            print_object_to_buffer(cadr(obj), sb);
+        } else if (car(obj) == interp->syms.quasiquote) {
+            string_buffer_append(sb, "`");
+            print_object_to_buffer(cadr(obj), sb);
+        } else if (car(obj) == interp->syms.unquote) {
+            string_buffer_append(sb, ",");
+            print_object_to_buffer(cadr(obj), sb);
+        } else if (car(obj) == interp->syms.unquote_splice) {
+            string_buffer_append(sb, ",@");
+            print_object_to_buffer(cadr(obj), sb);
+        } else {
+            string_buffer_append(sb, "(");
+            print_cons_to_buffer(obj, sb);
+            string_buffer_append(sb, ")");
+        }
     } else if (symbolp(obj) != NIL) {
         check_symbol(obj);
         struct symbol *sym = SymbolPtr(obj);

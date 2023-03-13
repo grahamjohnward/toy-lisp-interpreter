@@ -524,7 +524,7 @@ static void test_parse_quote()
     print_object_to_buffer(result, &sb);
     char *str = string_buffer_to_string(&sb);
     string_buffer_free_links(&sb);
-    check(strcmp("(quote FOO)", str) == 0, "parse quote");
+    check(strcmp("'FOO", str) == 0, "parse quote");
     free(str);
     free_interpreter();
 }
@@ -1117,7 +1117,7 @@ static void test_macroexpand_all_cond()
     lisp_object_t expr = parse1_wrapper("(cond (nil 'ooh) (t (ooh (frob))))");
     lisp_object_t result = macroexpand_all(expr);
     char *str = print_object(result);
-    check(strcmp("(cond (nil (quote ooh)) (t (bar (frob))))", str) == 0, "ok");
+    check(strcmp("(cond (nil 'ooh) (t (bar (frob))))", str) == 0, "ok");
     free(str);
     free_interpreter();
 }
@@ -1385,9 +1385,9 @@ static void test_parse_empty_vector()
 static void test_quasiquote_bug()
 {
     test_name = "quasiquote_bug";
-    test_eval_helper("``(foo ,bar)", "(quasiquote (foo (unquote bar)))");
-    test_eval_helper("(let ((bar 14)) ``(foo ,,bar))", "(quasiquote (foo (unquote 14)))");
-    test_eval_helper("``(foo ,@bar)", "(quasiquote (foo (unquote-splice bar)))");
+    test_eval_helper("``(foo ,bar)", "`(foo ,bar)");
+    test_eval_helper("(let ((bar 14)) ``(foo ,,bar))", "`(foo ,14)");
+    test_eval_helper("``(foo ,@bar)", "`(foo ,@bar)");
 }
 
 static void test_apply()

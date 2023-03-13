@@ -2,3 +2,7 @@ build/*
 .vscode/*.log
 CMakeFiles/*
 cmake_install.cmake
+*.o
+liblisp.a
+main
+tests

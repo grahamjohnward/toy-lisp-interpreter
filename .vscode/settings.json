@@ -16,6 +16,10 @@
         "utility": "c",
         "stddef.h": "c",
         "lisp.h": "c",
-        "tuple": "c"
+        "tuple": "c",
+        "random": "c",
+        "sstream": "c",
+        "text_stream.h": "c",
+        "string": "c"
     }
 }

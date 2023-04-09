@@ -17,6 +17,43 @@ static struct option options[] = {
     { 0, 0, 0, 0 }
 };
 
+static size_t parse_heap_size(char *arg)
+{
+    size_t len = strlen(arg);
+    char unit = arg[len - 1];
+    char *size_str = arg;
+    if (unit < '0' || unit > '9') {
+        size_str = alloca(len);
+        strncpy(size_str, arg, len - 1);
+        size_str[len - 1] = '\0';
+    } else {
+        unit = 0;
+    }
+    char *endptr;
+    errno = 0;
+    size_t heap_size = strtol(size_str, &endptr, 10);
+    if (errno) {
+        perror("Heap size");
+        exit(1);
+    } else if (*endptr != '\0') {
+        printf("Bad heap size %s\n", arg);
+        exit(1);
+    }
+    if (unit) {
+        if (unit == 'k' || unit == 'K') {
+            heap_size *= 1024;
+        } else if (unit == 'm' || unit == 'M') {
+            heap_size *= 1024 * 1024;
+        } else if (unit == 'g' || unit == 'G') {
+            heap_size *= 1024 * 1024 * 1024;
+        } else {
+            printf("Bad heap size unit: %c\n", unit);
+            exit(1);
+        }
+    }
+    return heap_size;
+}
+
 static int parse_args(int argc, char **argv, struct interpreter_settings *settings)
 {
     settings->heap_size = 65536; /* default */
@@ -32,17 +69,8 @@ static int parse_args(int argc, char **argv, struct interpreter_settings *settin
             exit(1);
         }
         switch (c) {
-            char *endptr;
         case 1:
-            errno = 0;
-            settings->heap_size = strtol(optarg, &endptr, 10);
-            if (errno) {
-                perror("Heap size");
-                exit(1);
-            } else if (*endptr != '\0') {
-                printf("Bad heap size %s\n", optarg);
-                exit(1);
-            }
+            settings->heap_size = parse_heap_size(optarg);
             break;
         case 2:
             settings->image = malloc(strlen(optarg));

@@ -42,6 +42,7 @@ lisp_object_t load(lisp_object_t filename);
 #define STRING_TYPE           0x3000000000000000
 #define VECTOR_TYPE           0x4000000000000000
 #define FUNCTION_POINTER_TYPE 0x5000000000000000
+#define FUNCTION_TYPE         0x6000000000000000
 #define FORWARDING_POINTER    0x8000000000000000
 // clang-format on
 
@@ -50,6 +51,7 @@ lisp_object_t load(lisp_object_t filename);
 #define StringPtr(obj) ((struct string_header *)((obj)&PTR_MASK))
 #define VectorPtr(obj) ((struct vector *)((obj)&PTR_MASK))
 #define FunctionPtr(obj) ((void (*)())((obj)&PTR_MASK))
+#define LispFunctionPtr(obj) ((struct lisp_function *)((obj)&PTR_MASK))
 
 lisp_object_t svref(lisp_object_t vector, size_t index);
 lisp_object_t svref_set(lisp_object_t vector, size_t index, lisp_object_t newvalue);
@@ -66,6 +68,7 @@ lisp_object_t stringp(lisp_object_t obj);
 lisp_object_t vectorp(lisp_object_t obj);
 lisp_object_t function_pointer_p(lisp_object_t obj);
 lisp_object_t functionp(lisp_object_t obj);
+lisp_object_t functionp_OLD(lisp_object_t obj);
 lisp_object_t atom(lisp_object_t obj);
 lisp_object_t cons(lisp_object_t car, lisp_object_t cdr);
 lisp_object_t car(lisp_object_t obj);
@@ -103,7 +106,7 @@ lisp_object_t save_image(lisp_object_t name);
 lisp_object_t type_of(lisp_object_t obj);
 
 struct syms {
-    lisp_object_t lambda, quote, cond, defun, built_in_function, prog, progn, tagbody, set, go, return_, amprest, ampbody, ampoptional, condition_case, defmacro, quasiquote, unquote, unquote_splice, let, integer, symbol, cons, string, vector, macro;
+    lisp_object_t lambda, quote, cond, defun, built_in_function, prog, progn, tagbody, set, go, return_, amprest, ampbody, ampoptional, condition_case, defmacro, quasiquote, unquote, unquote_splice, let, integer, symbol, cons, string, vector, macro, function, funcall;
 };
 
 struct cons {
@@ -118,6 +121,12 @@ struct string_header {
     object_header_t header;
     size_t allocated_length;
     size_t string_length;
+};
+
+struct lisp_function {
+    object_header_t header;
+    lisp_object_t kind;
+    lisp_object_t actual_function;
 };
 
 #define LISP_HEAP_BASE 0x400000000000

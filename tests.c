@@ -816,18 +816,6 @@ lisp_object_t test_fn(lisp_object_t a, lisp_object_t b)
     return cons(b, a);
 }
 
-static void test_apply_function_pointer()
-{
-    test_name = "apply_function_pointer";
-    init_interpreter(32768);
-    lisp_object_t fn = cons(sym("built-in-function"), cons((lisp_object_t)(FUNCTION_POINTER_TYPE | (uint64_t)test_fn), cons(2, NIL)));
-    lisp_object_t result = apply(fn, cons(14, cons(3, NIL)), NIL);
-    char *str = print_object(result);
-    check(strcmp("(3 . 14)", str) == 0, "function called");
-    free(str);
-    free_interpreter();
-}
-
 static void test_set()
 {
     test_name = "set";
@@ -962,18 +950,18 @@ static void test_functionp()
 {
     test_name = "functionp";
     init_interpreter(32768);
-    check(functionp_OLD(test_eval_string_helper("(lambda (x) (cons x x))")) == T, "lambda t");
-    check(functionp_OLD(test_eval_string_helper("(built-in-function 0x1234 2)")) == T, "built-in t");
-    check(functionp_OLD(parse1_wrapper("foo")) == NIL, "symbol nil");
-    check(functionp_OLD(test_eval_string_helper("14")) == NIL, "integer nil");
+    check(functionp(test_eval_string_helper("(function (lambda (x) (cons x x)))")) == T, "lambda t");
+    check(functionp(test_eval_string_helper("(function 'cons)")) == T, "cons t");
+    check(functionp(parse1_wrapper("foo")) == NIL, "symbol nil");
+    check(functionp(test_eval_string_helper("14")) == NIL, "integer nil");
     free_interpreter();
 }
 
 static void test_print_function()
 {
     test_name = "print_function";
-    test_eval_helper("(lambda (x) (cons x x))", "(lambda (x) (cons x x))");
-    test_eval_helper("(built-in-function 0x1234 2)", "(built-in-function 0x1234 2)");
+    test_eval_helper("(function (lambda (x) (cons x x)))", "#<function>");
+    test_eval_helper("(function 'cons)", "#<function>");
 }
 
 static void test_unbound_variable()
@@ -1396,6 +1384,17 @@ static void test_apply()
     test_eval_helper("(apply 'cons '(a b))", "(a . b)");
 }
 
+static void test_parse_function()
+{
+    test_name = "parse_function";
+    init_interpreter(32768);
+    lisp_object_t result = parse1_wrapper("#'cons");
+    char *str = print_object(result);
+    check(strcmp("(function cons)", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1454,7 +1453,6 @@ int main(int argc, char **argv)
     test_eval();
     test_defun();
     test_load();
-    //    test_apply_function_pointer();
     test_set();
     test_prog();
     test_rplaca();
@@ -1513,6 +1511,7 @@ int main(int argc, char **argv)
     test_parse_empty_vector();
     test_quasiquote_bug();
     test_apply();
+    test_parse_function();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

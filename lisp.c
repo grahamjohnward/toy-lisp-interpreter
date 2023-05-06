@@ -167,11 +167,6 @@ lisp_object_t function_pointer_p(lisp_object_t obj)
     return istype(obj, FUNCTION_POINTER_TYPE);
 }
 
-lisp_object_t functionp_OLD(lisp_object_t obj)
-{
-    return consp(obj) != NIL && (eq(car(obj), interp->syms.lambda) != NIL || eq(car(obj), interp->syms.built_in_function) != NIL) ? T : NIL;
-}
-
 static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, lisp_object_t index)
 {
     check_vector(vector);
@@ -303,9 +298,12 @@ lisp_object_t quit()
 
 lisp_object_t funcall(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
 {
-    struct lisp_function *fptr = LispFunctionPtr(fn);
     return apply(fn, x, a);
 }
+
+void gc();
+
+#define FUNCALL_ARITY 16
 
 static void init_builtins()
 {
@@ -340,7 +338,8 @@ static void init_builtins()
     DEFBUILTIN("two-arg-less-than", less_than, 2);
     DEFBUILTIN("apply", do_apply, 2);
     DEFBUILTIN("quit", quit, 0);
-    DEFBUILTIN("funcall", funcall, -1);
+    DEFBUILTIN("funcall", funcall, FUNCALL_ARITY);
+    DEFBUILTIN("gc", gc, 0);
 #undef DEFBUILTIN
 }
 
@@ -503,6 +502,8 @@ static size_t objsize(lisp_object_t obj)
         return StringPtr(obj)->allocated_length + sizeof(struct string_header);
     if (vectorp(obj) != NIL)
         return VectorPtr(obj)->len * sizeof(lisp_object_t) + sizeof(struct vector);
+    if (functionp(obj) != NIL)
+        return sizeof(struct lisp_function);
     abort();
 }
 
@@ -528,7 +529,7 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
     assert_heap_invariants(heap);
     if (*p == NIL || *p == T)
         return;
-    if (consp(*p) == NIL && symbolp(*p) == NIL && stringp(*p) == NIL && vectorp(*p) == NIL)
+    if (consp(*p) == NIL && symbolp(*p) == NIL && stringp(*p) == NIL && vectorp(*p) == NIL && functionp(*p) == NIL)
         return;
     if (symbolp(*p) != NIL) {
         struct symbol *symptr = SymbolPtr(*p);
@@ -555,9 +556,9 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
             return;
         }
     } else if (functionp(*p) != NIL) {
-        struct lisp_function *function = LispFunctionPtr(*p);
-        if (function->kind & FORWARDING_POINTER) {
-            *p = function->kind & ~FORWARDING_POINTER;
+        struct lisp_function *fnptr = LispFunctionPtr(*p);
+        if (fnptr->kind & FORWARDING_POINTER) {
+            *p = fnptr->kind & ~FORWARDING_POINTER;
             return;
         }
     } else {
@@ -668,6 +669,7 @@ void gc()
     GC_COPY_SYMBOL(vector);
     GC_COPY_SYMBOL(macro);
     GC_COPY_SYMBOL(function);
+    GC_COPY_SYMBOL(funcall);
 #undef GC_COPY_SYMBOL
     /* Update pointers inside to-space objects */
     char *scanptr;
@@ -698,6 +700,7 @@ void gc()
             struct lisp_function *fnptr = (struct lisp_function *)scanptr;
             gc_copy(heap, &fnptr->kind);
             gc_copy(heap, &fnptr->actual_function);
+            scanptr += sizeof(struct lisp_function);
         } else {
             abort();
         }
@@ -970,8 +973,15 @@ lisp_object_t parse_dispatch(struct text_stream *ts)
     text_stream_advance(ts);
     if (!tspeek(ts))
         abort();
-    assert(tspeek(ts) == '(');
-    return parse_vector(ts);
+    switch (tspeek(ts)) {
+    case '(':
+        return parse_vector(ts);
+    case '\'':
+        text_stream_advance(ts);
+        return cons(interp->syms.function, cons(parse1(ts), NIL));
+    default:
+        abort();
+    }
 }
 
 lisp_object_t parse1(struct text_stream *ts)
@@ -1351,7 +1361,6 @@ static lisp_object_t apply_lambda(lisp_object_t fn, lisp_object_t x, lisp_object
             retval = eval(car(expr), env);
         /* If we get here, we never longjmped */
         pop_return_context();
-        TRACE(retval);
         return retval;
     }
 }
@@ -1370,7 +1379,7 @@ static lisp_object_t apply_built_in_function(lisp_object_t fn, lisp_object_t x, 
         return ((lisp_object_t(*)(lisp_object_t, lisp_object_t))fp)(car(x), cadr(x));
     case 3:
         return ((lisp_object_t(*)(lisp_object_t, lisp_object_t, lisp_object_t))fp)(car(x), cadr(x), caddr(x));
-    case -1:
+    case FUNCALL_ARITY:
         return ((lisp_object_t(*)(lisp_object_t, lisp_object_t, lisp_object_t))fp)(car(x), cdr(x), a);
     default:
         abort();
@@ -1396,23 +1405,21 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
         } else if (functionp(fn) == NIL) {
             raise(sym("illegal-function-call"), fn);
             return NIL;
-        } else {
-            TRACE(fn);
         }
-        struct lisp_function *lispfun = LispFunctionPtr(fn);
-        if (lispfun->actual_function != NIL) {
-            if (lispfun->kind == interp->syms.lambda) {
-                return apply_lambda(lispfun->actual_function, x, a);
-            } else if (lispfun->kind == interp->syms.built_in_function) {
-                return apply_built_in_function(lispfun->actual_function, x, a);
-            } else {
+        struct lisp_function *fnptr = LispFunctionPtr(fn);
+        if (fnptr->actual_function != NIL) {
+            if (fnptr->kind == interp->syms.lambda)
+                return apply_lambda(fnptr->actual_function, x, a);
+            else if (fnptr->kind == interp->syms.built_in_function)
+                return apply_built_in_function(fnptr->actual_function, x, a);
+            else
                 abort();
-            }
         } else {
             abort();
         }
     } else {
-        abort();
+        raise(sym("illegal-function-call"), fn);
+        return NIL;
     }
 }
 
@@ -1454,9 +1461,9 @@ lisp_object_t evaldefun(lisp_object_t e, lisp_object_t a)
     lisp_object_t body = caddr(e);
     lisp_object_t fn = cons(interp->syms.lambda, cons(arglist, cons(body, NIL)));
     lisp_object_t fn_new = allocate_function();
-    struct lisp_function *f = LispFunctionPtr(fn_new);
-    f->kind = interp->syms.lambda;
-    f->actual_function = fn;
+    struct lisp_function *fnptr = LispFunctionPtr(fn_new);
+    fnptr->kind = interp->syms.lambda;
+    fnptr->actual_function = fn;
     struct symbol *sym = SymbolPtr(fname);
     sym->function = fn_new;
     return fname;
@@ -1611,12 +1618,13 @@ lisp_object_t eval_condition_case(lisp_object_t e, lisp_object_t a)
 lisp_object_t eval_function(lisp_object_t function, lisp_object_t a)
 {
     if (symbolp(function) != NIL) {
-        abort();
+        struct symbol *symptr = SymbolPtr(function);
+        return symptr->function;
     } else {
         lisp_object_t fn = allocate_function();
-        struct lisp_function *fptr = LispFunctionPtr(fn);
-        fptr->kind = interp->syms.lambda;
-        fptr->actual_function = function;
+        struct lisp_function *fnptr = LispFunctionPtr(fn);
+        fnptr->kind = interp->syms.lambda;
+        fnptr->actual_function = function;
         return fn;
     }
 }
@@ -1663,8 +1671,6 @@ static lisp_object_t quote_list(lisp_object_t list)
 lisp_object_t macroexpand1(lisp_object_t e, lisp_object_t a)
 {
     if (consp(e) != NIL && symbolp(car(e)) != NIL && getprop(car(e), interp->syms.macro) != NIL) {
-        // deffo something not right in here
-        struct symbol *symptr = SymbolPtr(car(e));
         return cons(eval(cons(car(e), quote_list(cdr(e))), a), T);
     } else {
         return cons(e, NIL);
@@ -1792,7 +1798,6 @@ lisp_object_t macroexpand_all(lisp_object_t e)
 
 lisp_object_t function(lisp_object_t fn)
 {
-    TRACE(fn);
     if (symbolp(fn) != NIL) {
         struct symbol *sym = SymbolPtr(fn);
         return sym->function;
@@ -1801,9 +1806,26 @@ lisp_object_t function(lisp_object_t fn)
     }
 }
 
+lisp_object_t eval_function_call(lisp_object_t e, lisp_object_t a)
+{
+    lisp_object_t fn = car(e);
+    if (symbolp(fn) != NIL) {
+        struct symbol *s = SymbolPtr(fn);
+        if (s->function != NIL) {
+            return apply(function(car(e)), evlis(cdr(e), a), a);
+        } else {
+            raise(sym("undefined-function"), fn);
+            return NIL;
+        }
+    } else {
+        raise(sym("illegal-function-call"), fn);
+        return NIL;
+    }
+}
+
 lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 {
-    if (e == NIL || e == T || integerp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL || functionp_OLD(e) != NIL)
+    if (e == NIL || e == T || integerp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL || functionp(e) != NIL)
         return e;
     if (atom(e) != NIL) {
         lisp_object_t x = assoc(e, a);
@@ -1843,22 +1865,11 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
         } else if (eq(car(e), interp->syms.function) != NIL) {
             return eval_function(cadr(e), a);
         } else {
-            lisp_object_t f = car(e);
-            if (symbolp(f) != NIL) {
-                struct symbol *s = SymbolPtr(f);
-                if (s->function != NIL)
-                    return apply(function(car(e)), evlis(cdr(e), a), a);
-                else {
-                    raise(sym("ohno"), NIL);
-                    return NIL;
-                }
-            } else {
-                raise(sym("illegal-function-call"), f);
-                return NIL;
-            }
+            return eval_function_call(e, a);
         }
     } else {
-        return apply(car(e), evlis(cdr(e), a), a);
+        raise(sym("illegal-function-call"), car(e));
+        return NIL;
     }
 }
 

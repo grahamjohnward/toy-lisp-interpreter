@@ -68,7 +68,6 @@ lisp_object_t stringp(lisp_object_t obj);
 lisp_object_t vectorp(lisp_object_t obj);
 lisp_object_t function_pointer_p(lisp_object_t obj);
 lisp_object_t functionp(lisp_object_t obj);
-lisp_object_t functionp_OLD(lisp_object_t obj);
 lisp_object_t atom(lisp_object_t obj);
 lisp_object_t cons(lisp_object_t car, lisp_object_t cdr);
 lisp_object_t car(lisp_object_t obj);

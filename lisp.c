@@ -301,7 +301,7 @@ lisp_object_t funcall(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
     return apply(fn, x, a);
 }
 
-void gc();
+lisp_object_t gc();
 
 #define FUNCALL_ARITY 16
 
@@ -419,8 +419,6 @@ void lisp_heap_free(struct lisp_heap *heap)
         exit(1);
     }
 }
-
-void gc();
 
 static void gc_if_needed(size_t bytes_needed)
 {
@@ -607,7 +605,7 @@ static void *ptr_demangle(void *ptr)
 
 static int jmp_buf_entry_is_pointer[] = { 0, 1, 0, 0, 0, 0, 1, 1 };
 
-void gc()
+lisp_object_t gc()
 {
     size_t bytes_in_use_before_gc = interp->heap.freeptr - interp->heap.from_space;
     printf("; Garbage collecting ... ");
@@ -746,6 +744,7 @@ void gc()
     /* Say how much memory was freed */
     size_t bytes_in_use_now = interp->heap.freeptr - interp->heap.from_space;
     printf("%lu bytes freed\n", bytes_in_use_before_gc - bytes_in_use_now);
+    return T;
 }
 
 void free_interpreter()

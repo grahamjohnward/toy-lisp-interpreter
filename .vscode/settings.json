@@ -20,6 +20,21 @@
         "random": "c",
         "sstream": "c",
         "text_stream.h": "c",
-        "string": "c"
+        "string": "c",
+        "alloca.h": "c",
+        "stdint.h": "c",
+        "setjmp.h": "c",
+        "mman.h": "c",
+        "stdlib.h": "c",
+        "unistd.h": "c",
+        "chrono": "c",
+        "exception": "c",
+        "algorithm": "c",
+        "memory": "c",
+        "new": "c",
+        "numeric": "c",
+        "cmath": "c",
+        "type_traits": "c",
+        "typeinfo": "c"
     }
 }

@@ -34,11 +34,13 @@ struct symbol {
     lisp_object_t value;
     lisp_object_t function;
     lisp_object_t plist;
+    uint64_t padding;
 };
 
 struct vector {
     object_header_t header;
     size_t len;
+    size_t size_bytes;
     lisp_object_t storage;
 };
 
@@ -140,9 +142,7 @@ lisp_object_t functionp(lisp_object_t obj)
 
 void check_integer(int64_t obj)
 {
-    if ((int64_t)obj > (int64_t)~TYPE_MASK)
-        abort();
-    if ((int64_t)obj < (int64_t)TYPE_MASK)
+    if (obj % 16)
         abort();
 }
 
@@ -170,6 +170,7 @@ lisp_object_t function_pointer_p(lisp_object_t obj)
 static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, lisp_object_t index)
 {
     check_vector(vector);
+    index >>= 4;
     struct vector *v = VectorPtr(vector);
     if (index >= v->len) {
         // This should be an exception
@@ -183,13 +184,13 @@ static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, lisp
 lisp_object_t svref(lisp_object_t vector, lisp_object_t index)
 {
     lisp_object_t *storage = check_vector_bounds_get_storage(vector, index);
-    return storage[index];
+    return storage[index >> 4];
 }
 
 lisp_object_t svref_set(lisp_object_t vector, lisp_object_t index, lisp_object_t newvalue)
 {
     lisp_object_t *storage = check_vector_bounds_get_storage(vector, index);
-    storage[index] = newvalue;
+    storage[index >> 4] = newvalue;
     return newvalue;
 }
 
@@ -199,12 +200,14 @@ static lisp_object_t allocate_function();
 
 lisp_object_t allocate_vector(lisp_object_t size)
 {
-    size_t bytes_to_allocate = sizeof(struct vector) + size * sizeof(lisp_object_t);
+    size >>= 4;
+    size_t bytes_to_allocate = sizeof(struct vector) + (size + size % 2) * sizeof(lisp_object_t);
     gc_if_needed(bytes_to_allocate);
     struct vector *v = (struct vector *)interp->heap.freeptr;
     interp->heap.freeptr += bytes_to_allocate;
     v->header = VECTOR_TYPE;
     v->len = size;
+    v->size_bytes = bytes_to_allocate;
     lisp_object_t *storage = (lisp_object_t *)(((char *)v) + sizeof(struct vector));
     lisp_object_t result = (lisp_object_t)v | VECTOR_TYPE;
     for (int i = 0; i < size; i++)
@@ -215,11 +218,11 @@ lisp_object_t allocate_vector(lisp_object_t size)
 static void define_built_in_function(char *symbol_name, void (*function_pointer)(void), int arity)
 {
     struct symbol *symptr = SymbolPtr(sym(symbol_name));
-    lisp_object_t fp = ((uint64_t)function_pointer) | FUNCTION_POINTER_TYPE;
+    lisp_object_t fp = (((uint64_t)function_pointer) << 4) | FUNCTION_POINTER_TYPE;
     lisp_object_t fn = allocate_function();
     struct lisp_function *fnptr = LispFunctionPtr(fn);
     fnptr->kind = interp->syms.built_in_function;
-    fnptr->actual_function = cons(interp->syms.built_in_function, cons(fp, cons(arity, NIL)));
+    fnptr->actual_function = cons(interp->syms.built_in_function, cons(fp, cons(((uint64_t)arity) << 4, NIL)));
     symptr->function = fn;
 }
 
@@ -269,20 +272,20 @@ static void init_symbols()
     interp->syms.funcall = sym("funcall");
 }
 
-int length(lisp_object_t seq);
+lisp_object_t length(lisp_object_t seq);
 
 lisp_object_t greater_than(lisp_object_t o1, lisp_object_t o2)
 {
     check_integer(o1);
     check_integer(o2);
-    return ((int32_t)o1) > ((int32_t)o2) ? T : NIL;
+    return o1 > o2 ? T : NIL;
 }
 
 lisp_object_t less_than(lisp_object_t o1, lisp_object_t o2)
 {
     check_integer(o1);
     check_integer(o2);
-    return ((int32_t)o1) < ((int32_t)o2) ? T : NIL;
+    return o1 < o2 ? T : NIL;
 }
 
 lisp_object_t do_apply(lisp_object_t fn, lisp_object_t args)
@@ -303,7 +306,7 @@ lisp_object_t funcall(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
 
 lisp_object_t gc();
 
-#define FUNCALL_ARITY 16
+#define FUNCALL_ARITY -1
 
 static void init_builtins()
 {
@@ -499,7 +502,7 @@ static size_t objsize(lisp_object_t obj)
     if (stringp(obj) != NIL)
         return StringPtr(obj)->allocated_length + sizeof(struct string_header);
     if (vectorp(obj) != NIL)
-        return VectorPtr(obj)->len * sizeof(lisp_object_t) + sizeof(struct vector);
+        return VectorPtr(obj)->size_bytes;
     if (functionp(obj) != NIL)
         return sizeof(struct lisp_function);
     abort();
@@ -760,10 +763,10 @@ void free_interpreter()
 lisp_object_t allocate_string(size_t len, char *str)
 {
     assert(!str[len - 1]);
-    /* I want to make this a multiple of 8
+    /* I want to make this a multiple of 16
      * but not sure that is actually needed
      */
-    size_t bytes_to_allocate_for_actual_string = ((len / 8) + 1) * 8;
+    size_t bytes_to_allocate_for_actual_string = ((len / 16) + 1) * 16;
     size_t total_bytes_to_allocate = sizeof(struct string_header) + bytes_to_allocate_for_actual_string;
     gc_if_needed(total_bytes_to_allocate);
     struct string_header *new_string = (struct string_header *)interp->heap.freeptr;
@@ -926,7 +929,7 @@ lisp_object_t parse_cons(struct text_stream *ts)
 }
 
 /* Returns a C int, not a Lisp integer */
-int length(lisp_object_t seq)
+int length_c(lisp_object_t seq)
 {
     int result = 0;
     if (seq == NIL)
@@ -945,6 +948,11 @@ int length(lisp_object_t seq)
     return result;
 }
 
+lisp_object_t length(lisp_object_t seq)
+{
+    return length_c(seq) << 4;
+}
+
 lisp_object_t parse_vector(struct text_stream *ts)
 {
     assert(tspeek(ts) == '(');
@@ -956,13 +964,13 @@ lisp_object_t parse_vector(struct text_stream *ts)
         return allocate_vector(0);
     }
     lisp_object_t list = parse_cons(ts);
-    int len = length(list);
-    lisp_object_t vector = allocate_vector(len);
+    int len = length_c(list);
+    lisp_object_t vector = allocate_vector(len << 4);
     /* Copy the list into a vector */
     int i;
     lisp_object_t c;
     for (i = 0, c = list; i < len; i++, c = cdr(c))
-        svref_set(vector, i, car(c));
+        svref_set(vector, i << 4, car(c));
     return vector;
 }
 
@@ -1025,7 +1033,7 @@ lisp_object_t parse1(struct text_stream *ts)
         char *endptr;
         uint64_t val = strtoll(token, &endptr, base);
         if (*endptr == '\0') {
-            return base == 16 ? val | FUNCTION_POINTER_TYPE : val;
+            return base == 16 ? ((val << 4) | FUNCTION_POINTER_TYPE) : (val << 4);
         } else {
             lisp_object_t sym = parse_symbol(token);
             free(token);
@@ -1092,7 +1100,7 @@ void print_cons_to_buffer(lisp_object_t obj, struct string_buffer *sb)
 void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
 {
     if (integerp(obj) != NIL) {
-        int64_t value = obj;
+        int64_t value = ((int64_t)obj) / 16;
         int length = snprintf(NULL, 0, "%ld", value);
         char *str = alloca(length + 1);
         snprintf(str, length + 1, "%ld", value);
@@ -1135,14 +1143,14 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
         get_string_parts(obj, &len, &str);
         string_buffer_append(sb, str);
     } else if (vectorp(obj) != NIL) {
-        int len = length(obj);
+        int len = length_c(obj);
         string_buffer_append(sb, "#(");
         for (int i = 0; i < len - 1; i++) {
-            print_object_to_buffer(svref(obj, i), sb);
+            print_object_to_buffer(svref(obj, i << 4), sb);
             string_buffer_append(sb, " ");
         }
         if (len > 0)
-            print_object_to_buffer(svref(obj, len - 1), sb);
+            print_object_to_buffer(svref(obj, (len - 1) << 4), sb);
         string_buffer_append(sb, ")");
     } else if (function_pointer_p(obj) != NIL) {
         char *buf = alloca(32);
@@ -1368,7 +1376,7 @@ static lisp_object_t apply_built_in_function(lisp_object_t fn, lisp_object_t x, 
 {
     check_function_pointer(cadr(fn));
     void (*fp)() = FunctionPtr(cadr(fn));
-    lisp_object_t arity = caddr(fn);
+    int arity = ((int64_t)caddr(fn)) >> 4;
     switch (arity) {
     case 0:
         return ((lisp_object_t(*)())fp)();

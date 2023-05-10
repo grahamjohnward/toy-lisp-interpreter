@@ -33,24 +33,24 @@ void load_str(char *str);
 lisp_object_t load(lisp_object_t filename);
 
 // clang-format off
-#define NIL                   0x17ffffffffffffff
-#define T                     0x1fffffffffffffff
-#define TYPE_MASK             0xf000000000000000
-#define PTR_MASK              0x0fffffffffffffff
-#define SYMBOL_TYPE           0x1000000000000000
-#define CONS_TYPE             0x2000000000000000
-#define STRING_TYPE           0x3000000000000000
-#define VECTOR_TYPE           0x4000000000000000
-#define FUNCTION_POINTER_TYPE 0x5000000000000000
-#define FUNCTION_TYPE         0x6000000000000000
-#define FORWARDING_POINTER    0x8000000000000000
+#define NIL                   0x7ffffffffffffff2
+#define T                     0xfffffffffffffff2
+#define TYPE_MASK             0x000000000000000f
+#define PTR_MASK              0xfffffffffffffff0
+#define SYMBOL_TYPE           0x0000000000000002
+#define CONS_TYPE             0x0000000000000004
+#define STRING_TYPE           0x0000000000000006
+#define VECTOR_TYPE           0x0000000000000008
+#define FUNCTION_POINTER_TYPE 0x000000000000000A
+#define FUNCTION_TYPE         0x000000000000000C
+#define FORWARDING_POINTER    0x0000000000000001
 // clang-format on
 
 #define ConsPtr(obj) ((struct cons *)((obj)&PTR_MASK))
 #define SymbolPtr(obj) ((struct symbol *)((obj)&PTR_MASK))
 #define StringPtr(obj) ((struct string_header *)((obj)&PTR_MASK))
 #define VectorPtr(obj) ((struct vector *)((obj)&PTR_MASK))
-#define FunctionPtr(obj) ((void (*)())((obj)&PTR_MASK))
+#define FunctionPtr(obj) ((void (*)())((((obj)&PTR_MASK) >> 4)))
 #define LispFunctionPtr(obj) ((struct lisp_function *)((obj)&PTR_MASK))
 
 lisp_object_t svref(lisp_object_t vector, size_t index);
@@ -112,6 +112,7 @@ struct cons {
     object_header_t header;
     lisp_object_t car;
     lisp_object_t cdr;
+    uint64_t padding;
 };
 
 /* String storage is one of these immediately followed by the
@@ -120,12 +121,14 @@ struct string_header {
     object_header_t header;
     size_t allocated_length;
     size_t string_length;
+    uint64_t padding;
 };
 
 struct lisp_function {
     object_header_t header;
     lisp_object_t kind;
     lisp_object_t actual_function;
+    uint64_t padding;
 };
 
 #define LISP_HEAP_BASE 0x400000000000

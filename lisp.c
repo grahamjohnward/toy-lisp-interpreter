@@ -41,7 +41,7 @@ struct vector {
     object_header_t header;
     size_t len;
     size_t size_bytes;
-    lisp_object_t storage;
+    uint64_t padding;
 };
 
 lisp_object_t istype(lisp_object_t obj, uint64_t type);

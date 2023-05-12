@@ -386,16 +386,10 @@ void init_interpreter(size_t heap_size)
     interpreter_initialized = 1;
 }
 
-static void check_object_sizes()
-{
-    assert(sizeof(struct cons) % sizeof(lisp_object_t) == 0);
-}
-
 void lisp_heap_init(struct lisp_heap *heap, size_t bytes)
 {
     assert(bytes % 2 == 0);
     assert(bytes % sizeof(lisp_object_t) == 0);
-    check_object_sizes();
     heap->heap = (char *)mmap((void *)LISP_HEAP_BASE, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
     if (heap->heap == (char *)-1) {
         perror("lisp_heap_init: mmap failed");

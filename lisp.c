@@ -170,11 +170,10 @@ lisp_object_t function_pointer_p(lisp_object_t obj)
 static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, lisp_object_t index)
 {
     check_vector(vector);
-    index >>= 4;
     struct vector *v = VectorPtr(vector);
     if (index >= v->len) {
         // This should be an exception
-        printf("Index %zu out of bounds for vector (len=%lu)\n", index, v->len);
+        printf("Index %zu out of bounds for vector (len=%lu)\n", index >> 4, v->len >> 4);
         abort();
     }
     lisp_object_t *storage = (lisp_object_t *)(((char *)v) + sizeof(struct vector));
@@ -206,7 +205,7 @@ lisp_object_t allocate_vector(lisp_object_t size)
     struct vector *v = (struct vector *)interp->heap.freeptr;
     interp->heap.freeptr += bytes_to_allocate;
     v->header = VECTOR_TYPE;
-    v->len = size;
+    v->len = size << 4;
     v->size_bytes = bytes_to_allocate;
     lisp_object_t *storage = (lisp_object_t *)(((char *)v) + sizeof(struct vector));
     lisp_object_t result = (lisp_object_t)v | VECTOR_TYPE;
@@ -688,9 +687,9 @@ lisp_object_t gc()
         } else if (*headerptr == VECTOR_TYPE) {
             struct vector *v = (struct vector *)scanptr;
             lisp_object_t *storage = (lisp_object_t *)(scanptr + sizeof(struct vector));
-            for (int i = 0; i < v->len; i++)
+            for (int i = 0; i < v->len >> 4; i++)
                 gc_copy(heap, storage + i);
-            scanptr += v->len * sizeof(lisp_object_t) + sizeof(struct vector);
+            scanptr += v->size_bytes;
         } else if (*headerptr == FUNCTION_TYPE) {
             struct lisp_function *fnptr = (struct lisp_function *)scanptr;
             gc_copy(heap, &fnptr->kind);
@@ -733,9 +732,9 @@ lisp_object_t gc()
         } else {
             struct vector *v = (struct vector *)p;
             lisp_object_t *storage = (lisp_object_t *)(p + sizeof(struct vector));
-            for (int i = 0; i < v->len; i++)
+            for (int i = 0; i < v->len >> 4; i++)
                 gc_check_copied_object(storage[i]);
-            p += v->len * sizeof(lisp_object_t) + sizeof(struct vector);
+            p += v->size_bytes;
         }
     }
     /* Say how much memory was freed */
@@ -930,7 +929,7 @@ int length_c(lisp_object_t seq)
         return result;
     if (vectorp(seq) != NIL) {
         struct vector *v = VectorPtr(seq);
-        return v->len;
+        return v->len >> 4;
     } else if (consp(seq) != NIL) {
         check_cons(seq);
         lisp_object_t obj;

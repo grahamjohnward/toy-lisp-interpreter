@@ -56,7 +56,7 @@ static size_t parse_heap_size(char *arg)
 
 static int parse_args(int argc, char **argv, struct interpreter_settings *settings)
 {
-    settings->heap_size = 65536; /* default */
+    settings->heap_size = 256 * 1024; /* default */
     settings->image = NULL;
     int c;
     while (1) {

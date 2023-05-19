@@ -21,15 +21,18 @@
      (go iterate)))
 
 (defun - (&rest args)
-  (prog (x result)
-     (set 'result (car args))
-   iterate
-     (set 'args (cdr args))
-     (when (eq nil args)
-       (return result))
-     (set 'x (car args))
-     (set 'result (two-arg-minus result x))
-     (go iterate)))
+  (progn
+    (when (eq nil (cdr args))
+      (return (two-arg-minus 0 (car args))))
+    (prog (x result)
+       (set 'result (car args))
+       iterate
+       (set 'args (cdr args))
+       (when (eq nil args)
+	 (return result))
+       (set 'x (car args))
+       (set 'result (two-arg-minus result x))
+       (go iterate))))
 
 (defun not (x)
   (if x nil t))

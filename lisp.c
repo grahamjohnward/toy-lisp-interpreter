@@ -349,7 +349,7 @@ void init_interpeter_from_image(char *image)
 {
     int fd = open(image, O_RDONLY);
     if (fd < 0) {
-        perror("open");
+        perror(image);
         exit(1);
     }
     interp = (struct lisp_interpreter *)malloc(sizeof(struct lisp_interpreter));
@@ -1907,7 +1907,7 @@ void load_str(char *str)
 {
     int fd = open(str, O_RDONLY);
     if (fd < 0) {
-        perror("open");
+        perror(str);
         abort();
     }
     struct text_stream ts;

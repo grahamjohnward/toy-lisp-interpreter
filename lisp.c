@@ -1619,7 +1619,10 @@ lisp_object_t eval_function(lisp_object_t function, lisp_object_t a)
 {
     if (symbolp(function) != NIL) {
         struct symbol *symptr = SymbolPtr(function);
-        return symptr->function;
+        if (symptr->function != NIL)
+            return symptr->function;
+        else
+            return raise(sym("undefined-function"), function);
     } else {
         lisp_object_t fn = allocate_function();
         struct lisp_function *fnptr = LispFunctionPtr(fn);
@@ -1796,23 +1799,13 @@ lisp_object_t macroexpand_all(lisp_object_t e)
     }
 }
 
-lisp_object_t function(lisp_object_t fn)
-{
-    if (symbolp(fn) != NIL) {
-        struct symbol *sym = SymbolPtr(fn);
-        return sym->function;
-    } else {
-        return NIL;
-    }
-}
-
 lisp_object_t eval_function_call(lisp_object_t e, lisp_object_t a)
 {
     lisp_object_t fn = car(e);
     if (symbolp(fn) != NIL) {
         struct symbol *s = SymbolPtr(fn);
         if (s->function != NIL) {
-            return apply(function(car(e)), evlis(cdr(e), a), a);
+            return apply(eval_function(car(e), a), evlis(cdr(e), a), a);
         } else {
             raise(sym("undefined-function"), fn);
             return NIL;
@@ -1875,7 +1868,7 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 
 lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x)
 {
-    return apply(function(fn), x, NIL);
+    return apply(eval_function(fn, NIL), x, NIL);
 }
 
 /* Load */

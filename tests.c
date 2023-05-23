@@ -1395,6 +1395,16 @@ static void test_parse_function()
     free_interpreter();
 }
 
+static void test_nonexistent_function()
+{
+    test_name = "nonexistent_function";
+    init_interpreter(32768);
+    lisp_object_t result = test_eval_string_helper("(condition-case e (function nonexistent) (undefined-function e))");
+    char *str = print_object(result);
+    check(strcmp("(undefined-function nonexistent)", str) == 0, "ok");
+    free(str);
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1512,6 +1522,7 @@ int main(int argc, char **argv)
     test_quasiquote_bug();
     test_apply();
     test_parse_function();
+    test_nonexistent_function();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

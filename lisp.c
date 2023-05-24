@@ -1390,8 +1390,7 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
 {
     if (atom(fn) != NIL) {
         if (fn == NIL) {
-            raise(sym("illegal-function-call"), fn);
-            return NIL;
+            return raise(sym("illegal-function-call"), fn);
         }
         if (symbolp(fn) != NIL) {
             // Check whether it is s symbol with function binding
@@ -1399,12 +1398,10 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
             if (symptr->function != NIL) {
                 fn = symptr->function;
             } else {
-                raise(sym("illegal-function-call"), fn);
-                return NIL;
+                return raise(sym("illegal-function-call"), fn);
             }
         } else if (functionp(fn) == NIL) {
-            raise(sym("illegal-function-call"), fn);
-            return NIL;
+            return raise(sym("illegal-function-call"), fn);
         }
         struct lisp_function *fnptr = LispFunctionPtr(fn);
         if (fnptr->actual_function != NIL) {
@@ -1418,8 +1415,7 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
             abort();
         }
     } else {
-        raise(sym("illegal-function-call"), fn);
-        return NIL;
+        return raise(sym("illegal-function-call"), fn);
     }
 }
 
@@ -1807,12 +1803,10 @@ lisp_object_t eval_function_call(lisp_object_t e, lisp_object_t a)
         if (s->function != NIL) {
             return apply(eval_function(car(e), a), evlis(cdr(e), a), a);
         } else {
-            raise(sym("undefined-function"), fn);
-            return NIL;
+            return raise(sym("undefined-function"), fn);
         }
     } else {
-        raise(sym("illegal-function-call"), fn);
-        return NIL;
+        return raise(sym("illegal-function-call"), fn);
     }
 }
 
@@ -1831,8 +1825,7 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
         } else if (eq(car(e), interp->syms.quasiquote) != NIL) {
             return eval_quasiquote(cadr(e), a, 0);
         } else if (eq(car(e), interp->syms.unquote) != NIL) {
-            raise(sym("runtime-error"), sym("comma-not-inside-backquote"));
-            return NIL;
+            return raise(sym("runtime-error"), sym("comma-not-inside-backquote"));
         } else if (eq(car(e), interp->syms.cond) != NIL) {
             return evcon(cdr(e), a);
         } else if (eq(car(e), interp->syms.let) != NIL) {
@@ -1861,8 +1854,7 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
             return eval_function_call(e, a);
         }
     } else {
-        raise(sym("illegal-function-call"), car(e));
-        return NIL;
+        return raise(sym("illegal-function-call"), car(e));
     }
 }
 

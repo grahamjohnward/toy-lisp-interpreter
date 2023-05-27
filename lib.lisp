@@ -90,3 +90,15 @@
 	(return (eq (type-of first) 'integer))
 	(if (two-arg-less-than first (car rest))
 	    (apply '< rest)))))
+
+(defmacro dotimes (var-and-max &body thing)
+  (let ((var (car var-and-max))
+	  (max (car (cdr var-and-max))))
+      `(let ((,var nil))
+	 (tagbody
+	    (set ',var 0)
+	  iterate
+	    ,@thing
+	    (set ',var (+ 1 ,var))
+	    (when (< ,var ,max)
+	      (go iterate))))))

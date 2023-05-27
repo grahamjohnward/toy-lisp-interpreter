@@ -1405,6 +1405,18 @@ static void test_nonexistent_function()
     free(str);
 }
 
+static void test_unquote_splice_bug()
+{
+    test_name = "unquote_splice_bug";
+    init_interpreter(32768);
+    lisp_object_t result = test_eval_string_helper("(let ((x '(1 2 3))) `(foo ,@x bar))");
+    char *str = print_object(result);
+    char *expected = "(foo 1 2 3 bar)";
+    check(strcmp(expected, str) == 0, expected);
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1523,6 +1535,7 @@ int main(int argc, char **argv)
     test_apply();
     test_parse_function();
     test_nonexistent_function();
+    test_unquote_splice_bug();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

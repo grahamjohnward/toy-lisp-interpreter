@@ -1403,6 +1403,7 @@ static void test_nonexistent_function()
     char *str = print_object(result);
     check(strcmp("(undefined-function nonexistent)", str) == 0, "ok");
     free(str);
+    free_interpreter();
 }
 
 static void test_unquote_splice_bug()

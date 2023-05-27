@@ -15,11 +15,11 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#define TRACE(obj)                                                      \
-    do {                                                                \
-        char *str = print_object(obj);                                  \
-        printf("%s: %s (%p) = %s\n", __func__, #obj, (void *)obj, str); \
-        free(str);                                                      \
+#define TRACE(obj)                                                                                \
+    do {                                                                                          \
+        char *str = print_object(obj);                                                            \
+        printf("%s:%d %s: %s (%p) = %s\n", __FILE__, __LINE__, __func__, #obj, (void *)obj, str); \
+        free(str);                                                                                \
     } while (0);
 
 struct lisp_interpreter *interp;

@@ -342,6 +342,7 @@ static void init_builtins()
     DEFBUILTIN("quit", quit, 0);
     DEFBUILTIN("funcall", funcall, FUNCALL_ARITY);
     DEFBUILTIN("gc", gc, 0);
+    DEFBUILTIN("gensym", gensym, 0);
 #undef DEFBUILTIN
 }
 
@@ -824,6 +825,20 @@ lisp_object_t allocate_symbol(lisp_object_t name)
     } else {
         return allocate_new_symbol(name);
     }
+}
+
+lisp_object_t gensym()
+{
+    struct symbol *symptr = SymbolPtr(sym("gensym"));
+    lisp_object_t value = symptr->value;
+    if (value == NIL)
+        symptr->value = 0;
+    else if (integerp(value) != NIL)
+        symptr->value += 1 << 4;
+    int n = symptr->value >> 4;
+    char *name = alloca(16);
+    sprintf(name, "g%d", n);
+    return sym(name);
 }
 
 lisp_object_t getprop(lisp_object_t sym, lisp_object_t ind)

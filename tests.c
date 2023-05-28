@@ -1113,7 +1113,7 @@ static void test_macroexpand_all_cond()
 static void test_macroexpand_all_progn()
 {
     test_name = "macroexpand_all_progn";
-    init_interpreter(32768);
+    init_interpreter(65536);
     test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
     test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
     lisp_object_t expr = parse1_wrapper("(progn (ooh (frob)) (aah (hello)))");
@@ -1127,7 +1127,7 @@ static void test_macroexpand_all_progn()
 static void test_macroexpand_all_lambda()
 {
     test_name = "macroexpand_all_lambda";
-    init_interpreter(32768);
+    init_interpreter(65536);
     test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
     test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
     lisp_object_t expr = parse1_wrapper("(lambda (x) (ooh (frob)) (aah (hello)))");
@@ -1418,6 +1418,27 @@ static void test_unquote_splice_bug()
     free_interpreter();
 }
 
+static void test_gensym()
+{
+    test_name = "gensym";
+    init_interpreter(65536);
+    lisp_object_t result = gensym();
+    char *str = print_object(result);
+    check(strcmp("g0", str) == 0, "g0");
+    check(symbolp(result) != NIL, "symbol");
+    free(str);
+    result = gensym();
+    str = print_object(result);
+    check(strcmp("g1", str) == 0, "g1");
+    free(str);
+    result = test_eval_string_helper("(gensym)");
+    check(symbolp(result) != NIL, "built-in - symbol");
+    str = print_object(result);
+    check(strcmp("g2", str) == 0, "built-in - g2");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1537,6 +1558,7 @@ int main(int argc, char **argv)
     test_parse_function();
     test_nonexistent_function();
     test_unquote_splice_bug();
+    test_gensym();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

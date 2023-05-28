@@ -103,6 +103,7 @@ lisp_object_t macroexpand(lisp_object_t expr, lisp_object_t env);
 lisp_object_t macroexpand_all(lisp_object_t expr);
 lisp_object_t save_image(lisp_object_t name);
 lisp_object_t type_of(lisp_object_t obj);
+lisp_object_t gensym();
 
 struct syms {
     lisp_object_t lambda, quote, cond, defun, built_in_function, prog, progn, tagbody, set, go, return_, amprest, ampbody, ampoptional, condition_case, defmacro, quasiquote, unquote, unquote_splice, let, integer, symbol, cons, string, vector, macro, function, funcall;

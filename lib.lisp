@@ -102,3 +102,18 @@
 	    (set ',var (+ 1 ,var))
 	    (when (< ,var ,max)
 	      (go iterate))))))
+
+(defmacro dolist (args &body body)
+  (let ((var (car args))
+	(list (car (cdr args)))
+	(list-var (gensym)))
+    `(let ((,var (car ,list))
+	   (,list-var ,list))
+       (tagbody
+	iterate
+	  (if (not (eq ,list-var nil))
+	      (progn
+		(set ',var (car ,list-var))
+		,@body
+		(set ',list-var (cdr ,list-var))
+		(go iterate)))))))

@@ -1618,7 +1618,7 @@ lisp_object_t eval_condition_case(lisp_object_t e, lisp_object_t a)
         push_return_context(symbol);
         if (setjmp(interp->prog_return_stack->buf)) {
             symbol = interp->prog_return_stack->type;
-            lisp_object_t entry = cons(var, cons(symbol, cons(pop_return_context(), NIL)));
+            lisp_object_t entry = cons(var, cons(symbol, pop_return_context()));
             lisp_object_t env = cons(entry, a);
             return eval(cadr(assoc(symbol, handlers)), env);
         }

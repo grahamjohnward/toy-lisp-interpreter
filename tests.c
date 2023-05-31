@@ -943,7 +943,7 @@ static void test_prog_without_return()
 static void test_condition_case()
 {
     test_name = "condition_case";
-    test_eval_helper("(condition-case e (raise 'ohno 14) (ohno (cons 'error-was e)) (didnt-happen 'frob))", "(error-was ohno 14)");
+    test_eval_helper("(condition-case e (raise 'ohno 14) (ohno (cons 'error-was e)) (didnt-happen 'frob))", "(error-was ohno . 14)");
 }
 
 static void test_functionp()
@@ -967,7 +967,7 @@ static void test_print_function()
 static void test_unbound_variable()
 {
     test_name = "unbound_variable";
-    test_eval_helper("(condition-case e (print x) (unbound-variable (cons 'ohdear e)))", "(ohdear unbound-variable x)");
+    test_eval_helper("(condition-case e (print x) (unbound-variable (cons 'ohdear e)))", "(ohdear unbound-variable . x)");
 }
 
 static void test_plist()
@@ -1327,7 +1327,7 @@ static void test_vector_builtins()
 static void test_non_symbol_in_function_position()
 {
     test_name = "non_symbol_in_function_position";
-    test_eval_helper("(condition-case e (2 2) (illegal-function-call e))", "(illegal-function-call 2)");
+    test_eval_helper("(condition-case e (2 2) (illegal-function-call e))", "(illegal-function-call . 2)");
 }
 
 static void test_type_of()
@@ -1343,7 +1343,7 @@ static void test_type_of()
 static void test_comma_not_inside_backquote()
 {
     test_name = "comma_not_inside_backquote";
-    test_eval_helper("(condition-case e ,foo (runtime-error e))", "(runtime-error comma-not-inside-backquote)");
+    test_eval_helper("(condition-case e ,foo (runtime-error e))", "(runtime-error . comma-not-inside-backquote)");
 }
 
 static void test_string_equalp()
@@ -1401,7 +1401,7 @@ static void test_nonexistent_function()
     init_interpreter(32768);
     lisp_object_t result = test_eval_string_helper("(condition-case e (function nonexistent) (undefined-function e))");
     char *str = print_object(result);
-    check(strcmp("(undefined-function nonexistent)", str) == 0, "ok");
+    check(strcmp("(undefined-function . nonexistent)", str) == 0, "ok");
     free(str);
     free_interpreter();
 }

@@ -35,6 +35,7 @@
         "numeric": "c",
         "cmath": "c",
         "type_traits": "c",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "optional": "c"
     }
 }

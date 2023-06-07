@@ -95,6 +95,7 @@ lisp_object_t print(lisp_object_t obj);
 lisp_object_t princ(lisp_object_t obj);
 lisp_object_t plus(lisp_object_t x, lisp_object_t y);
 lisp_object_t minus(lisp_object_t x, lisp_object_t y);
+lisp_object_t times(lisp_object_t x, lisp_object_t y);
 lisp_object_t raise(lisp_object_t sym, lisp_object_t value);
 lisp_object_t getprop(lisp_object_t sym, lisp_object_t ind);
 lisp_object_t putprop(lisp_object_t sym, lisp_object_t ind, lisp_object_t value);

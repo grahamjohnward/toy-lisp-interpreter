@@ -34,6 +34,17 @@
        (set 'result (two-arg-minus result x))
        (go iterate))))
 
+(defun * (&rest args)
+  (prog (x result)
+     (set 'result 1)
+   iterate
+     (when (eq nil args)
+       (return result))
+     (set 'x (car args))
+     (set 'args (cdr args))
+     (set 'result (two-arg-times result x))
+     (go iterate)))
+
 (defun not (x)
   (if x nil t))
 

@@ -866,6 +866,13 @@ static void test_minus()
     test_eval_helper("(two-arg-minus 7 4)", "3");
 }
 
+static void test_times()
+{
+    test_name = "times";
+    test_eval_helper("(two-arg-times 3 4)", "12");
+    test_eval_helper("(two-arg-times -3 4)", "-12");
+}
+
 static void test_return_from_prog()
 {
     test_name = "return_from_prog";
@@ -1099,7 +1106,7 @@ static void test_macroexpand()
 static void test_macroexpand_all_cond()
 {
     test_name = "macroexpand_all_cond";
-    init_interpreter(32768);
+    init_interpreter(65536);
     test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
     test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
     lisp_object_t expr = parse1_wrapper("(cond (nil 'ooh) (t (ooh (frob))))");
@@ -1504,6 +1511,7 @@ int main(int argc, char **argv)
     test_rest_args();
     test_plus();
     test_minus();
+    test_times();
     test_return_from_prog();
     test_read_token();
     test_numeric_equals();

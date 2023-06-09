@@ -56,7 +56,6 @@
 (defmacro and (&rest things)
   (%and things))
 
-
 (defun %or (things)
   (if (eq (cdr things) nil)
       `,(car things)
@@ -86,6 +85,10 @@
 		     (return nil))
 		   (set 'i (+ i 1))
 		   (go iterate)))))
+	   ((and (eq (type-of a) 'cons) (eq (type-of b) 'cons))
+	    (if (equalp (car a) (car b))
+		(return (equalp (cdr a) (cdr b)))
+		(return nil)))
 	   (t (eq a b)))))
 
 (defun > (first &rest rest)

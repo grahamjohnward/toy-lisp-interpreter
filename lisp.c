@@ -325,6 +325,7 @@ static void init_builtins()
     DEFBUILTIN("two-arg-plus", plus, 2);
     DEFBUILTIN("two-arg-minus", minus, 2);
     DEFBUILTIN("two-arg-times", times, 2);
+    DEFBUILTIN("two-arg-divide", divide, 2);
     DEFBUILTIN("=", eq, 2);
     DEFBUILTIN("raise", raise, 2);
     DEFBUILTIN("exit", exit, 1);
@@ -1980,6 +1981,17 @@ lisp_object_t times(lisp_object_t x, lisp_object_t y)
     int64_t xint = x >> 4;
     int64_t yint = y >> 4;
     lisp_object_t result = (xint * yint) << 4;
+    check_integer(result);
+    return result;
+}
+
+lisp_object_t divide(lisp_object_t x, lisp_object_t y)
+{
+    check_integer(x);
+    check_integer(y);
+    int64_t xint = x;
+    int64_t yint = y;
+    lisp_object_t result = (xint / yint) << 4;
     check_integer(result);
     return result;
 }

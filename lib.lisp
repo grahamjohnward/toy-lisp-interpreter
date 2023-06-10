@@ -45,6 +45,12 @@
      (set 'result (two-arg-times result x))
      (go iterate)))
 
+(defun / (first &rest args)
+  (progn
+    (when (eq args nil)
+      (return first))
+    (two-arg-divide first (apply #'* args))))
+
 (defun not (x)
   (if x nil t))
 

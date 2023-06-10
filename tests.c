@@ -874,6 +874,12 @@ static void test_times()
     test_eval_helper("(two-arg-times 65536 65536)", "4294967296");
 }
 
+static void test_divide()
+{
+    test_name = "divide";
+    test_eval_helper("(two-arg-divide 256 -2)", "-128");
+}
+
 static void test_return_from_prog()
 {
     test_name = "return_from_prog";
@@ -933,7 +939,7 @@ static void test_integer_bug()
 static void test_return_outside_prog()
 {
     test_name = "return_outside_prog";
-    init_interpreter(32768);
+    init_interpreter(65536);
     lisp_object_t result1 = test_eval_string_helper("(defun foo (x) (return (cons 'returned x)))");
     lisp_object_t result2 = test_eval_string_helper("(prog (x) (set 'x 12) (return (cons 'aha (foo x))))");
     char *result2str = print_object(result2);
@@ -1008,7 +1014,7 @@ static void test_unquote_splice()
 static void test_optional_arguments()
 {
     test_name = "optional_arguments";
-    init_interpreter(32768);
+    init_interpreter(65536);
     eval_toplevel(parse1_wrapper("(defun test (a &optional b) (cons 'hello (cons a (cons b 'foo))))"));
     lisp_object_t result = test_eval_string_helper("(test 3 4)");
     char *str = print_object(result);
@@ -1513,6 +1519,7 @@ int main(int argc, char **argv)
     test_plus();
     test_minus();
     test_times();
+    test_divide();
     test_return_from_prog();
     test_read_token();
     test_numeric_equals();

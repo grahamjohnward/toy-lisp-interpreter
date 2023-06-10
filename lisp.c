@@ -1977,8 +1977,8 @@ lisp_object_t times(lisp_object_t x, lisp_object_t y)
 {
     check_integer(x);
     check_integer(y);
-    int xint = x >> 4;
-    int yint = y >> 4;
+    int64_t xint = x >> 4;
+    int64_t yint = y >> 4;
     lisp_object_t result = (xint * yint) << 4;
     check_integer(result);
     return result;

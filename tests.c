@@ -871,6 +871,7 @@ static void test_times()
     test_name = "times";
     test_eval_helper("(two-arg-times 3 4)", "12");
     test_eval_helper("(two-arg-times -3 4)", "-12");
+    test_eval_helper("(two-arg-times 65536 65536)", "4294967296");
 }
 
 static void test_return_from_prog()

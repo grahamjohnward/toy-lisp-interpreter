@@ -21,18 +21,17 @@
      (go iterate)))
 
 (defun - (&rest args)
-  (progn
-    (when (eq nil (cdr args))
-      (return (two-arg-minus 0 (car args))))
-    (prog (x result)
-       (set 'result (car args))
-       iterate
-       (set 'args (cdr args))
-       (when (eq nil args)
-	 (return result))
-       (set 'x (car args))
-       (set 'result (two-arg-minus result x))
-       (go iterate))))
+  (when (eq nil (cdr args))
+    (return (two-arg-minus 0 (car args))))
+  (prog (x result)
+     (set 'result (car args))
+     iterate
+     (set 'args (cdr args))
+     (when (eq nil args)
+       (return result))
+     (set 'x (car args))
+     (set 'result (two-arg-minus result x))
+     (go iterate)))
 
 (defun * (&rest args)
   (prog (x result)
@@ -46,10 +45,9 @@
      (go iterate)))
 
 (defun / (first &rest args)
-  (progn
-    (when (eq args nil)
-      (return first))
-    (two-arg-divide first (apply #'* args))))
+  (when (eq args nil)
+    (return first))
+  (two-arg-divide first (apply #'* args)))
 
 (defun not (x)
   (if x nil t))
@@ -72,44 +70,41 @@
   (%or things))
 
  (defun equalp (a b)
-   (progn
-     (when (not (eq (type-of a) (type-of b)))
-       (return nil))
-     (cond ((eq (type-of a) 'string)
-	    (string-equal-p a b))
-	   ((eq (type-of a) 'vector)
-	    (progn
-	      (when (not (eq (length a) (length b)))
-		(return nil))
-	      (return
-		(prog (i)
-		   (set 'i 0)
-		   iterate
-		   (when (eq i (length a))
-		     (return t))
-		   (when (not (eq (svref a i) (svref b i)))
-		     (return nil))
-		   (set 'i (+ i 1))
-		   (go iterate)))))
-	   ((and (eq (type-of a) 'cons) (eq (type-of b) 'cons))
-	    (if (equalp (car a) (car b))
-		(return (equalp (cdr a) (cdr b)))
-		(return nil)))
-	   (t (eq a b)))))
+   (when (not (eq (type-of a) (type-of b)))
+     (return nil))
+   (cond ((eq (type-of a) 'string)
+	  (string-equal-p a b))
+	 ((eq (type-of a) 'vector)
+	  (progn
+	    (when (not (eq (length a) (length b)))
+	      (return nil))
+	    (return
+	      (prog (i)
+		 (set 'i 0)
+		 iterate
+		 (when (eq i (length a))
+		   (return t))
+		 (when (not (eq (svref a i) (svref b i)))
+		   (return nil))
+		 (set 'i (+ i 1))
+		 (go iterate)))))
+	 ((and (eq (type-of a) 'cons) (eq (type-of b) 'cons))
+	  (if (equalp (car a) (car b))
+	      (return (equalp (cdr a) (cdr b)))
+	      (return nil)))
+	 (t (eq a b))))
 
 (defun > (first &rest rest)
-  (progn
-    (if (eq rest nil)
-	(return (eq (type-of first) 'integer))
-	(if (two-arg-greater-than first (car rest))
-	    (apply '> rest)))))
+  (if (eq rest nil)
+      (return (eq (type-of first) 'integer))
+      (if (two-arg-greater-than first (car rest))
+	  (apply '> rest))))
 
 (defun < (first &rest rest)
-  (progn
-    (if (eq rest nil)
-	(return (eq (type-of first) 'integer))
-	(if (two-arg-less-than first (car rest))
-	    (apply '< rest)))))
+  (if (eq rest nil)
+      (return (eq (type-of first) 'integer))
+      (if (two-arg-less-than first (car rest))
+	  (apply '< rest))))
 
 (defmacro dotimes (var-and-max &body thing)
   (let ((var (car var-and-max))

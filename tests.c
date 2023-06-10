@@ -1030,7 +1030,7 @@ static void test_optional_arguments()
 static void test_progn()
 {
     test_name = "progn";
-    init_interpreter(32768);
+    init_interpreter(65536);
     test_eval_string_helper("(defun foo (x y) (progn (set 'x 12) (set 'y 13) (cons 12 13)))");
     lisp_object_t result = test_eval_string_helper("(foo 3 4)");
     char *str = print_object(result);
@@ -1069,7 +1069,7 @@ static void test_tagbody_returns_nil()
 static void test_tagbody_condition_case()
 {
     test_name = "tagbody_condition_case";
-    init_interpreter(32768);
+    init_interpreter(65536);
     test_eval_string_helper("(defun ooh () (tagbody (condition-case e (raise 'ohno) (ohno (go hello))) (return 'bad) hello (return 'hello)))");
     lisp_object_t result = test_eval_string_helper("(ooh)");
     char *str = print_object(result);
@@ -1086,7 +1086,7 @@ static void test_let()
 static void test_macroexpand1()
 {
     test_name = "macroexpand1";
-    init_interpreter(32768);
+    init_interpreter(65536);
     test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
     test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
     lisp_object_t expr = parse1_wrapper("(ooh (frob))");
@@ -1099,7 +1099,7 @@ static void test_macroexpand1()
 static void test_macroexpand()
 {
     test_name = "macroexpand";
-    init_interpreter(32768);
+    init_interpreter(65536);
     test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
     test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
     lisp_object_t expr = parse1_wrapper("(ooh (frob))");
@@ -1183,7 +1183,7 @@ static void test_macroexpand_all_prog()
 static void test_macroexpand_all_set()
 {
     test_name = "macroexpand_all_set";
-    init_interpreter(32768);
+    init_interpreter(65536);
     test_eval_string_helper("(defmacro frob (x) 'x)");
     test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
     lisp_object_t expr = parse1_wrapper("(set (frob) (aah (hello)))");
@@ -1453,6 +1453,18 @@ static void test_gensym()
     free_interpreter();
 }
 
+static void test_defun_implicit_progn()
+{
+    test_name = "defun_implicit_progn";
+    init_interpreter(65536);
+    test_eval_string_helper("(defun foo (x) (cons x x) (two-arg-plus x 1))");
+    lisp_object_t result = test_eval_string_helper("(foo 1)");
+    char *str = print_object(result);
+    check(strcmp("2", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1575,6 +1587,7 @@ int main(int argc, char **argv)
     test_nonexistent_function();
     test_unquote_splice_bug();
     test_gensym();
+    test_defun_implicit_progn();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

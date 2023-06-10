@@ -1476,8 +1476,8 @@ lisp_object_t evaldefun(lisp_object_t e, lisp_object_t a)
 {
     lisp_object_t fname = car(e);
     lisp_object_t arglist = cadr(e);
-    lisp_object_t body = caddr(e);
-    lisp_object_t fn = cons(interp->syms.lambda, cons(arglist, cons(body, NIL)));
+    lisp_object_t body = cddr(e);
+    lisp_object_t fn = cons(interp->syms.lambda, cons(arglist, body));
     lisp_object_t fn_new = allocate_function();
     struct lisp_function *fnptr = LispFunctionPtr(fn_new);
     fnptr->kind = interp->syms.lambda;

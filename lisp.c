@@ -336,6 +336,11 @@ static void init_builtins()
     DEFBUILTIN("set-svref", svref_set, 3);
     DEFBUILTIN("save-image", save_image, 1);
     DEFBUILTIN("type-of", type_of, 1);
+    DEFBUILTIN("integerp", integerp, 1);
+    DEFBUILTIN("consp", consp, 1);
+    DEFBUILTIN("stringp", stringp, 1);
+    DEFBUILTIN("vectorp", vectorp, 1);
+    DEFBUILTIN("functionp", functionp, 1);
     DEFBUILTIN("string-equal-p", string_equalp, 2);
     DEFBUILTIN("length", length, 1);
     DEFBUILTIN("two-arg-greater-than", greater_than, 2);

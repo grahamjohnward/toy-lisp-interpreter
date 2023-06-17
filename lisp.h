@@ -145,7 +145,6 @@ struct lisp_heap {
     char *to_space;
 };
 
-extern lisp_object_t *top_of_stack;
 void *get_rbp(int n);
 
 void lisp_heap_init(struct lisp_heap *heap, size_t bytes);
@@ -171,6 +170,7 @@ struct lisp_interpreter {
     struct return_context *prog_return_stack;
     /* New improved heap */
     struct lisp_heap heap;
+    lisp_object_t *top_of_stack;
 };
 
 extern struct lisp_interpreter *interp;

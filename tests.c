@@ -806,7 +806,6 @@ static void test_load1()
 static void test_load()
 {
     init_interpreter(65536);
-    top_of_stack = (lisp_object_t *)get_rbp(1);
     test_load1();
     free_interpreter();
 }
@@ -844,7 +843,6 @@ static void test_rest_args()
 {
     test_name = "rest_args";
     init_interpreter(32768);
-    top_of_stack = (lisp_object_t *)get_rbp(1);
     char *teststr = "(defun foo (a b &rest c) (cons c (cons b a)))";
     eval_toplevel(parse1_wrapper(teststr));
     teststr = "(foo 1 2 3)";

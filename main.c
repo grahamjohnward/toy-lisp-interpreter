@@ -91,7 +91,6 @@ int main(int argc, char **argv)
         init_interpeter_from_image(settings.image);
     else
         init_interpreter(settings.heap_size);
-    top_of_stack = (lisp_object_t *)get_rbp(1);
     for (; i < argc; i++)
         load_str(argv[i]);
     free_interpreter();

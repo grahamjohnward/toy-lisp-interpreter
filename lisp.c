@@ -26,8 +26,6 @@ struct lisp_interpreter *interp;
 
 static int interpreter_initialized;
 
-lisp_object_t *top_of_stack = NULL;
-
 struct symbol {
     object_header_t header;
     lisp_object_t name;
@@ -364,7 +362,7 @@ void init_interpeter_from_image(char *image)
     assert(sizeof(lisp_object_t) == sizeof(void *));
     interp->environ = NIL;
     interp->prog_return_stack = NULL;
-    top_of_stack = NULL;
+    interp->top_of_stack = get_rbp(2);
     do_read(fd, (char *)&interp->symbol_table, sizeof(lisp_object_t));
     do_read(fd, (char *)&interp->heap, sizeof(struct lisp_heap));
     void *rc = mmap(interp->heap.heap, interp->heap.size_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
@@ -386,7 +384,7 @@ void init_interpreter(size_t heap_size)
     interp->symbol_table = NIL;
     interp->prog_return_stack = NULL;
     interp->environ = NIL;
-    top_of_stack = NULL;
+    interp->top_of_stack = get_rbp(2);
     lisp_heap_init(&interp->heap, heap_size);
     init_symbols();
     init_builtins();
@@ -617,8 +615,8 @@ lisp_object_t gc()
     heap->freeptr = heap->to_space;
     /* Roots - stack */
     void *rbp = get_rbp(1);
-    assert(top_of_stack);
-    for (lisp_object_t *p = top_of_stack; p > (lisp_object_t *)rbp; p--)
+    assert(interp->top_of_stack);
+    for (lisp_object_t *p = interp->top_of_stack; p > (lisp_object_t *)rbp; p--)
         if (object_is_in_from_space(heap, *p))
             gc_copy(&interp->heap, p);
     /* Roots - return contexts */

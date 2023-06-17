@@ -1311,6 +1311,7 @@ lisp_object_t assoc(lisp_object_t x, lisp_object_t a)
         return assoc(x, cdr(a));
 }
 
+/* originally McCarthy's PAIRLIS */
 lisp_object_t pairlis2(lisp_object_t x, lisp_object_t y, lisp_object_t a)
 {
     if (x == NIL)
@@ -1321,15 +1322,6 @@ lisp_object_t pairlis2(lisp_object_t x, lisp_object_t y, lisp_object_t a)
         return cons(cons(cadr(x), car(y)), NIL);
     else
         return cons(cons(car(x), car(y)), pairlis2(cdr(x), cdr(y), a));
-}
-
-lisp_object_t pairlis(lisp_object_t x, lisp_object_t y, lisp_object_t a)
-{
-
-    if (null(x) != NIL)
-        return a;
-    else
-        return cons(cons(car(x), car(y)), pairlis(cdr(x), cdr(y), a));
 }
 
 static void push_return_context(lisp_object_t type)

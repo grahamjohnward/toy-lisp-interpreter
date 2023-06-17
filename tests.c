@@ -683,23 +683,6 @@ static void test_assoc()
     free_interpreter();
 }
 
-static void test_pairlis()
-{
-    test_name = "pairlis";
-    init_interpreter(32768);
-    char *text1 = "(A B C)";
-    char *text2 = "(U V W)";
-    char *text3 = "((D . X) (E . Y))";
-    lisp_object_t x = parse1_wrapper(text1);
-    lisp_object_t y = parse1_wrapper(text2);
-    lisp_object_t a = parse1_wrapper(text3);
-    lisp_object_t result = pairlis(x, y, a);
-    char *str = print_object(result);
-    check(strcmp("((A . U) (B . V) (C . W) (D . X) (E . Y))", str) == 0, "ok");
-    free(str);
-    free_interpreter();
-}
-
 static void test_sym()
 {
     test_name = "sym";
@@ -1515,7 +1498,6 @@ int main(int argc, char **argv)
     test_append();
     test_member();
     test_assoc();
-    test_pairlis();
     test_sym();
     test_evalquote();
     test_eval();

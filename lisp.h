@@ -85,7 +85,6 @@ lisp_object_t null(lisp_object_t obj);
 lisp_object_t append(lisp_object_t x, lisp_object_t y);
 lisp_object_t member(lisp_object_t x, lisp_object_t y);
 lisp_object_t assoc(lisp_object_t x, lisp_object_t a);
-lisp_object_t pairlis(lisp_object_t x, lisp_object_t y, lisp_object_t a);
 lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x);
 lisp_object_t eval_toplevel(lisp_object_t e);
 lisp_object_t eval(lisp_object_t e, lisp_object_t a);

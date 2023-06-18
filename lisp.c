@@ -1923,7 +1923,7 @@ lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x)
 
 lisp_object_t eval_toplevel(lisp_object_t e)
 {
-    return eval(macroexpand_all(e), interp->environ);
+    return eval(compile_toplevel(macroexpand_all(e)), interp->environ);
 }
 
 static void load_eval_callback(void *ignored, lisp_object_t obj)

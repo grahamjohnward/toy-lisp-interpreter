@@ -48,11 +48,10 @@ static void check_type(lisp_object_t obj, uint64_t type)
 {
     static char *type_names[6] = { "unused", "symbol", "cons", "string", "vector", "function pointer" };
     if (istype(obj, type) == NIL) {
-        printf("Bad type for %p (not %p)\n", (void *)obj, (void *)type);
         static char buf[1024];
         char *obj_string = print_object(obj);
-        int len = snprintf(buf, 1024, "Not a %s: %s", type_names[type >> 60], obj_string);
-        raise(sym("type-error"), allocate_string(len, buf));
+        int len = snprintf(buf, 1024, "Not a %s: %s", type_names[type >> 1], obj_string);
+        raise(sym("type-error"), allocate_string(len + 1, buf));
     }
 }
 

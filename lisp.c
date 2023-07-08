@@ -1102,6 +1102,8 @@ void print_cons_to_buffer(lisp_object_t obj, struct string_buffer *sb)
     }
 }
 
+static void print_string_to_buffer(lisp_object_t string, struct string_buffer *sb);
+
 void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
 {
     if (integerp(obj) != NIL) {
@@ -1143,10 +1145,7 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
         tmp[len] = 0;
         string_buffer_append(sb, tmp);
     } else if (stringp(obj) != NIL) {
-        size_t len = 0;
-        char *str = NULL;
-        get_string_parts(obj, &len, &str);
-        string_buffer_append(sb, str);
+        print_string_to_buffer(obj, sb);
     } else if (vectorp(obj) != NIL) {
         int len = length_c(obj);
         string_buffer_append(sb, "#(");
@@ -1164,6 +1163,53 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
     } else if (functionp(obj) != NIL) {
         string_buffer_append(sb, "#<function>");
     }
+}
+
+static void print_string_to_buffer(lisp_object_t string, struct string_buffer *sb)
+{
+    size_t len = 0;
+    char *str = NULL;
+    get_string_parts(string, &len, &str);
+    size_t bufsize = 64;
+    char *buf = alloca(bufsize);
+    int j = 0;
+    buf[j++] = '\"';
+    for (int i = 0; i < len; i++) {
+        char c = str[i];
+        switch (c) {
+        case '\\':
+            buf[j++] = '\\';
+            buf[j++] = '\\';
+            break;
+        case '\n':
+            buf[j++] = '\\';
+            buf[j++] = 'n';
+            break;
+        case '\r':
+            buf[j++] = '\\';
+            buf[j++] = 'r';
+            break;
+        case '\t':
+            buf[j++] = '\\';
+            buf[j++] = 't';
+            break;
+        case '"':
+            buf[j++] = '\\';
+            buf[j++] = '\"';
+            break;
+        default:
+            buf[j++] = c;
+        }
+        if (j >= bufsize - 2) {
+            buf[j] = 0;
+            string_buffer_append(sb, buf);
+            j = 0;
+        }
+    }
+    buf[j++] = '\"';
+    assert(j < bufsize);
+    buf[j] = 0;
+    string_buffer_append(sb, buf);
 }
 
 lisp_object_t parse_string(struct text_stream *ts)
@@ -1936,10 +1982,17 @@ lisp_object_t print(lisp_object_t obj)
 
 lisp_object_t princ(lisp_object_t obj)
 {
-    char *str = print_object(obj);
-    printf("%s", str);
+    if (stringp(obj) != NIL) {
+        size_t len;
+        char *str;
+        get_string_parts(obj, &len, &str);
+        printf("%s", str);
+    } else {
+        char *str = print_object(obj);
+        printf("%s", str);
+        free(str);
+    }
     fflush(stdout);
-    free(str);
     return obj;
 }
 

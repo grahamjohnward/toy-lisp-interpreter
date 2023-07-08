@@ -1,7 +1,7 @@
 (condition-case eof
     (let (input)
       (tagbody
-	 (print "Welcome to Graham's Lisp")
+	 (princ "Welcome to Graham's Lisp\n")
        repl
 	 (princ "> ")
 	 (set 'input (read))

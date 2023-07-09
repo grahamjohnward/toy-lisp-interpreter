@@ -17,17 +17,21 @@ static lisp_object_t compile_list(lisp_object_t list, struct lexical_context *ct
 {
     if (list == NIL)
         return NIL;
-    else {
-        TRACE(list);
-        lisp_object_t result = cons(compile(car(list), ctxt), compile_list(cdr(list), ctxt));
-        TRACE(result);
-        return result;
-    }
+    else
+        return cons(compile(car(list), ctxt), compile_list(cdr(list), ctxt));
 }
 
 static lisp_object_t compile_let_varlist(lisp_object_t expr, struct lexical_context *ctxt)
 {
-    return expr;
+    if (expr == NIL) {
+        return NIL;
+    } else {
+        lisp_object_t first = car(expr);
+        if (consp(first) != NIL)
+            return cons(List(car(first), compile(cadr(first), ctxt)), compile_let_varlist(cdr(expr), ctxt));
+        else
+            return cons(first, compile_let_varlist(cdr(expr), ctxt));
+    }
 }
 
 static lisp_object_t compile_let(lisp_object_t expr, struct lexical_context *ctxt)
@@ -41,51 +45,34 @@ static lisp_object_t compile_quasiquote_list(lisp_object_t expr, struct lexical_
 
 static lisp_object_t compile_quasiquote(lisp_object_t expr, struct lexical_context *ctxt, int depth)
 {
-    TRACE(expr);
     if (consp(expr) == NIL) {
         return expr;
     } else {
         if (symbolp(car(expr)) != NIL) {
             lisp_object_t symbol = car(expr);
             if (symbol == interp->syms.unquote) {
-                lisp_object_t arg = cadr(expr);
-                if (depth == 0)
-                    return cons(interp->syms.unquote, cons(compile(arg, ctxt), NIL));
-                else
-                    return cons(interp->syms.unquote, cons(compile_quasiquote(arg, ctxt, depth - 1), NIL));
-            } else if (symbol == interp->syms.unquote_splice) {
-                lisp_object_t arg = cadr(expr);
-                if (depth == 0)
-                    return cons(interp->syms.unquote_splice, cons(compile(arg, ctxt), NIL));
-                else
-                    return cons(interp->syms.unquote_splice, cons(compile_quasiquote(arg, ctxt, depth - 1), NIL));
+                if (depth == 0) {
+                    return cons(interp->syms.unquote, cons(compile(cadr(expr), ctxt), NIL));
+                } else {
+                    return cons(interp->syms.unquote, cons(compile_quasiquote(cadr(expr), ctxt, depth - 1), NIL));
+                }
             } else if (symbol == interp->syms.quasiquote) {
-                TRACE(cadr(expr));
                 return cons(interp->syms.quasiquote, cons(compile_quasiquote(cadr(expr), ctxt, depth + 1), NIL));
             } else {
-                TRACE(car(expr));
-                lisp_object_t bof = cons(interp->syms.quasiquote, cons(car(expr), compile_quasiquote_list(cdr(expr), ctxt, depth)));
-                TRACE(bof);
-                return bof;
+                return cons(symbol, compile_quasiquote_list(cdr(expr), ctxt, depth));
             }
         } else {
-            return expr;
+            return compile_quasiquote_list(expr, ctxt, depth);
         }
     }
 }
 
 static lisp_object_t compile_quasiquote_list(lisp_object_t expr, struct lexical_context *ctxt, int depth)
 {
-    TRACE(expr);
-    if (expr == NIL) {
+    if (expr == NIL)
         return NIL;
-    } else {
-        lisp_object_t thing1 = compile_quasiquote(car(expr), ctxt, depth);
-        TRACE(thing1);
-        lisp_object_t result = cons(thing1, compile_quasiquote_list(cdr(expr), ctxt, depth));
-        TRACE(result);
-        return result;
-    }
+    else
+        return cons(compile_quasiquote(car(expr), ctxt, depth), compile_quasiquote_list(cdr(expr), ctxt, depth));
 }
 
 static lisp_object_t compile_tagbody(lisp_object_t expr, struct lexical_context *ctxt)
@@ -96,6 +83,18 @@ static lisp_object_t compile_tagbody(lisp_object_t expr, struct lexical_context 
         return cons(car(expr), compile_tagbody(cdr(expr), ctxt));
     else
         return cons(compile(car(expr), ctxt), compile_tagbody(cdr(expr), ctxt));
+}
+
+static lisp_object_t compile_cond_clauses(lisp_object_t clauses, struct lexical_context *ctxt)
+{
+    if (clauses == NIL) {
+        return NIL;
+    } else {
+        lisp_object_t first_clause = car(clauses);
+        lisp_object_t a = car(first_clause);
+        lisp_object_t b = cadr(first_clause);
+        return cons(cons(compile(a, ctxt), cons(compile(b, ctxt), NIL)), compile_cond_clauses(cdr(clauses), ctxt));
+    }
 }
 
 static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
@@ -110,9 +109,7 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
             } else if (symbol == interp->syms.unquote) {
                 return raise(sym("runtime-error"), sym("comma-not-inside-backquote"));
             } else if (symbol == interp->syms.cond) {
-                // TODO
-                // basically easy
-                return expr;
+                return cons(interp->syms.cond, compile_cond_clauses(cdr(expr), ctxt));
             } else if (symbol == interp->syms.let) {
                 return compile_let(expr, ctxt);
             } else if (symbol == interp->syms.defun) {
@@ -121,15 +118,16 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
                 lisp_object_t body = cdr(cddr((expr)));
                 return cons(interp->syms.defun, cons(name, cons(arglist, compile_list(body, ctxt))));
             } else if (symbol == interp->syms.defmacro) {
-                // TODO
-                // this just defines a function and sets a special property on the symbol,
-                // so there is no weirdness involved
-                return expr;
+                lisp_object_t name = cadr(expr);
+                lisp_object_t arglist = car(cddr(expr));
+                lisp_object_t body = cdr(cddr((expr)));
+                return cons(interp->syms.defmacro, cons(name, cons(arglist, compile_list(body, ctxt))));
             } else if (symbol == interp->syms.set) {
                 return cons(interp->syms.set, cons(cadr(expr), cons(compile(car(cddr(expr)), ctxt), NIL)));
             } else if (symbol == interp->syms.prog) {
-                // TODO
-                return expr;
+                lisp_object_t varlist = cadr(expr);
+                lisp_object_t body = cddr(expr);
+                return cons(interp->syms.prog, cons(varlist, compile_list(body, ctxt)));
             } else if (symbol == interp->syms.progn) {
                 return cons(interp->syms.progn, compile_list(cdr(expr), ctxt));
             } else if (symbol == interp->syms.tagbody) {
@@ -142,12 +140,19 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
                 // Perhaps we could convert it to (raise 'return)
                 return expr;
             } else if (symbol == interp->syms.condition_case) {
-                // TODO
-                return expr;
+                lisp_object_t exc = cadr(expr);
+                lisp_object_t body = caddr(expr);
+                lisp_object_t clauses = cdr(cddr(expr));
+                return cons(interp->syms.condition_case, cons(exc, cons(compile_list(body, ctxt), compile_let_varlist(clauses, ctxt))));
             } else if (symbol == interp->syms.function) {
-                // TODO
-                // we would need to compile any lambda
-                return expr;
+                lisp_object_t function = cadr(expr);
+                if (symbolp(function) != NIL) {
+                    return expr;
+                } else {
+                    lisp_object_t arglist = cadr(function);
+                    lisp_object_t body = cddr(function);
+                    return cons(interp->syms.function, cons(cons(interp->syms.lambda, cons(arglist, compile_list(body, ctxt))), NIL));
+                }
             } else {
                 return cons(car(expr), compile_list(cdr(expr), ctxt));
             }
@@ -155,7 +160,7 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
             return raise(sym("bad-expression"), expr);
         }
     } else {
-        // With lexical scope we will do something non-trivial here
+        // With lexical scope we will do something interesting here
         return expr;
     }
 }
@@ -163,9 +168,6 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
 lisp_object_t compile_toplevel(lisp_object_t expr)
 {
     struct lexical_context ctxt;
-    TRACE(expr);
     lexical_context_init(&ctxt);
-    lisp_object_t compiled = compile(expr, &ctxt);
-    TRACE(compiled);
-    return compiled;
+    return compile(expr, &ctxt);
 }

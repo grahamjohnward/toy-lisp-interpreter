@@ -733,7 +733,7 @@ static lisp_object_t test_eval_string_helper(char *exprstr)
 
 static void test_eval_helper(char *exprstr, char *expectedstr)
 {
-    init_interpreter(65536);
+    init_interpreter(65536 * 4);
     char *exprstr_save = exprstr;
     lisp_object_t result = test_eval_string_helper(exprstr);
     char *resultstr = print_object(result);

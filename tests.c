@@ -1037,7 +1037,7 @@ static void test_tagbody()
 static void test_tagbody_bug()
 {
     test_name = "tagbody_bug";
-    init_interpreter(32768);
+    init_interpreter(65536);
     test_eval_string_helper("(defun test (x) (progn (tagbody (set 'x 14)) x))");
     lisp_object_t result = test_eval_string_helper("(test 2)");
     check(result == 14 << 4, "ok");
@@ -1449,6 +1449,20 @@ static void test_defun_implicit_progn()
     free_interpreter();
 }
 
+static void test_varargs_list()
+{
+    test_name = "varargs_list";
+    init_interpreter(65536);
+    lisp_object_t mylist = list(interp->syms.defun, sym("hello"), NIL);
+    char *str = print_object(mylist);
+    check(strcmp("(defun hello)", str) == 0, "function");
+    free(str);
+    mylist = List(interp->syms.lambda, 32);
+    str = print_object(mylist);
+    check(strcmp("(lambda 2)", str) == 0, "macro");
+    free(str);
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1571,6 +1585,7 @@ int main(int argc, char **argv)
     test_unquote_splice_bug();
     test_gensym();
     test_defun_implicit_progn();
+    test_varargs_list();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

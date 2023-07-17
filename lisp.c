@@ -19,15 +19,6 @@ struct lisp_interpreter *interp;
 
 static int interpreter_initialized;
 
-struct symbol {
-    object_header_t header;
-    lisp_object_t name;
-    lisp_object_t value;
-    lisp_object_t function;
-    lisp_object_t plist;
-    uint64_t padding;
-};
-
 struct vector {
     object_header_t header;
     size_t len;
@@ -259,6 +250,9 @@ static void init_symbols()
     interp->syms.macro = sym("macro");
     interp->syms.function = sym("function");
     interp->syms.funcall = sym("funcall");
+    interp->syms.block = sym("block");
+    interp->syms.pctblock = sym("%block");
+    interp->syms.return_from = sym("return-from");
 }
 
 lisp_object_t length(lisp_object_t seq);
@@ -439,6 +433,21 @@ lisp_object_t cons(lisp_object_t car, lisp_object_t cdr)
     the_cons->cdr = cdr;
     heap->freeptr += sizeof(struct cons);
     return ((lisp_object_t)the_cons) | CONS_TYPE;
+}
+
+lisp_object_t list(lisp_object_t first, ...)
+{
+    va_list ap;
+    va_start(ap, first);
+    lisp_object_t elt = first;
+    lisp_object_t result = cons(elt, NIL);
+    lisp_object_t tail = result;
+    while ((elt = va_arg(ap, lisp_object_t)) != NIL) {
+        rplacd(tail, cons(elt, NIL));
+        tail = cdr(tail);
+    }
+    va_end(ap);
+    return result;
 }
 
 static lisp_object_t allocate_new_symbol(lisp_object_t name)
@@ -1389,7 +1398,7 @@ lisp_object_t raise(lisp_object_t sym, lisp_object_t value)
     while (interp->prog_return_stack && interp->prog_return_stack->type != sym)
         pop_return_context();
     if (!interp->prog_return_stack) {
-        char *message = print_object(cons(sym, value));
+        char *message = print_object(cons(sym, cons(value, NIL)));
         printf("Unhandled exception: %s\n", message);
         free(message);
         abort();
@@ -1590,6 +1599,21 @@ lisp_object_t evalprogn(lisp_object_t e, lisp_object_t a)
     for (lisp_object_t o = e; o != NIL; o = cdr(o))
         return_value = eval(car(o), a);
     return return_value;
+}
+
+lisp_object_t evalblock(lisp_object_t e, lisp_object_t a)
+{
+    lisp_object_t block_number = car(e);
+    push_return_context(block_number);
+    if (setjmp(interp->prog_return_stack->buf)) {
+        return pop_return_context();
+    } else {
+        // This is a single form in current approach
+        lisp_object_t body = cadr(e);
+        lisp_object_t result = eval(body, a);
+        pop_return_context();
+        return result;
+    }
 }
 
 lisp_object_t evaltagbody(lisp_object_t e, lisp_object_t a)
@@ -1896,6 +1920,8 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
             return evalprog(cdr(e), a);
         } else if (eq(car(e), interp->syms.progn) != NIL) {
             return evalprogn(cdr(e), a);
+        } else if (eq(car(e), interp->syms.pctblock) != NIL) {
+            return evalblock(cdr(e), a);
         } else if (eq(car(e), interp->syms.tagbody) != NIL) {
             return evaltagbody(cdr(e), a);
         } else if (eq(car(e), interp->syms.go) != NIL) {

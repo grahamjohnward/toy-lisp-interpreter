@@ -117,7 +117,7 @@ lisp_object_t gensym();
 lisp_object_t compile_toplevel(lisp_object_t expr);
 
 struct syms {
-    lisp_object_t lambda, quote, cond, defun, built_in_function, prog, progn, tagbody, set, go, return_, amprest, ampbody, ampoptional, condition_case, defmacro, quasiquote, unquote, unquote_splice, let, integer, symbol, cons, string, vector, macro, function, funcall;
+    lisp_object_t lambda, quote, cond, defun, built_in_function, prog, progn, tagbody, set, go, return_, amprest, ampbody, ampoptional, condition_case, defmacro, quasiquote, unquote, unquote_splice, let, integer, symbol, cons, string, vector, macro, function, funcall, block, pctblock, return_from;
 };
 
 struct cons {
@@ -143,6 +143,15 @@ struct lisp_function {
     uint64_t padding;
 };
 
+struct symbol {
+    object_header_t header;
+    lisp_object_t name;
+    lisp_object_t value;
+    lisp_object_t function;
+    lisp_object_t plist;
+    uint64_t padding;
+};
+
 #define LISP_HEAP_BASE 0x400000000000
 
 struct lisp_heap {
@@ -159,6 +168,10 @@ void *get_rbp(int n);
 void lisp_heap_init(struct lisp_heap *heap, size_t bytes);
 void lisp_heap_free(struct lisp_heap *heap);
 void gc_copy(struct lisp_heap *heap, lisp_object_t *p);
+
+lisp_object_t list(lisp_object_t first, ...);
+
+#define List(...) list(__VA_ARGS__, NIL)
 
 struct return_context {
     lisp_object_t type;

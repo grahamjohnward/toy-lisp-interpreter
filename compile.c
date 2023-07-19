@@ -29,7 +29,6 @@ static lisp_object_t lexical_context_enter_block(struct lexical_context *ctxt, l
 
 static void lexical_context_leave_block(struct lexical_context *ctxt, lisp_object_t block_name)
 {
-    // check head of block alist and pop
     lisp_object_t head = car(ctxt->block_alist);
     assert(head != NIL);
     assert(eq(car(head), block_name) != NIL);
@@ -76,13 +75,12 @@ static lisp_object_t compile_quasiquote(lisp_object_t expr, struct lexical_conte
         if (symbolp(car(expr)) != NIL) {
             lisp_object_t symbol = car(expr);
             if (symbol == interp->syms.unquote) {
-                if (depth == 0) {
-                    return cons(interp->syms.unquote, cons(compile(cadr(expr), ctxt), NIL));
-                } else {
-                    return cons(interp->syms.unquote, cons(compile_quasiquote(cadr(expr), ctxt, depth - 1), NIL));
-                }
+                if (depth == 0)
+                    return List(interp->syms.unquote, compile(cadr(expr), ctxt));
+                else
+                    return List(interp->syms.unquote, compile_quasiquote(cadr(expr), ctxt, depth - 1));
             } else if (symbol == interp->syms.quasiquote) {
-                return cons(interp->syms.quasiquote, cons(compile_quasiquote(cadr(expr), ctxt, depth + 1), NIL));
+                return List(interp->syms.quasiquote, compile_quasiquote(cadr(expr), ctxt, depth + 1));
             } else {
                 return cons(symbol, compile_quasiquote_list(cdr(expr), ctxt, depth));
             }
@@ -118,7 +116,7 @@ static lisp_object_t compile_cond_clauses(lisp_object_t clauses, struct lexical_
         lisp_object_t first_clause = car(clauses);
         lisp_object_t a = car(first_clause);
         lisp_object_t b = cadr(first_clause);
-        return cons(cons(compile(a, ctxt), cons(compile(b, ctxt), NIL)), compile_cond_clauses(cdr(clauses), ctxt));
+        return cons(List(compile(a, ctxt), compile(b, ctxt)), compile_cond_clauses(cdr(clauses), ctxt));
     }
 }
 
@@ -153,7 +151,7 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
             } else if (symbol == interp->syms.quote) {
                 return expr;
             } else if (symbol == interp->syms.quasiquote) {
-                return cons(interp->syms.quasiquote, cons(compile_quasiquote(cadr(expr), ctxt, 0), NIL));
+                return List(interp->syms.quasiquote, compile_quasiquote(cadr(expr), ctxt, 0));
             } else if (symbol == interp->syms.unquote) {
                 return raise(sym("runtime-error"), sym("comma-not-inside-backquote"));
             } else if (symbol == interp->syms.cond) {
@@ -171,7 +169,7 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
                 lisp_object_t body = cdr(cddr((expr)));
                 return cons(interp->syms.defmacro, cons(name, cons(arglist, compile_list(body, ctxt))));
             } else if (symbol == interp->syms.set) {
-                return cons(interp->syms.set, cons(cadr(expr), cons(compile(car(cddr(expr)), ctxt), NIL)));
+                return List(interp->syms.set, cadr(expr), compile(car(cddr(expr)), ctxt));
             } else if (symbol == interp->syms.prog) {
                 lisp_object_t varlist = cadr(expr);
                 lisp_object_t body = cddr(expr);
@@ -199,7 +197,7 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
                 } else {
                     lisp_object_t arglist = cadr(function);
                     lisp_object_t body = cddr(function);
-                    return cons(interp->syms.function, cons(cons(interp->syms.lambda, cons(arglist, compile_list(body, ctxt))), NIL));
+                    return List(interp->syms.function, cons(interp->syms.lambda, cons(arglist, compile_list(body, ctxt))));
                 }
             } else {
                 return cons(car(expr), compile_list(cdr(expr), ctxt));

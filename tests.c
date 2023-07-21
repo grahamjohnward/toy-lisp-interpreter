@@ -1461,6 +1461,46 @@ static void test_varargs_list()
     str = print_object(mylist);
     check(strcmp("(lambda 2)", str) == 0, "macro");
     free(str);
+    free_interpreter();
+}
+
+static void test_block()
+{
+    test_name = "block";
+    init_interpreter(65536);
+    lisp_object_t result = test_eval_string_helper("(block foo (return-from foo 12) (print \"shouldn't happen\"))");
+    char *str = print_object(result);
+    check(strcmp("12", str) == 0, "ok");
+    free_interpreter();
+}
+static void test_nil_block()
+{
+    test_name = "nil_block";
+    init_interpreter(65536);
+    lisp_object_t result = test_eval_string_helper("(block nil (return-from nil 12) (print \"shouldn't happen\"))");
+    char *str = print_object(result);
+    check(strcmp("12", str) == 0, "ok");
+    free_interpreter();
+}
+
+static void test_nested_block()
+{
+    test_name = "nested_block";
+    init_interpreter(65536);
+    lisp_object_t result = test_eval_string_helper("(block foo (block bar (return-from foo 12) (print \"shouldn't happen\")) 14)");
+    char *str = print_object(result);
+    check(strcmp("12", str) == 0, "ok");
+    free_interpreter();
+}
+
+static void test_nested_nil_block()
+{
+    test_name = "nested_nil_block";
+    init_interpreter(65536);
+    lisp_object_t result = test_eval_string_helper("(block nil (cons (block nil (return-from nil 12) (print \"shouldn't happen\")) 14))");
+    char *str = print_object(result);
+    check(strcmp("(12 . 14)", str) == 0, "ok");
+    free_interpreter();
 }
 
 int main(int argc, char **argv)
@@ -1586,6 +1626,10 @@ int main(int argc, char **argv)
     test_gensym();
     test_defun_implicit_progn();
     test_varargs_list();
+    test_block();
+    test_nil_block();
+    test_nested_block();
+    test_nested_nil_block();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

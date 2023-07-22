@@ -1503,6 +1503,12 @@ static void test_nested_nil_block()
     free_interpreter();
 }
 
+static void test_compile_bug()
+{
+    test_name = "compile_bug";
+    test_eval_helper("(block foo (return-from foo (cons 12 (block bar (return-from bar 23)))))", "(12 . 23)");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1630,6 +1636,7 @@ int main(int argc, char **argv)
     test_nil_block();
     test_nested_block();
     test_nested_nil_block();
+    test_compile_bug();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

@@ -147,7 +147,7 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
                 if (x == NIL)
                     return raise(sym("return-for-unknown-block"), block_name);
                 else
-                    return List(sym("raise"), cdr(x), caddr(expr));
+                    return List(sym("raise"), cdr(x), compile(caddr(expr), ctxt));
             } else if (symbol == interp->syms.quote) {
                 return expr;
             } else if (symbol == interp->syms.quasiquote) {

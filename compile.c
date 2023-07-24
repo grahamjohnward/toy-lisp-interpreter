@@ -170,10 +170,6 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
                 return cons(interp->syms.defmacro, cons(name, cons(arglist, compile_list(body, ctxt))));
             } else if (symbol == interp->syms.set) {
                 return List(interp->syms.set, cadr(expr), compile(car(cddr(expr)), ctxt));
-            } else if (symbol == interp->syms.prog) {
-                lisp_object_t varlist = cadr(expr);
-                lisp_object_t body = cddr(expr);
-                return cons(interp->syms.prog, cons(varlist, compile_list(body, ctxt)));
             } else if (symbol == interp->syms.progn) {
                 return cons(interp->syms.progn, compile_list(cdr(expr), ctxt));
             } else if (symbol == interp->syms.tagbody) {

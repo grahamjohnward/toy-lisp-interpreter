@@ -804,25 +804,20 @@ lisp_object_t test_fn(lisp_object_t a, lisp_object_t b)
 static void test_set()
 {
     test_name = "set";
-    test_eval_helper("(funcall (function (lambda (x) (prog () (set 'x 14) (return x)))) 12)", "14");
-}
-
-static void test_prog()
-{
-    test_name = "prog";
-    test_eval_helper("(funcall (function (lambda (x) (prog (y) (set 'y 12) bof (set 'x 36) boo (return (cons x y))))) 14)", "(36 . 12)");
+    test_eval_helper("(let ((x 12)) (set 'x 14) x)", "14");
+    test_eval_helper("(funcall (function (lambda (x) (set 'x 14) x)) 12)", "14");
 }
 
 static void test_rplaca()
 {
     test_name = "rplaca";
-    test_eval_helper("(prog (x) (set 'x (cons 12 13)) (rplaca x 4) (return (car x)))", "4");
+    test_eval_helper("(let (x) (set 'x (cons 12 13)) (rplaca x 4) (car x))", "4");
 }
 
 static void test_rplacd()
 {
     test_name = "rplacd";
-    test_eval_helper("(prog (x) (set 'x (cons 3 5)) (rplacd x 7) (return (cdr x)))", "7");
+    test_eval_helper("(let (x) (set 'x (cons 3 5)) (rplacd x 7) (cdr x))", "7");
 }
 
 static void test_rest_args()
@@ -862,12 +857,6 @@ static void test_divide()
 {
     test_name = "divide";
     test_eval_helper("(two-arg-divide 256 -2)", "-128");
-}
-
-static void test_return_from_prog()
-{
-    test_name = "return_from_prog";
-    test_eval_helper("(prog (x) (set 'x 12) (cond ((eq x 12) (return 'twelve)) (t nil)) 'bof)", "twelve");
 }
 
 static void test_read_token()
@@ -920,24 +909,6 @@ static void test_integer_bug()
     test_eval_helper("(two-arg-minus (two-arg-minus 123 12) 312312)", "-312201");
 }
 
-static void test_return_outside_prog()
-{
-    test_name = "return_outside_prog";
-    init_interpreter(65536);
-    lisp_object_t result1 = test_eval_string_helper("(defun foo (x) (return (cons 'returned x)))");
-    lisp_object_t result2 = test_eval_string_helper("(prog (x) (set 'x 12) (return (cons 'aha (foo x))))");
-    char *result2str = print_object(result2);
-    check(strcmp("(aha returned . 12)", result2str) == 0, "return value");
-    free(result2str);
-    free_interpreter();
-}
-
-static void test_prog_without_return()
-{
-    test_name = "prog_without_return";
-    test_eval_helper("(prog (x y) (set 'x 14) (set 'y 12) (cons x y))", "nil");
-}
-
 static void test_condition_case()
 {
     test_name = "condition_case";
@@ -971,7 +942,7 @@ static void test_unbound_variable()
 static void test_plist()
 {
     test_name = "plist";
-    test_eval_helper("(prog () (putprop 'foo 'greeting '(hello world)) (return (get 'foo 'greeting)))", "(hello world)");
+    test_eval_helper("(progn (putprop 'foo 'greeting '(hello world)) (get 'foo 'greeting))", "(hello world)");
 }
 
 static void test_defmacro()
@@ -990,7 +961,7 @@ static void test_unquote_splice()
 {
     test_name = "unquote_splice";
     init_interpreter(65536);
-    test_eval_string_helper("(defmacro when (test &body then) `(cond (,test (prog () ,@then)) (t nil)))");
+    test_eval_string_helper("(defmacro when (test &body then) `(cond (,test (progn ,@then)) (t nil)))");
     lisp_object_t result = test_eval_string_helper("(when (eq (car (cons 3 2)) 3) (print 'bof) 14)");
     free_interpreter();
 }
@@ -1027,7 +998,7 @@ static void test_tagbody()
 {
     test_name = "tagbody";
     init_interpreter(65536);
-    test_eval_string_helper("(defun foo (x) (tagbody iterate (cond ((= x 0) (return 'done)) (t (progn (set 'x (two-arg-minus x 1)) (go iterate)))))))");
+    test_eval_string_helper("(defun foo (x) (tagbody iterate (cond ((= x 0) (%return 'done)) (t (progn (set 'x (two-arg-minus x 1)) (go iterate)))))))");
     lisp_object_t result = test_eval_string_helper("(foo 10)");
     char *str = print_object(result);
     check(strcmp("done", str) == 0, "ok");
@@ -1054,7 +1025,7 @@ static void test_tagbody_condition_case()
 {
     test_name = "tagbody_condition_case";
     init_interpreter(65536);
-    test_eval_string_helper("(defun ooh () (tagbody (condition-case e (raise 'ohno) (ohno (go hello))) (return 'bad) hello (return 'hello)))");
+    test_eval_string_helper("(defun ooh () (tagbody (condition-case e (raise 'ohno) (ohno (go hello))) (%return 'bad) hello (%return 'hello)))");
     lisp_object_t result = test_eval_string_helper("(ooh)");
     char *str = print_object(result);
     check(strcmp("hello", str) == 0, "ok");
@@ -1509,6 +1480,18 @@ static void test_compile_bug()
     test_eval_helper("(block foo (return-from foo (cons 12 (block bar (return-from bar 23)))))", "(12 . 23)");
 }
 
+static void test_macroexpand_function_lambda()
+{
+    test_name = "macroexpand_function_lambda";
+    init_interpreter(65536);
+    test_eval_string_helper("(defmacro my-block (&body stuff) `(block nil ,@stuff))");
+    lisp_object_t result = test_eval_string_helper("(funcall (function (lambda (x) (my-block (return-from nil (cons x 'hello))))) 12)");
+    char *str = print_object(result);
+    check(strcmp("(12 . hello)", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1567,7 +1550,6 @@ int main(int argc, char **argv)
     test_defun();
     test_load();
     test_set();
-    test_prog();
     test_rplaca();
     test_rplacd();
     test_rest_args();
@@ -1575,15 +1557,12 @@ int main(int argc, char **argv)
     test_minus();
     test_times();
     test_divide();
-    test_return_from_prog();
     test_read_token();
     test_numeric_equals();
     test_parse_function_pointer();
     test_print_function_pointer();
     test_call_function_pointer();
     test_integer_bug();
-    test_return_outside_prog();
-    test_prog_without_return();
     test_condition_case();
     test_functionp();
     test_print_function();
@@ -1637,6 +1616,7 @@ int main(int argc, char **argv)
     test_nested_block();
     test_nested_nil_block();
     test_compile_bug();
+    test_macroexpand_function_lambda();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

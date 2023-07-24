@@ -227,12 +227,11 @@ static void init_symbols()
     interp->syms.cond = sym("cond");
     interp->syms.defun = sym("defun");
     interp->syms.built_in_function = sym("built-in-function");
-    interp->syms.prog = sym("prog");
     interp->syms.progn = sym("progn");
     interp->syms.tagbody = sym("tagbody");
     interp->syms.set = sym("set");
     interp->syms.go = sym("go");
-    interp->syms.return_ = sym("return");
+    interp->syms.return_ = sym("%return");
     interp->syms.amprest = sym("&rest");
     interp->syms.ampbody = sym("&body");
     interp->syms.ampoptional = sym("&optional");
@@ -648,7 +647,6 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(cond);
     GC_COPY_SYMBOL(defun);
     GC_COPY_SYMBOL(built_in_function);
-    GC_COPY_SYMBOL(prog);
     GC_COPY_SYMBOL(progn);
     GC_COPY_SYMBOL(tagbody);
     GC_COPY_SYMBOL(set);
@@ -671,6 +669,9 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(macro);
     GC_COPY_SYMBOL(function);
     GC_COPY_SYMBOL(funcall);
+    GC_COPY_SYMBOL(return_from);
+    GC_COPY_SYMBOL(pctblock);
+    GC_COPY_SYMBOL(block);
 #undef GC_COPY_SYMBOL
     /* Update pointers inside to-space objects */
     char *scanptr;
@@ -1551,48 +1552,6 @@ static lisp_object_t extend_env_for_prog(lisp_object_t varlist, lisp_object_t a)
         return extend_env_for_prog(cdr(varlist), cons(cons(car(varlist), NIL), a));
 }
 
-lisp_object_t evalprog(lisp_object_t e, lisp_object_t a)
-{
-    lisp_object_t extended_env = extend_env_for_prog(car(e), a);
-    int n = 0;
-    for (lisp_object_t x = cdr(e); x != NIL; x = cdr(x)) {
-        if (symbolp(car(x)) == NIL)
-            n++;
-    }
-    lisp_object_t *table = alloca(n * sizeof(lisp_object_t));
-    int i = 0;
-    lisp_object_t alist = NIL;
-    for (lisp_object_t x = cdr(e); x != NIL; x = cdr(x)) {
-        if (symbolp(car(x)) == NIL) {
-            table[i] = car(x);
-            i++;
-        } else {
-            alist = cons(cons(car(x), i), alist);
-        }
-    }
-    push_return_context(interp->syms.return_);
-    if (setjmp(interp->prog_return_stack->buf)) {
-        return pop_return_context();
-    } else {
-        for (i = 0; i < n;) {
-            lisp_object_t code = table[i];
-            if (consp(code) != NIL && car(code) == interp->syms.go) {
-                lisp_object_t target = assoc(cadr(code), alist);
-                if (target != NIL)
-                    i = cdr(target);
-                else
-                    abort();
-            } else {
-                eval(code, extended_env);
-                i++;
-            }
-        }
-        /* If we get here, we never longjmped */
-        pop_return_context();
-        return NIL;
-    }
-}
-
 lisp_object_t evalprogn(lisp_object_t e, lisp_object_t a)
 {
     lisp_object_t return_value = NIL;
@@ -1842,10 +1801,6 @@ lisp_object_t macroexpand_all(lisp_object_t e)
             return cons(sym, cons(arglist, macroexpand_all_list(body)));
         } else if (sym == interp->syms.tagbody) {
             return cons(sym, macroexpand_all_tagbody(cdr(e)));
-        } else if (sym == interp->syms.prog) {
-            lisp_object_t arglist = cadr(e);
-            lisp_object_t body = cddr(e);
-            return cons(sym, cons(arglist, macroexpand_all_tagbody(body)));
         } else if (sym == interp->syms.progn) {
             return cons(sym, macroexpand_all_list(cdr(e)));
         } else if (sym == interp->syms.condition_case) {
@@ -1861,10 +1816,15 @@ lisp_object_t macroexpand_all(lisp_object_t e)
             lisp_object_t arglist = caddr(e);
             lisp_object_t body = cdr(cddr(e));
             return cons(sym, cons(name, cons(arglist, macroexpand_all_list(body))));
+        } else if (sym == interp->syms.quote) {
+            return e;
         } else if (sym == interp->syms.quasiquote) {
             return cons(sym, macroexpand_all_quasiquote(cdr(e)));
         } else if (sym == interp->syms.function) {
-            return e;
+            if (symbolp(cadr(e)) != NIL)
+                return e;
+            else
+                return List(sym, macroexpand_all(cadr(e)));
         } else {
             // This covers function calls, but also special forms that look like them,
             // e.g. `go`, `set`.
@@ -1916,8 +1876,6 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
             return evaldefmacro(cdr(e), a);
         } else if (eq(car(e), interp->syms.set) != NIL) {
             return evalset(e, a);
-        } else if (eq(car(e), interp->syms.prog) != NIL) {
-            return evalprog(cdr(e), a);
         } else if (eq(car(e), interp->syms.progn) != NIL) {
             return evalprogn(cdr(e), a);
         } else if (eq(car(e), interp->syms.pctblock) != NIL) {

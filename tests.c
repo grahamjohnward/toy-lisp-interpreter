@@ -766,6 +766,7 @@ static void test_eval()
     test_eval_helper("(funcall (function (lambda (X) (car X))) (cons (quote A) (quote B)))", "A");
 }
 
+// can go
 static void test_defun()
 {
     test_name = "defun";
@@ -820,6 +821,7 @@ static void test_rplacd()
     test_eval_helper("(let (x) (set 'x (cons 3 5)) (rplacd x 7) (cdr x))", "7");
 }
 
+// use lambda instead
 static void test_rest_args()
 {
     test_name = "rest_args";
@@ -966,6 +968,7 @@ static void test_unquote_splice()
     free_interpreter();
 }
 
+// use lambda instead
 static void test_optional_arguments()
 {
     test_name = "optional_arguments";
@@ -982,6 +985,7 @@ static void test_optional_arguments()
     free_interpreter();
 }
 
+// use let instead
 static void test_progn()
 {
     test_name = "progn";
@@ -994,6 +998,7 @@ static void test_progn()
     free_interpreter();
 }
 
+// use let instead
 static void test_tagbody()
 {
     test_name = "tagbody";
@@ -1005,6 +1010,7 @@ static void test_tagbody()
     free(str);
 }
 
+// use let instead
 static void test_tagbody_bug()
 {
     test_name = "tagbody_bug";
@@ -1021,6 +1027,7 @@ static void test_tagbody_returns_nil()
     test_eval_helper("(tagbody 14)", "nil");
 }
 
+// not sure about this one
 static void test_tagbody_condition_case()
 {
     test_name = "tagbody_condition_case";
@@ -1163,6 +1170,7 @@ static void test_macroexpand_all_let()
     free_interpreter();
 }
 
+// can go
 static void test_macroexpand_all_defun()
 {
     test_name = "macroexpand_all_defun";
@@ -1492,6 +1500,18 @@ static void test_macroexpand_function_lambda()
     free_interpreter();
 }
 
+static void test_set_symbol_function()
+{
+    test_name = "set_symbol_function";
+    init_interpreter(65536);
+    test_eval_string_helper("(set-symbol-function 'boo #'(lambda (x) (cons ':boo x)))");
+    lisp_object_t result = test_eval_string_helper("(boo 14)");
+    char *str = print_object(result);
+    check(strcmp("(:boo . 14)", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1617,6 +1637,7 @@ int main(int argc, char **argv)
     test_nested_nil_block();
     test_compile_bug();
     test_macroexpand_function_lambda();
+    test_set_symbol_function();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

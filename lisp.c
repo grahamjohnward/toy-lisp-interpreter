@@ -288,6 +288,8 @@ lisp_object_t funcall(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
 
 lisp_object_t gc();
 
+lisp_object_t set_symbol_function(lisp_object_t symbol, lisp_object_t function);
+
 #define FUNCALL_ARITY -1
 
 static void init_builtins()
@@ -333,6 +335,7 @@ static void init_builtins()
     DEFBUILTIN("funcall", funcall, FUNCALL_ARITY);
     DEFBUILTIN("gc", gc, 0);
     DEFBUILTIN("gensym", gensym, 0);
+    DEFBUILTIN("set-symbol-function", set_symbol_function, 2);
 #undef DEFBUILTIN
 }
 
@@ -1510,6 +1513,13 @@ lisp_object_t evallet(lisp_object_t e, lisp_object_t a)
     return eval(cons(interp->syms.progn, cdr(e)), extended_env);
 }
 
+lisp_object_t set_symbol_function(lisp_object_t symbol, lisp_object_t function)
+{
+    struct symbol *sym = SymbolPtr(symbol);
+    sym->function = function;
+    return symbol;
+}
+
 lisp_object_t evaldefun(lisp_object_t e, lisp_object_t a)
 {
     lisp_object_t fname = car(e);
@@ -1520,8 +1530,7 @@ lisp_object_t evaldefun(lisp_object_t e, lisp_object_t a)
     struct lisp_function *fnptr = LispFunctionPtr(fn_new);
     fnptr->kind = interp->syms.lambda;
     fnptr->actual_function = fn;
-    struct symbol *sym = SymbolPtr(fname);
-    sym->function = fn_new;
+    return set_symbol_function(fname, fn_new);
     return fname;
 }
 

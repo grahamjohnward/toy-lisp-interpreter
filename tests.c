@@ -766,19 +766,6 @@ static void test_eval()
     test_eval_helper("(funcall (function (lambda (X) (car X))) (cons (quote A) (quote B)))", "A");
 }
 
-// can go
-static void test_defun()
-{
-    test_name = "defun";
-    init_interpreter(32768);
-    lisp_object_t result1 = test_eval_string_helper("(defun foo (x) (cons x (quote bar)))");
-    lisp_object_t result2 = test_eval_string_helper("(foo 14)");
-    char *str = print_object(result2);
-    check(strcmp("(14 . bar)", str) == 0, "result");
-    free(str);
-    free_interpreter();
-}
-
 static void test_load1()
 {
     test_name = "load";
@@ -821,12 +808,11 @@ static void test_rplacd()
     test_eval_helper("(let (x) (set 'x (cons 3 5)) (rplacd x 7) (cdr x))", "7");
 }
 
-// use lambda instead
 static void test_rest_args()
 {
     test_name = "rest_args";
     init_interpreter(32768);
-    char *teststr = "(defun foo (a b &rest c) (cons c (cons b a)))";
+    char *teststr = "(set-symbol-function 'foo #'(lambda (a b &rest c) (cons c (cons b a))))";
     eval_toplevel(parse1_wrapper(teststr));
     teststr = "(foo 1 2 3)";
     lisp_object_t result = eval_toplevel(parse1_wrapper(teststr));
@@ -968,12 +954,11 @@ static void test_unquote_splice()
     free_interpreter();
 }
 
-// use lambda instead
 static void test_optional_arguments()
 {
     test_name = "optional_arguments";
     init_interpreter(65536);
-    eval_toplevel(parse1_wrapper("(defun test (a &optional b) (cons 'hello (cons a (cons b 'foo))))"));
+    eval_toplevel(parse1_wrapper("(set-symbol-function 'test #'(lambda (a &optional b) (cons 'hello (cons a (cons b 'foo)))))"));
     lisp_object_t result = test_eval_string_helper("(test 3 4)");
     char *str = print_object(result);
     check(strcmp(str, "(hello 3 4 . foo)") == 0, "provided");
@@ -990,33 +975,28 @@ static void test_progn()
 {
     test_name = "progn";
     init_interpreter(65536);
-    test_eval_string_helper("(defun foo (x y) (progn (set 'x 12) (set 'y 13) (cons 12 13)))");
-    lisp_object_t result = test_eval_string_helper("(foo 3 4)");
+    lisp_object_t result = test_eval_string_helper("(let ((x 3) (y 4)) (progn (set 'x 12) (set 'y 13) (cons x y)))");
     char *str = print_object(result);
     check(strcmp(str, "(12 . 13)") == 0, "ok");
     free(str);
     free_interpreter();
 }
 
-// use let instead
 static void test_tagbody()
 {
     test_name = "tagbody";
     init_interpreter(65536);
-    test_eval_string_helper("(defun foo (x) (tagbody iterate (cond ((= x 0) (%return 'done)) (t (progn (set 'x (two-arg-minus x 1)) (go iterate)))))))");
-    lisp_object_t result = test_eval_string_helper("(foo 10)");
+    lisp_object_t result = test_eval_string_helper("(let ((x 10)) (block b (tagbody iterate (cond ((= x 0) (return-from b 'done)) (t (progn (set 'x (two-arg-minus x 1)) (go iterate)))))))");
     char *str = print_object(result);
     check(strcmp("done", str) == 0, "ok");
     free(str);
 }
 
-// use let instead
 static void test_tagbody_bug()
 {
     test_name = "tagbody_bug";
     init_interpreter(65536);
-    test_eval_string_helper("(defun test (x) (progn (tagbody (set 'x 14)) x))");
-    lisp_object_t result = test_eval_string_helper("(test 2)");
+    lisp_object_t result = test_eval_string_helper("(let ((x 2)) (progn (tagbody (set 'x 14)) x))");
     check(result == 14 << 4, "ok");
     free_interpreter();
 }
@@ -1032,8 +1012,7 @@ static void test_tagbody_condition_case()
 {
     test_name = "tagbody_condition_case";
     init_interpreter(65536);
-    test_eval_string_helper("(defun ooh () (tagbody (condition-case e (raise 'ohno) (ohno (go hello))) (%return 'bad) hello (%return 'hello)))");
-    lisp_object_t result = test_eval_string_helper("(ooh)");
+    lisp_object_t result = test_eval_string_helper("(block b (tagbody (condition-case e (raise 'ohno) (ohno (go hello))) (return-from b 'bad) hello (return-from b 'hello)))");
     char *str = print_object(result);
     check(strcmp("hello", str) == 0, "ok");
     free(str);
@@ -1170,21 +1149,6 @@ static void test_macroexpand_all_let()
     free_interpreter();
 }
 
-// can go
-static void test_macroexpand_all_defun()
-{
-    test_name = "macroexpand_all_defun";
-    init_interpreter(65536);
-    test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
-    test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
-    lisp_object_t expr = parse1_wrapper("(defun myfun (a b) (ooh a) (aah b))");
-    lisp_object_t result = macroexpand_all(expr);
-    char *str = print_object(result);
-    check(strcmp("(defun myfun (a b) (bar a) (bar b))", str) == 0, "ok");
-    free(str);
-    free_interpreter();
-}
-
 static void test_macroexpand_all_defmacro()
 {
     test_name = "macroexpand_all_defmacro";
@@ -1218,7 +1182,7 @@ static void test_macroexpansion_bug()
     test_name = "macroexpansion_bug";
     init_interpreter(65536);
     test_eval_string_helper("(defmacro if (p a &optional b) (cond (b `(cond (,p ,a) (t ,b))) (t `(cond (,p ,a) (t nil)))))");
-    test_eval_string_helper("(defun %%and (things) (if (eq things nil) nil (let ((x (car things))) `(if ,x ,(%%and (cdr things)) nil))))");
+    test_eval_string_helper("(set-symbol-function '%%and #'(lambda (things) (if (eq things nil) nil (let ((x (car things))) `(if ,x ,(%%and (cdr things)) nil)))))");
     lisp_object_t result = test_eval_string_helper("(%%and (cons 'a (cons 'b (cons 'c nil))))");
     char *str = print_object(result);
     check(strcmp("(if a (if b (if c nil nil) nil) nil)", str) == 0, "ok");
@@ -1416,25 +1380,13 @@ static void test_gensym()
     free_interpreter();
 }
 
-static void test_defun_implicit_progn()
-{
-    test_name = "defun_implicit_progn";
-    init_interpreter(65536);
-    test_eval_string_helper("(defun foo (x) (cons x x) (two-arg-plus x 1))");
-    lisp_object_t result = test_eval_string_helper("(foo 1)");
-    char *str = print_object(result);
-    check(strcmp("2", str) == 0, "ok");
-    free(str);
-    free_interpreter();
-}
-
 static void test_varargs_list()
 {
     test_name = "varargs_list";
     init_interpreter(65536);
-    lisp_object_t mylist = list(interp->syms.defun, sym("hello"), NIL);
+    lisp_object_t mylist = list(interp->syms.lambda, sym("hello"), NIL);
     char *str = print_object(mylist);
-    check(strcmp("(defun hello)", str) == 0, "function");
+    check(strcmp("(lambda hello)", str) == 0, "function");
     free(str);
     mylist = List(interp->syms.lambda, 32);
     str = print_object(mylist);
@@ -1567,7 +1519,6 @@ int main(int argc, char **argv)
     test_sym();
     test_evalquote();
     test_eval();
-    test_defun();
     test_load();
     test_set();
     test_rplaca();
@@ -1606,7 +1557,6 @@ int main(int argc, char **argv)
     test_macroexpand_all_prog();
     test_macroexpand_all_set();
     test_macroexpand_all_let();
-    test_macroexpand_all_defun();
     test_macroexpand_all_defmacro();
     test_macroexpand_all_condition_case();
     test_macroexpansion_bug();
@@ -1629,7 +1579,6 @@ int main(int argc, char **argv)
     test_nonexistent_function();
     test_unquote_splice_bug();
     test_gensym();
-    test_defun_implicit_progn();
     test_varargs_list();
     test_block();
     test_nil_block();

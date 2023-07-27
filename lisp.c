@@ -225,7 +225,6 @@ static void init_symbols()
     interp->syms.lambda = sym("lambda");
     interp->syms.quote = sym("quote");
     interp->syms.cond = sym("cond");
-    interp->syms.defun = sym("defun");
     interp->syms.built_in_function = sym("built-in-function");
     interp->syms.progn = sym("progn");
     interp->syms.tagbody = sym("tagbody");
@@ -648,7 +647,6 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(lambda);
     GC_COPY_SYMBOL(quote);
     GC_COPY_SYMBOL(cond);
-    GC_COPY_SYMBOL(defun);
     GC_COPY_SYMBOL(built_in_function);
     GC_COPY_SYMBOL(progn);
     GC_COPY_SYMBOL(tagbody);
@@ -1520,25 +1518,18 @@ lisp_object_t set_symbol_function(lisp_object_t symbol, lisp_object_t function)
     return symbol;
 }
 
-lisp_object_t evaldefun(lisp_object_t e, lisp_object_t a)
-{
-    lisp_object_t fname = car(e);
-    lisp_object_t arglist = cadr(e);
-    lisp_object_t body = cddr(e);
-    lisp_object_t fn = cons(interp->syms.lambda, cons(arglist, body));
-    lisp_object_t fn_new = allocate_function();
-    struct lisp_function *fnptr = LispFunctionPtr(fn_new);
-    fnptr->kind = interp->syms.lambda;
-    fnptr->actual_function = fn;
-    return set_symbol_function(fname, fn_new);
-    return fname;
-}
+lisp_object_t eval_function(lisp_object_t function, lisp_object_t a);
 
 lisp_object_t evaldefmacro(lisp_object_t e, lisp_object_t a)
 {
-    lisp_object_t fname = evaldefun(e, a);
-    putprop(fname, interp->syms.macro, T);
-    return fname;
+    lisp_object_t name = car(e);
+    lisp_object_t arglist = cadr(e);
+    lisp_object_t body = cddr(e);
+    lisp_object_t block = cons(interp->syms.block, cons(name, body));
+    lisp_object_t lambda = List(interp->syms.lambda, arglist, block);
+    set_symbol_function(name, eval_function(compile_toplevel(lambda), a));
+    putprop(name, interp->syms.macro, T);
+    return name;
 }
 
 lisp_object_t evalset(lisp_object_t e, lisp_object_t a)
@@ -1820,11 +1811,6 @@ lisp_object_t macroexpand_all(lisp_object_t e)
         } else if (sym == interp->syms.let) {
             lisp_object_t body = cddr(e);
             return cons(sym, cons(macroexpand_all_let(cadr(e)), macroexpand_all_list(body)));
-        } else if (sym == interp->syms.defun || sym == interp->syms.defmacro) {
-            lisp_object_t name = cadr(e);
-            lisp_object_t arglist = caddr(e);
-            lisp_object_t body = cdr(cddr(e));
-            return cons(sym, cons(name, cons(arglist, macroexpand_all_list(body))));
         } else if (sym == interp->syms.quote) {
             return e;
         } else if (sym == interp->syms.quasiquote) {
@@ -1879,8 +1865,6 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
             return evcon(cdr(e), a);
         } else if (eq(car(e), interp->syms.let) != NIL) {
             return evallet(cdr(e), a);
-        } else if (eq(car(e), interp->syms.defun) != NIL) {
-            return evaldefun(cdr(e), a);
         } else if (eq(car(e), interp->syms.defmacro) != NIL) {
             return evaldefmacro(cdr(e), a);
         } else if (eq(car(e), interp->syms.set) != NIL) {

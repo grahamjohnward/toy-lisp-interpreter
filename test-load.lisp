@@ -1,13 +1,13 @@
 ;; Define a function
-(defun test1 (x) (cons (quote hello) x))
+(set-symbol-function 'test1 #'(lambda (x) (cons (quote hello) x)))
 
 ;; Call it
 (test1 (quote world))
 
 ;; Define another function
-(defun test2 (x) 
+(set-symbol-function 'test2 #'(lambda (x)
   (cond ((eq x (quote bof)) (quote boo))
-	(t (quote ohno))))
+	(t (quote ohno)))))
 
 ;; Test the function
 (test2 (quote bof))

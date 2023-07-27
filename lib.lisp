@@ -1,3 +1,6 @@
+(defmacro defun (fname arglist &body body)
+  `(set-symbol-function ',fname #'(lambda ,arglist (block ,fname ,@body))))
+
 (defun list (&rest args)
   args)
 

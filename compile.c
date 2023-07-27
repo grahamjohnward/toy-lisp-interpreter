@@ -158,11 +158,6 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
                 return cons(interp->syms.cond, compile_cond_clauses(cdr(expr), ctxt));
             } else if (symbol == interp->syms.let) {
                 return compile_let(expr, ctxt);
-            } else if (symbol == interp->syms.defun) {
-                lisp_object_t name = cadr(expr);
-                lisp_object_t arglist = car(cddr(expr));
-                lisp_object_t body = cdr(cddr((expr)));
-                return cons(interp->syms.defun, cons(name, cons(arglist, compile_list(body, ctxt))));
             } else if (symbol == interp->syms.defmacro) {
                 lisp_object_t name = cadr(expr);
                 lisp_object_t arglist = car(cddr(expr));

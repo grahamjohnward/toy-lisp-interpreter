@@ -1,3 +1,12 @@
+(progn
+  (set-symbol-function 'defmacro
+		       #'(lambda (name arglist &body body)
+			   `(progn
+			      (let ((result (set-symbol-function ',name #'(lambda ,arglist (block ,name ,@body)))))
+				(putprop ',name 'macro 't)
+				result))))
+  (putprop 'defmacro 'macro 't))
+
 (defmacro defun (fname arglist &body body)
   `(set-symbol-function ',fname #'(lambda ,arglist (block ,fname ,@body))))
 

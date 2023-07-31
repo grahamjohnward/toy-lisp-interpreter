@@ -235,7 +235,6 @@ static void init_symbols()
     interp->syms.ampbody = sym("&body");
     interp->syms.ampoptional = sym("&optional");
     interp->syms.condition_case = sym("condition-case");
-    interp->syms.defmacro = sym("defmacro");
     interp->syms.quasiquote = sym("quasiquote");
     interp->syms.unquote = sym("unquote");
     interp->syms.unquote_splice = sym("unquote-splice");
@@ -657,7 +656,6 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(ampbody);
     GC_COPY_SYMBOL(ampoptional);
     GC_COPY_SYMBOL(condition_case);
-    GC_COPY_SYMBOL(defmacro);
     GC_COPY_SYMBOL(quasiquote);
     GC_COPY_SYMBOL(unquote);
     GC_COPY_SYMBOL(unquote_splice);
@@ -1520,18 +1518,6 @@ lisp_object_t set_symbol_function(lisp_object_t symbol, lisp_object_t function)
 
 lisp_object_t eval_function(lisp_object_t function, lisp_object_t a);
 
-lisp_object_t evaldefmacro(lisp_object_t e, lisp_object_t a)
-{
-    lisp_object_t name = car(e);
-    lisp_object_t arglist = cadr(e);
-    lisp_object_t body = cddr(e);
-    lisp_object_t block = cons(interp->syms.block, cons(name, body));
-    lisp_object_t lambda = List(interp->syms.lambda, arglist, block);
-    set_symbol_function(name, eval_function(compile_toplevel(lambda), a));
-    putprop(name, interp->syms.macro, T);
-    return name;
-}
-
 lisp_object_t evalset(lisp_object_t e, lisp_object_t a)
 {
     lisp_object_t sym = eval(cadr(e), a);
@@ -1865,8 +1851,6 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
             return evcon(cdr(e), a);
         } else if (eq(car(e), interp->syms.let) != NIL) {
             return evallet(cdr(e), a);
-        } else if (eq(car(e), interp->syms.defmacro) != NIL) {
-            return evaldefmacro(cdr(e), a);
         } else if (eq(car(e), interp->syms.set) != NIL) {
             return evalset(e, a);
         } else if (eq(car(e), interp->syms.progn) != NIL) {

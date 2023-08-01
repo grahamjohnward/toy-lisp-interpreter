@@ -339,6 +339,7 @@ static void init_builtins()
 
 void init_interpeter_from_image(char *image)
 {
+    assert(!interpreter_initialized);
     int fd = open(image, O_RDONLY);
     if (fd < 0) {
         perror(image);
@@ -365,6 +366,7 @@ void init_interpeter_from_image(char *image)
 
 void init_interpreter(size_t heap_size)
 {
+    assert(!interpreter_initialized);
     interp = (struct lisp_interpreter *)malloc(sizeof(struct lisp_interpreter));
     assert(sizeof(lisp_object_t) == sizeof(void *));
     interp->symbol_table = NIL;

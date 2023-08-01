@@ -348,7 +348,7 @@ void init_interpeter_from_image(char *image)
     interp = (struct lisp_interpreter *)malloc(sizeof(struct lisp_interpreter));
     assert(sizeof(lisp_object_t) == sizeof(void *));
     interp->environ = NIL;
-    interp->prog_return_stack = NULL;
+    interp->return_stack = NULL;
     interp->top_of_stack = get_rbp(2);
     do_read(fd, (char *)&interp->symbol_table, sizeof(lisp_object_t));
     do_read(fd, (char *)&interp->heap, sizeof(struct lisp_heap));
@@ -370,7 +370,7 @@ void init_interpreter(size_t heap_size)
     interp = (struct lisp_interpreter *)malloc(sizeof(struct lisp_interpreter));
     assert(sizeof(lisp_object_t) == sizeof(void *));
     interp->symbol_table = NIL;
-    interp->prog_return_stack = NULL;
+    interp->return_stack = NULL;
     interp->environ = NIL;
     interp->top_of_stack = get_rbp(2);
     lisp_heap_init(&interp->heap, heap_size);
@@ -623,7 +623,7 @@ lisp_object_t gc()
         if (object_is_in_from_space(heap, *p))
             gc_copy(&interp->heap, p);
     /* Roots - return contexts */
-    for (struct return_context *ctxt = interp->prog_return_stack; ctxt; ctxt = ctxt->next) {
+    for (struct return_context *ctxt = interp->return_stack; ctxt; ctxt = ctxt->next) {
         gc_copy(heap, &ctxt->return_value);
         gc_copy(heap, &ctxt->type);
         for (int i = 0; i < ctxt->tagbody_forms_len; i++)
@@ -1377,18 +1377,18 @@ static void push_return_context(lisp_object_t type)
 {
     struct return_context *ctxt = malloc(sizeof(struct return_context));
     ctxt->type = type;
-    ctxt->next = interp->prog_return_stack;
+    ctxt->next = interp->return_stack;
     ctxt->return_value = NIL;
     ctxt->tagbody_forms = NULL;
     ctxt->tagbody_forms_len = 0;
-    interp->prog_return_stack = ctxt;
+    interp->return_stack = ctxt;
 }
 
 static lisp_object_t pop_return_context()
 {
-    struct return_context *ctxt = interp->prog_return_stack;
+    struct return_context *ctxt = interp->return_stack;
     lisp_object_t retval = ctxt->return_value;
-    interp->prog_return_stack = ctxt->next;
+    interp->return_stack = ctxt->next;
     if (ctxt->tagbody_forms)
         free(ctxt->tagbody_forms);
     free(ctxt);
@@ -1397,23 +1397,23 @@ static lisp_object_t pop_return_context()
 
 lisp_object_t raise(lisp_object_t sym, lisp_object_t value)
 {
-    while (interp->prog_return_stack && interp->prog_return_stack->type != sym)
+    while (interp->return_stack && interp->return_stack->type != sym)
         pop_return_context();
-    if (!interp->prog_return_stack) {
+    if (!interp->return_stack) {
         char *message = print_object(cons(sym, cons(value, NIL)));
         printf("Unhandled exception: %s\n", message);
         free(message);
         abort();
     }
-    interp->prog_return_stack->return_value = value;
-    longjmp(interp->prog_return_stack->buf, 1);
+    interp->return_stack->return_value = value;
+    longjmp(interp->return_stack->buf, 1);
     return NIL; /* we never actually return */
 }
 
 static lisp_object_t apply_lambda(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
 {
     push_return_context(interp->syms.return_);
-    if (setjmp(interp->prog_return_stack->buf)) {
+    if (setjmp(interp->return_stack->buf)) {
         return pop_return_context();
     } else {
         lisp_object_t retval;
@@ -1552,7 +1552,7 @@ lisp_object_t evalblock(lisp_object_t e, lisp_object_t a)
 {
     lisp_object_t block_number = car(e);
     push_return_context(block_number);
-    if (setjmp(interp->prog_return_stack->buf)) {
+    if (setjmp(interp->return_stack->buf)) {
         return pop_return_context();
     } else {
         // This is a single form in current approach
@@ -1585,11 +1585,11 @@ lisp_object_t evaltagbody(lisp_object_t e, lisp_object_t a)
             /* add symbol -> table index mapping to alist */
             alist = cons(cons(car(x), i), alist);
     }
-    interp->prog_return_stack->tagbody_forms_len = i;
-    interp->prog_return_stack->tagbody_forms = table;
-    interp->prog_return_stack->return_value = alist;
+    interp->return_stack->tagbody_forms_len = i;
+    interp->return_stack->tagbody_forms = table;
+    interp->return_stack->return_value = alist;
     for (i = 0; i < n; i++) {
-        int v = setjmp(interp->prog_return_stack->buf);
+        int v = setjmp(interp->return_stack->buf);
         if (v != 0)
             i = v - 1;
         eval(table[i], a);
@@ -1600,9 +1600,9 @@ lisp_object_t evaltagbody(lisp_object_t e, lisp_object_t a)
 
 lisp_object_t evalgo(lisp_object_t tag)
 {
-    while (interp->prog_return_stack && eq(interp->prog_return_stack->type, interp->syms.return_) == NIL && eq(interp->prog_return_stack->type, interp->syms.tagbody) == NIL)
+    while (interp->return_stack && eq(interp->return_stack->type, interp->syms.return_) == NIL && eq(interp->return_stack->type, interp->syms.tagbody) == NIL)
         pop_return_context();
-    struct return_context *ctxt = interp->prog_return_stack;
+    struct return_context *ctxt = interp->return_stack;
     if (ctxt && eq(ctxt->type, interp->syms.tagbody) != NIL) {
         longjmp(ctxt->buf, cdr(assoc(tag, ctxt->return_value)) + 1);
     } else {
@@ -1622,8 +1622,8 @@ lisp_object_t eval_condition_case(lisp_object_t e, lisp_object_t a)
     for (lisp_object_t handler = handlers; handler != NIL; handler = cdr(handler)) {
         lisp_object_t symbol = caar(handler);
         push_return_context(symbol);
-        if (setjmp(interp->prog_return_stack->buf)) {
-            symbol = interp->prog_return_stack->type;
+        if (setjmp(interp->return_stack->buf)) {
+            symbol = interp->return_stack->type;
             lisp_object_t entry = cons(var, cons(symbol, pop_return_context()));
             lisp_object_t env = cons(entry, a);
             return eval(cadr(assoc(symbol, handlers)), env);

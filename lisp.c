@@ -1768,34 +1768,36 @@ lisp_object_t macroexpand_all(lisp_object_t e)
     if (consp(e) == NIL) {
         return e;
     } else if (symbolp(car(e)) != NIL) {
-        lisp_object_t sym = car(e);
-        if (sym == interp->syms.cond) {
-            return cons(sym, macroexpand_all_cond_clauses(cdr(e)));
-        } else if (sym == interp->syms.lambda) {
-            lisp_object_t arglist = cadr(e);
-            lisp_object_t body = cddr(e);
-            return cons(sym, cons(arglist, macroexpand_all_list(body)));
-        } else if (sym == interp->syms.tagbody) {
-            return cons(sym, macroexpand_all_tagbody(cdr(e)));
-        } else if (sym == interp->syms.progn) {
-            return cons(sym, macroexpand_all_list(cdr(e)));
-        } else if (sym == interp->syms.condition_case) {
+        lisp_object_t s = car(e);
+        if (s == interp->syms.cond) {
+            return cons(s, macroexpand_all_cond_clauses(cdr(e)));
+        } else if (s == interp->syms.tagbody) {
+            return cons(s, macroexpand_all_tagbody(cdr(e)));
+        } else if (s == interp->syms.progn) {
+            return cons(s, macroexpand_all_list(cdr(e)));
+        } else if (s == interp->syms.condition_case) {
             lisp_object_t exc = cadr(e);
             lisp_object_t body = caddr(e);
             lisp_object_t clauses = cdr(cddr(e));
-            return cons(sym, cons(exc, cons(macroexpand_all(body), macroexpand_all_let(clauses))));
-        } else if (sym == interp->syms.let) {
+            return cons(s, cons(exc, cons(macroexpand_all(body), macroexpand_all_let(clauses))));
+        } else if (s == interp->syms.let) {
             lisp_object_t body = cddr(e);
-            return cons(sym, cons(macroexpand_all_let(cadr(e)), macroexpand_all_list(body)));
-        } else if (sym == interp->syms.quote) {
+            return cons(s, cons(macroexpand_all_let(cadr(e)), macroexpand_all_list(body)));
+        } else if (s == interp->syms.quote) {
             return e;
-        } else if (sym == interp->syms.quasiquote) {
-            return cons(sym, macroexpand_all_quasiquote(cdr(e)));
-        } else if (sym == interp->syms.function) {
-            if (symbolp(cadr(e)) != NIL)
+        } else if (s == interp->syms.quasiquote) {
+            return cons(s, macroexpand_all_quasiquote(cdr(e)));
+        } else if (s == interp->syms.function) {
+            if (symbolp(cadr(e)) != NIL) {
                 return e;
-            else
-                return List(sym, macroexpand_all(cadr(e)));
+            } else if (consp(cadr(e)) != NIL && car(cadr(e)) == interp->syms.lambda) {
+                lisp_object_t lambda_expr = cadr(e);
+                lisp_object_t arglist = cadr(lambda_expr);
+                lisp_object_t body = cddr(lambda_expr);
+                return List(s, cons(interp->syms.lambda, cons(arglist, macroexpand_all_list(body))));
+            } else {
+                return raise(sym("bad-function"), cadr(e));
+            }
         } else {
             // This covers function calls, but also special forms that look like them,
             // e.g. `go`, `set`.

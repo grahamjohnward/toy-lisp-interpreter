@@ -157,3 +157,6 @@
 
 (defmacro return (&optional value)
   `(return-from nil ,value))
+
+(defmacro lambda (arglist &body body)
+  `(function (lambda ,arglist ,@body)))

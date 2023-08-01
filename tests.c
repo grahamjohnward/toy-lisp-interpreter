@@ -910,7 +910,7 @@ static void test_functionp()
     test_name = "functionp";
     init_interpreter(32768);
     check(functionp(test_eval_string_helper("(function (lambda (x) (cons x x)))")) == T, "lambda t");
-    check(functionp(test_eval_string_helper("(function 'cons)")) == T, "cons t");
+    check(functionp(test_eval_string_helper("(function cons)")) == T, "cons t");
     check(functionp(parse1_wrapper("foo")) == NIL, "symbol nil");
     check(functionp(test_eval_string_helper("14")) == NIL, "integer nil");
     free_interpreter();
@@ -920,7 +920,7 @@ static void test_print_function()
 {
     test_name = "print_function";
     test_eval_helper("(function (lambda (x) (cons x x)))", "#<function>");
-    test_eval_helper("(function 'cons)", "#<function>");
+    test_eval_helper("(function cons)", "#<function>");
 }
 
 static void test_unbound_variable()

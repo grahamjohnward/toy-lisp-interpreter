@@ -230,7 +230,6 @@ static void init_symbols()
     interp->syms.tagbody = sym("tagbody");
     interp->syms.set = sym("set");
     interp->syms.go = sym("go");
-    interp->syms.return_ = sym("%return");
     interp->syms.amprest = sym("&rest");
     interp->syms.ampbody = sym("&body");
     interp->syms.ampoptional = sym("&optional");
@@ -653,7 +652,6 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(tagbody);
     GC_COPY_SYMBOL(set);
     GC_COPY_SYMBOL(go);
-    GC_COPY_SYMBOL(return_);
     GC_COPY_SYMBOL(amprest);
     GC_COPY_SYMBOL(ampbody);
     GC_COPY_SYMBOL(ampoptional);
@@ -1412,18 +1410,11 @@ lisp_object_t raise(lisp_object_t sym, lisp_object_t value)
 
 static lisp_object_t apply_lambda(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
 {
-    push_return_context(interp->syms.return_);
-    if (setjmp(interp->return_stack->buf)) {
-        return pop_return_context();
-    } else {
-        lisp_object_t retval;
-        lisp_object_t env = pairlis2(cadr(fn), x, a);
-        for (lisp_object_t expr = cddr(fn); expr != NIL; expr = cdr(expr))
-            retval = eval(car(expr), env);
-        /* If we get here, we never longjmped */
-        pop_return_context();
-        return retval;
-    }
+    lisp_object_t retval = NIL;
+    lisp_object_t env = pairlis2(cadr(fn), x, a);
+    for (lisp_object_t expr = cddr(fn); expr != NIL; expr = cdr(expr))
+        retval = eval(car(expr), env);
+    return retval;
 }
 
 static lisp_object_t apply_built_in_function(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
@@ -1600,15 +1591,12 @@ lisp_object_t evaltagbody(lisp_object_t e, lisp_object_t a)
 
 lisp_object_t evalgo(lisp_object_t tag)
 {
-    while (interp->return_stack && eq(interp->return_stack->type, interp->syms.return_) == NIL && eq(interp->return_stack->type, interp->syms.tagbody) == NIL)
+    while (interp->return_stack && eq(interp->return_stack->type, interp->syms.tagbody) == NIL)
         pop_return_context();
     struct return_context *ctxt = interp->return_stack;
     if (ctxt && eq(ctxt->type, interp->syms.tagbody) != NIL) {
         longjmp(ctxt->buf, cdr(assoc(tag, ctxt->return_value)) + 1);
     } else {
-        /* No enclosing tagbody */
-        if (ctxt)
-            assert(eq(ctxt->type, interp->syms.return_) != NIL);
         raise(sym("error"), NIL);
     }
     return NIL; /* never actually returned */
@@ -1863,8 +1851,6 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
             return evaltagbody(cdr(e), a);
         } else if (eq(car(e), interp->syms.go) != NIL) {
             return evalgo(cadr(e));
-        } else if (eq(car(e), interp->syms.return_) != NIL) {
-            return raise(interp->syms.return_, eval(cadr(e), a));
         } else if (eq(car(e), interp->syms.condition_case) != NIL) {
             return eval_condition_case(cdr(e), a);
         } else if (eq(car(e), interp->syms.function) != NIL) {

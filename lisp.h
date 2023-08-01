@@ -117,7 +117,7 @@ lisp_object_t gensym();
 lisp_object_t compile_toplevel(lisp_object_t expr);
 
 struct syms {
-    lisp_object_t lambda, quote, cond, built_in_function, progn, tagbody, set, go, return_, amprest, ampbody, ampoptional, condition_case, quasiquote, unquote, unquote_splice, let, integer, symbol, cons, string, vector, macro, function, funcall, block, pctblock, return_from;
+    lisp_object_t lambda, quote, cond, built_in_function, progn, tagbody, set, go, amprest, ampbody, ampoptional, condition_case, quasiquote, unquote, unquote_splice, let, integer, symbol, cons, string, vector, macro, function, funcall, block, pctblock, return_from;
 };
 
 struct cons {

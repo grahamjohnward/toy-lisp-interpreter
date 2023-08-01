@@ -167,10 +167,6 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
             } else if (symbol == interp->syms.go) {
                 // Nothing to do here
                 return expr;
-            } else if (symbol == interp->syms.return_) {
-                // Nothing to do here for now
-                // Perhaps we could convert it to (raise 'return)
-                return expr;
             } else if (symbol == interp->syms.condition_case) {
                 lisp_object_t exc = cadr(expr);
                 lisp_object_t body = caddr(expr);

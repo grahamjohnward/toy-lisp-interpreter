@@ -1046,13 +1046,13 @@ lisp_object_t parse1(struct text_stream *ts)
         int base = zeroxprefix == token ? 16 : 10;
         char *endptr;
         uint64_t val = strtoll(token, &endptr, base);
-        if (*endptr == '\0') {
-            return base == 16 ? ((val << 4) | FUNCTION_POINTER_TYPE) : (val << 4);
-        } else {
-            lisp_object_t sym = parse_symbol(token);
-            free(token);
-            return sym;
-        }
+        lisp_object_t result = NIL;
+        if (*endptr == '\0')
+            result = base == 16 ? ((val << 4) | FUNCTION_POINTER_TYPE) : (val << 4);
+        else
+            result = parse_symbol(token);
+        free(token);
+        return result;
     }
     return 0;
 }

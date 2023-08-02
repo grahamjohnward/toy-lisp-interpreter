@@ -759,14 +759,19 @@ void free_interpreter()
     }
 }
 
+static int max0(size_t n)
+{
+    return n > 0 ? n : 0;
+}
+
 /* len here includes the terminating null byte of str */
 lisp_object_t allocate_string(size_t len, char *str)
 {
     assert(!str[len - 1]);
-    /* I want to make this a multiple of 16
-     * but not sure that is actually needed
-     */
-    size_t bytes_to_allocate_for_actual_string = ((len / 16) + 1) * 16;
+    /* We need 8 bytes minimum so size including header is at least 16 bytes */
+    /* Beyond that we allocate in 16-byte chunks as object addresses must be */
+    /* multiples of 16 */
+    size_t bytes_to_allocate_for_actual_string = max0((((len - 8) / 16) + 1) * 16) + 8;
     size_t total_bytes_to_allocate = sizeof(struct string_header) + bytes_to_allocate_for_actual_string;
     gc_if_needed(total_bytes_to_allocate);
     struct string_header *new_string = (struct string_header *)interp->heap.freeptr;

@@ -1169,7 +1169,7 @@ static void test_macroexpand_all_set()
     lisp_object_t result = NIL;
     test_eval_string_helper("(defmacro frob (x) 'x)");
     test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
-    expr = parse1_wrapper("(set (frob) (aah (hello)))");
+    expr = parse1_wrapper("(set (frob 3) (aah (hello)))");
     result = macroexpand_all(expr);
     char *str = print_object(result);
     check(strcmp("(set x (bar (hello)))", str) == 0, "ok");

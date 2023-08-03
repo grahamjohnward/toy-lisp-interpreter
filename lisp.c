@@ -1367,11 +1367,16 @@ lisp_object_t assoc(lisp_object_t x, lisp_object_t a)
 lisp_object_t pairlis2(lisp_object_t x, lisp_object_t y, lisp_object_t a)
 {
     if (x == NIL)
-        return a;
+        if (y != NIL)
+            return raise(sym("bad-args"), y);
+        else
+            return a;
     else if (eq(car(x), interp->syms.amprest) != NIL || eq(car(x), interp->syms.ampbody) != NIL)
         return cons(cons(cadr(x), y), a);
     else if (eq(car(x), interp->syms.ampoptional) != NIL)
         return cons(cons(cadr(x), car(y)), NIL);
+    else if (y == NIL)
+        return raise(sym("bad-args"), x);
     else
         return cons(cons(car(x), car(y)), pairlis2(cdr(x), cdr(y), a));
 }

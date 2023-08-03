@@ -465,19 +465,6 @@ static void test_eq()
     check(eq(T, T) != NIL, "(eq t t) is not nil");
 }
 
-/* The parse updates the pointer passed to it.
-   This test is to say that we think this is OK */
-static void test_parser_advances_pointer()
-{
-    /* test_name = "parser_advances_pointer";
-     char *s1 = "foo";
-     char *before = s1;
-     init_interpreter(256);
-     lisp_object_t sym1 = parse1(&s1);
-     check(s1 - before == 3, "pointer advanced");
-     free_interpreter();*/
-}
-
 static void test_parse_multiple_objects_callback(void *data, lisp_object_t obj)
 {
     print_object_to_buffer(obj, (struct string_buffer *)data);
@@ -759,11 +746,11 @@ static void test_eval_helper(char *exprstr, char *expectedstr)
 static void test_eval()
 {
     test_name = "eval";
-    /*    test_eval_helper("t", "t");
-        test_eval_helper("3", "3");
-        test_eval_helper("(cons (quote A) (quote B))", "(A . B)");
-        test_eval_helper("(cond ((eq (car (cons (quote A) nil)) (quote A)) (quote OK)))", "OK");
-        test_eval_helper("(cond ((eq (car (cons (quote A) nil)) (quote B)) (quote BAD)) (t (quote OK)))", "OK");*/
+    test_eval_helper("t", "t");
+    test_eval_helper("3", "3");
+    test_eval_helper("(cons (quote A) (quote B))", "(A . B)");
+    test_eval_helper("(cond ((eq (car (cons (quote A) nil)) (quote A)) (quote OK)))", "OK");
+    test_eval_helper("(cond ((eq (car (cons (quote A) nil)) (quote B)) (quote BAD)) (t (quote OK)))", "OK");
     test_eval_helper("(funcall (function (lambda (X) (car X))) (cons (quote A) (quote B)))", "A");
 }
 
@@ -1292,12 +1279,9 @@ static void test_lisp_heap_copy_single_object()
     lisp_heap_init(&heap, 1024);
     struct cons *new_cons = (struct cons *)heap.freeptr;
     lisp_object_t new_cons_obj = (uint64_t)new_cons | CONS_TYPE;
-
     /* Start allocating in the to-space as if we are doing GC */
     heap.freeptr = heap.to_space;
-
     gc_copy(&heap, &new_cons_obj);
-
     lisp_heap_free(&heap);
 }
 
@@ -1554,7 +1538,6 @@ int main(int argc, char **argv)
     test_parse_string_with_escape_characters();
     test_parse_list_of_strings();
     test_eq();
-    test_parser_advances_pointer();
     test_parse_multiple_objects();
     test_parse_handle_eof();
     test_parse_quote();

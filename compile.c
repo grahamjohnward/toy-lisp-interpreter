@@ -71,22 +71,20 @@ static lisp_object_t compile_quasiquote(lisp_object_t expr, struct lexical_conte
 {
     if (consp(expr) == NIL) {
         return expr;
-    } else {
-        if (symbolp(car(expr)) != NIL) {
-            lisp_object_t symbol = car(expr);
-            if (symbol == interp->syms.unquote) {
-                if (depth == 0)
-                    return List(interp->syms.unquote, compile(cadr(expr), ctxt));
-                else
-                    return List(interp->syms.unquote, compile_quasiquote(cadr(expr), ctxt, depth - 1));
-            } else if (symbol == interp->syms.quasiquote) {
-                return List(interp->syms.quasiquote, compile_quasiquote(cadr(expr), ctxt, depth + 1));
-            } else {
-                return cons(symbol, compile_quasiquote_list(cdr(expr), ctxt, depth));
-            }
+    } else if (symbolp(car(expr)) != NIL) {
+        lisp_object_t symbol = car(expr);
+        if (symbol == interp->syms.unquote) {
+            if (depth == 0)
+                return List(interp->syms.unquote, compile(cadr(expr), ctxt));
+            else
+                return List(interp->syms.unquote, compile_quasiquote(cadr(expr), ctxt, depth - 1));
+        } else if (symbol == interp->syms.quasiquote) {
+            return List(interp->syms.quasiquote, compile_quasiquote(cadr(expr), ctxt, depth + 1));
         } else {
-            return compile_quasiquote_list(expr, ctxt, depth);
+            return cons(symbol, compile_quasiquote_list(cdr(expr), ctxt, depth));
         }
+    } else {
+        return compile_quasiquote_list(expr, ctxt, depth);
     }
 }
 
@@ -136,60 +134,58 @@ static lisp_object_t compile_block(lisp_object_t expr, struct lexical_context *c
 
 static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
 {
-    if (consp(expr) != NIL) {
-        if (symbolp(car(expr)) != NIL) {
-            lisp_object_t symbol = car(expr);
-            if (symbol == interp->syms.block) {
-                return compile_block(expr, ctxt);
-            } else if (symbol == interp->syms.return_from) {
-                lisp_object_t block_name = cadr(expr);
-                lisp_object_t x = assoc(block_name, ctxt->block_alist);
-                if (x == NIL)
-                    return raise(sym("return-for-unknown-block"), block_name);
-                else
-                    return List(sym("raise"), cdr(x), compile(caddr(expr), ctxt));
-            } else if (symbol == interp->syms.quote) {
-                return expr;
-            } else if (symbol == interp->syms.quasiquote) {
-                return List(interp->syms.quasiquote, compile_quasiquote(cadr(expr), ctxt, 0));
-            } else if (symbol == interp->syms.unquote) {
-                return raise(sym("runtime-error"), sym("comma-not-inside-backquote"));
-            } else if (symbol == interp->syms.cond) {
-                return cons(interp->syms.cond, compile_cond_clauses(cdr(expr), ctxt));
-            } else if (symbol == interp->syms.let) {
-                return compile_let(expr, ctxt);
-            } else if (symbol == interp->syms.set) {
-                return List(interp->syms.set, cadr(expr), compile(car(cddr(expr)), ctxt));
-            } else if (symbol == interp->syms.progn) {
-                return cons(interp->syms.progn, compile_list(cdr(expr), ctxt));
-            } else if (symbol == interp->syms.tagbody) {
-                return cons(interp->syms.tagbody, compile_tagbody(cdr(expr), ctxt));
-            } else if (symbol == interp->syms.go) {
-                // Nothing to do here
-                return expr;
-            } else if (symbol == interp->syms.condition_case) {
-                lisp_object_t exc = cadr(expr);
-                lisp_object_t body = caddr(expr);
-                lisp_object_t clauses = cdr(cddr(expr));
-                return cons(interp->syms.condition_case, cons(exc, cons(compile_list(body, ctxt), compile_let_varlist(clauses, ctxt))));
-            } else if (symbol == interp->syms.function) {
-                lisp_object_t function = cadr(expr);
-                if (symbolp(function) != NIL) {
-                    return expr;
-                } else {
-                    lisp_object_t arglist = cadr(function);
-                    lisp_object_t body = cddr(function);
-                    return List(interp->syms.function, cons(interp->syms.lambda, cons(arglist, compile_list(body, ctxt))));
-                }
-            } else {
-                return cons(car(expr), compile_list(cdr(expr), ctxt));
-            }
-        } else {
-            return raise(sym("bad-expression"), expr);
-        }
-    } else {
+    if (atom(expr) != NIL) {
         // With lexical scope we will do something interesting here
         return expr;
+    } else if (symbolp(car(expr)) != NIL) {
+        lisp_object_t symbol = car(expr);
+        if (symbol == interp->syms.block) {
+            return compile_block(expr, ctxt);
+        } else if (symbol == interp->syms.return_from) {
+            lisp_object_t block_name = cadr(expr);
+            lisp_object_t x = assoc(block_name, ctxt->block_alist);
+            if (x == NIL)
+                return raise(sym("return-for-unknown-block"), block_name);
+            else
+                return List(sym("raise"), cdr(x), compile(caddr(expr), ctxt));
+        } else if (symbol == interp->syms.quote) {
+            return expr;
+        } else if (symbol == interp->syms.quasiquote) {
+            return List(interp->syms.quasiquote, compile_quasiquote(cadr(expr), ctxt, 0));
+        } else if (symbol == interp->syms.unquote) {
+            return raise(sym("runtime-error"), sym("comma-not-inside-backquote"));
+        } else if (symbol == interp->syms.cond) {
+            return cons(interp->syms.cond, compile_cond_clauses(cdr(expr), ctxt));
+        } else if (symbol == interp->syms.let) {
+            return compile_let(expr, ctxt);
+        } else if (symbol == interp->syms.set) {
+            return List(interp->syms.set, cadr(expr), compile(car(cddr(expr)), ctxt));
+        } else if (symbol == interp->syms.progn) {
+            return cons(interp->syms.progn, compile_list(cdr(expr), ctxt));
+        } else if (symbol == interp->syms.tagbody) {
+            return cons(interp->syms.tagbody, compile_tagbody(cdr(expr), ctxt));
+        } else if (symbol == interp->syms.go) {
+            // Nothing to do here
+            return expr;
+        } else if (symbol == interp->syms.condition_case) {
+            lisp_object_t exc = cadr(expr);
+            lisp_object_t body = caddr(expr);
+            lisp_object_t clauses = cdr(cddr(expr));
+            return cons(interp->syms.condition_case, cons(exc, cons(compile_list(body, ctxt), compile_let_varlist(clauses, ctxt))));
+        } else if (symbol == interp->syms.function) {
+            lisp_object_t function = cadr(expr);
+            if (symbolp(function) != NIL) {
+                return expr;
+            } else {
+                lisp_object_t arglist = cadr(function);
+                lisp_object_t body = cddr(function);
+                return List(interp->syms.function, cons(interp->syms.lambda, cons(arglist, compile_list(body, ctxt))));
+            }
+        } else {
+            return cons(car(expr), compile_list(cdr(expr), ctxt));
+        }
+    } else {
+        return raise(sym("bad-expression"), expr);
     }
 }
 

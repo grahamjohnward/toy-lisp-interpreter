@@ -21,16 +21,19 @@
   `(if ,p
        (progn ,@a)))
 
+(defmacro setq (var value)
+  `(set ',var ,value))
+
 (defun + (&rest args)
   (let (x total)
     (tagbody
-       (set 'total 0)
+       (setq total 0)
      iterate
        (when (eq nil args)
 	 (return-from + total))
-       (set 'x (car args))
-       (set 'args (cdr args))
-       (set 'total (two-arg-plus total x))
+       (setq x (car args))
+       (setq args (cdr args))
+       (setq total (two-arg-plus total x))
        (go iterate))))
 
 (defun - (&rest args)
@@ -38,25 +41,25 @@
     (return-from - (two-arg-minus 0 (car args))))
   (let (x result)
     (tagbody
-       (set 'result (car args))
+       (setq result (car args))
      iterate
-       (set 'args (cdr args))
+       (setq args (cdr args))
        (when (eq nil args)
 	 (return-from - result))
-       (set 'x (car args))
-       (set 'result (two-arg-minus result x))
+       (setq x (car args))
+       (setq result (two-arg-minus result x))
        (go iterate))))
 
 (defun * (&rest args)
   (let (x result)
     (tagbody
-       (set 'result 1)
+       (setq result 1)
      iterate
        (when (eq nil args)
 	 (return-from * result))
-       (set 'x (car args))
-       (set 'args (cdr args))
-       (set 'result (two-arg-times result x))
+       (setq x (car args))
+       (setq args (cdr args))
+       (setq result (two-arg-times result x))
        (go iterate))))
 
 (defun / (first &rest args)
@@ -96,13 +99,13 @@
 	    (return-from equalp
 	      (let (i)
 		(tagbody
-		   (set 'i 0)
+		   (setq i 0)
 		 iterate
 		   (when (eq i (length a))
 		     (return-from equalp t))
 		   (when (not (eq (svref a i) (svref b i)))
 		     (return-from equalp nil))
-		   (set 'i (+ i 1))
+		   (setq i (+ i 1))
 		   (go iterate))))))
 	 ((and (eq (type-of a) 'cons) (eq (type-of b) 'cons))
 	  (if (equalp (car a) (car b))
@@ -127,10 +130,10 @@
 	  (max (car (cdr var-and-max))))
       `(let ((,var nil))
 	 (tagbody
-	    (set ',var 0)
+	    (setq ,var 0)
 	  iterate
 	    ,@thing
-	    (set ',var (+ 1 ,var))
+	    (setq ,var (+ 1 ,var))
 	    (when (< ,var ,max)
 	      (go iterate))))))
 
@@ -144,9 +147,9 @@
 	iterate
 	  (if (not (eq ,list-var nil))
 	      (progn
-		(set ',var (car ,list-var))
+		(setq ,var (car ,list-var))
 		,@body
-		(set ',list-var (cdr ,list-var))
+		(setq ,list-var (cdr ,list-var))
 		(go iterate)))))))
 
 

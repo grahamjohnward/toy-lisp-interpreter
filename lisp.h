@@ -133,6 +133,7 @@ struct string_header {
     object_header_t header;
     size_t allocated_length;
     size_t string_length;
+    uint64_t padding;
 };
 
 struct lisp_function {

@@ -10,6 +10,12 @@
 (defmacro defun (fname arglist &body body)
   `(set-symbol-function ',fname #'(lambda ,arglist (block ,fname ,@body))))
 
+(defmacro defparameter (name initial-value)
+  `(progn
+     (putprop ',name 'param t)
+     (set-symbol-value ',name ,initial-value)
+     ',name))
+
 (defun list (&rest args)
   args)
 

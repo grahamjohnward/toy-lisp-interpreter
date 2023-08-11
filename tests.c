@@ -799,7 +799,7 @@ static void test_rplacd()
 static void test_rest_args()
 {
     test_name = "rest_args";
-    init_interpreter(32768);
+    init_interpreter(65536);
     char *teststr = "(set-symbol-function 'foo #'(lambda (a b &rest c) (cons c (cons b a))))";
     eval_toplevel(parse1_wrapper(teststr));
     teststr = "(foo 1 2 3)";
@@ -1502,6 +1502,20 @@ static void test_set_symbol_function()
     free_interpreter();
 }
 
+static void test_set_symbol_value()
+{
+    test_name = "set_symbol_value";
+    init_interpreter(65536);
+    lisp_object_t result = test_eval_string_helper("(progn (set-symbol-value 'foo 14) (symbol-value 'foo))");
+    char *str = print_object(result);
+    check(strcmp("14", str) == 0, "basic");
+    result = test_eval_string_helper("(symbol-value 'bar)");
+    str = print_object(result);
+    check(strcmp("nil", str) == 0, "unset");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1624,6 +1638,7 @@ int main(int argc, char **argv)
     test_compile_bug();
     test_macroexpand_function_lambda();
     test_set_symbol_function();
+    test_set_symbol_value();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

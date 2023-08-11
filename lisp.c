@@ -287,6 +287,10 @@ lisp_object_t gc();
 
 lisp_object_t set_symbol_function(lisp_object_t symbol, lisp_object_t function);
 
+lisp_object_t set_symbol_value(lisp_object_t symbol, lisp_object_t value);
+
+lisp_object_t symbol_value(lisp_object_t symbol);
+
 #define FUNCALL_ARITY -1
 
 static void init_builtins()
@@ -333,6 +337,8 @@ static void init_builtins()
     DEFBUILTIN("gc", gc, 0);
     DEFBUILTIN("gensym", gensym, 0);
     DEFBUILTIN("set-symbol-function", set_symbol_function, 2);
+    DEFBUILTIN("set-symbol-value", set_symbol_value, 2);
+    DEFBUILTIN("symbol-value", symbol_value, 1);
 #undef DEFBUILTIN
 }
 
@@ -1507,6 +1513,19 @@ lisp_object_t evallet(lisp_object_t e, lisp_object_t a)
     return eval(cons(interp->syms.progn, cdr(e)), extended_env);
 }
 
+lisp_object_t set_symbol_value(lisp_object_t symbol, lisp_object_t value)
+{
+    struct symbol *sym = SymbolPtr(symbol);
+    sym->value = value;
+    return value;
+}
+
+lisp_object_t symbol_value(lisp_object_t symbol)
+{
+    struct symbol *sym = SymbolPtr(symbol);
+    return sym->value;
+}
+
 lisp_object_t set_symbol_function(lisp_object_t symbol, lisp_object_t function)
 {
     struct symbol *sym = SymbolPtr(symbol);
@@ -1518,14 +1537,19 @@ lisp_object_t eval_function(lisp_object_t function, lisp_object_t a);
 
 lisp_object_t evalset(lisp_object_t e, lisp_object_t a)
 {
-    lisp_object_t sym = eval(cadr(e), a);
-    check_symbol(sym);
+    lisp_object_t symbol = eval(cadr(e), a);
+    check_symbol(symbol);
     lisp_object_t new_value = eval(caddr(e), a);
-    lisp_object_t x = assoc(sym, a);
-    if (x == NIL)
-        abort();
-    rplacd(x, new_value);
-    return new_value;
+    lisp_object_t x = assoc(symbol, a);
+    if (x == NIL) {
+        if (getprop(symbol, sym("param")) == T)
+            return set_symbol_value(symbol, new_value);
+        else
+            abort();
+    } else {
+        rplacd(x, new_value);
+        return new_value;
+    }
 }
 
 static lisp_object_t extend_env_for_prog(lisp_object_t varlist, lisp_object_t a)
@@ -1834,9 +1858,15 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
         return e;
     if (atom(e) != NIL) {
         lisp_object_t x = assoc(e, a);
-        if (x == NIL)
-            raise(sym("unbound-variable"), e);
-        return cdr(x);
+        if (x == NIL) {
+            /* Could be a global variable */
+            if (getprop(e, sym("param")) == T)
+                return symbol_value(e);
+            else
+                return raise(sym("unbound-variable"), e);
+        } else {
+            return cdr(x);
+        }
     } else if (atom(car(e) != NIL)) {
         if (eq(car(e), interp->syms.quote) != NIL) {
             return car(cdr(e));

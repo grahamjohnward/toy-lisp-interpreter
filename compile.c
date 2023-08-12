@@ -171,7 +171,7 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
             lisp_object_t exc = cadr(expr);
             lisp_object_t body = caddr(expr);
             lisp_object_t clauses = cdr(cddr(expr));
-            return cons(interp->syms.condition_case, cons(exc, cons(compile_list(body, ctxt), compile_let_varlist(clauses, ctxt))));
+            return cons(interp->syms.condition_case, cons(exc, cons(compile(body, ctxt), compile_let_varlist(clauses, ctxt))));
         } else if (symbol == interp->syms.function) {
             lisp_object_t function = cadr(expr);
             if (symbolp(function) != NIL) {

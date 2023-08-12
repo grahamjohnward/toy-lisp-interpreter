@@ -1305,7 +1305,7 @@ static void test_vector_builtins()
 static void test_non_symbol_in_function_position()
 {
     test_name = "non_symbol_in_function_position";
-    test_eval_helper("(condition-case e (2 2) (illegal-function-call e))", "(illegal-function-call . 2)");
+    test_eval_helper("(condition-case e (eval '(2 2)) (bad-expression e))", "(bad-expression 2 2)");
 }
 
 static void test_type_of()
@@ -1321,7 +1321,7 @@ static void test_type_of()
 static void test_comma_not_inside_backquote()
 {
     test_name = "comma_not_inside_backquote";
-    test_eval_helper("(condition-case e ,foo (runtime-error e))", "(runtime-error . comma-not-inside-backquote)");
+    test_eval_helper("(condition-case e (eval ',foo) (runtime-error e))", "(runtime-error . comma-not-inside-backquote)");
 }
 
 static void test_string_equalp()
@@ -1516,6 +1516,12 @@ static void test_set_symbol_value()
     free_interpreter();
 }
 
+static void test_compile_condition_case()
+{
+    test_name = "compile_condition_case";
+    test_eval_helper("(condition-case e (let ((result 14)) (cons result result)))", "(14 . 14)");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1639,6 +1645,7 @@ int main(int argc, char **argv)
     test_macroexpand_function_lambda();
     test_set_symbol_function();
     test_set_symbol_value();
+    test_compile_condition_case();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

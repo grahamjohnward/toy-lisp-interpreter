@@ -19,7 +19,7 @@
 (defun list (&rest args)
   args)
 
-(defmacro if (p a &optional b)
+(defmacro old-if (p a &optional b)
   (cond (b `(cond (,p ,a) (t ,b)))
 	(t `(cond (,p ,a) (t nil)))))
 

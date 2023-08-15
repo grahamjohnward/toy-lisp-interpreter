@@ -118,6 +118,14 @@ static lisp_object_t compile_cond_clauses(lisp_object_t clauses, struct lexical_
     }
 }
 
+static lisp_object_t compile_if(lisp_object_t expr, struct lexical_context *ctxt)
+{
+    lisp_object_t test_form = cadr(expr);
+    lisp_object_t then_form = caddr(expr);
+    lisp_object_t else_form = cadr(cddr(expr));
+    return List(interp->syms.if_, compile(test_form, ctxt), compile(then_form, ctxt), compile(else_form, ctxt));
+}
+
 static lisp_object_t compile_block(lisp_object_t expr, struct lexical_context *ctxt)
 {
     lisp_object_t block_name = cadr(expr);
@@ -156,6 +164,8 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
             return raise(sym("runtime-error"), sym("comma-not-inside-backquote"));
         } else if (symbol == interp->syms.cond) {
             return cons(interp->syms.cond, compile_cond_clauses(cdr(expr), ctxt));
+        } else if (symbol == interp->syms.if_) {
+            return compile_if(expr, ctxt);
         } else if (symbol == interp->syms.let) {
             return compile_let(expr, ctxt);
         } else if (symbol == interp->syms.set) {

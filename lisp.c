@@ -249,6 +249,7 @@ static void init_symbols()
     interp->syms.block = sym("block");
     interp->syms.pctblock = sym("%block");
     interp->syms.return_from = sym("return-from");
+    interp->syms.if_ = sym("if");
 }
 
 lisp_object_t length(lisp_object_t seq);
@@ -449,7 +450,7 @@ lisp_object_t list(lisp_object_t first, ...)
     lisp_object_t elt = first;
     lisp_object_t result = cons(elt, NIL);
     lisp_object_t tail = result;
-    while ((elt = va_arg(ap, lisp_object_t)) != NIL) {
+    while ((elt = va_arg(ap, lisp_object_t)) != VARARGS_LIST_SENTINEL) {
         rplacd(tail, cons(elt, NIL));
         tail = cdr(tail);
     }
@@ -535,7 +536,7 @@ static int object_is_in_to_space(struct lisp_heap *heap, lisp_object_t obj)
 void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
 {
     assert_heap_invariants(heap);
-    if (*p == NIL || *p == T)
+    if (*p == NIL || *p == T || *p == VARARGS_LIST_SENTINEL)
         return;
     if (consp(*p) == NIL && symbolp(*p) == NIL && stringp(*p) == NIL && vectorp(*p) == NIL && functionp(*p) == NIL)
         return;
@@ -677,6 +678,7 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(return_from);
     GC_COPY_SYMBOL(pctblock);
     GC_COPY_SYMBOL(block);
+    GC_COPY_SYMBOL(if_);
 #undef GC_COPY_SYMBOL
     /* Update pointers inside to-space objects */
     char *scanptr;
@@ -1131,6 +1133,8 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
         string_buffer_append(sb, "nil");
     } else if (obj == T) {
         string_buffer_append(sb, "t");
+    } else if (obj == VARARGS_LIST_SENTINEL) {
+        abort();
     } else if (consp(obj) != NIL) {
         if (car(obj) == interp->syms.quote) {
             string_buffer_append(sb, "'");
@@ -1500,6 +1504,19 @@ lisp_object_t evlis(lisp_object_t m, lisp_object_t a)
         return cons(eval(car(m), a), evlis(cdr(m), a));
 }
 
+lisp_object_t eval_if(lisp_object_t e, lisp_object_t a)
+{
+    lisp_object_t test_form = cadr(e);
+    lisp_object_t then_form = caddr(e);
+    lisp_object_t else_form = cadr(cddr(e));
+    if (eval(test_form, a) != NIL)
+        return eval(then_form, a);
+    else if (else_form != NIL)
+        return eval(else_form, a);
+    else
+        return NIL;
+}
+
 lisp_object_t evallet(lisp_object_t e, lisp_object_t a)
 {
     lisp_object_t extended_env = a;
@@ -1800,6 +1817,11 @@ lisp_object_t macroexpand_all(lisp_object_t e)
         lisp_object_t s = car(e);
         if (s == interp->syms.cond) {
             return cons(s, macroexpand_all_cond_clauses(cdr(e)));
+        } else if (s == interp->syms.if_) {
+            lisp_object_t test_form = cadr(e);
+            lisp_object_t then_form = caddr(e);
+            lisp_object_t else_form = cadr(cddr(e));
+            return List(interp->syms.if_, macroexpand_all(test_form), macroexpand_all(then_form), macroexpand_all(else_form));
         } else if (s == interp->syms.tagbody) {
             return cons(s, macroexpand_all_tagbody(cdr(e)));
         } else if (s == interp->syms.progn) {
@@ -1876,6 +1898,8 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
             return raise(sym("runtime-error"), sym("comma-not-inside-backquote"));
         } else if (eq(car(e), interp->syms.cond) != NIL) {
             return evcon(cdr(e), a);
+        } else if (eq(car(e), interp->syms.if_) != NIL) {
+            return eval_if(e, a);
         } else if (eq(car(e), interp->syms.let) != NIL) {
             return evallet(cdr(e), a);
         } else if (eq(car(e), interp->syms.set) != NIL) {

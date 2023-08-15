@@ -940,10 +940,10 @@ static void test_defmacro()
     test_name = "defmacro";
     init_interpreter(65536);
     define_defmacro();
-    test_eval_string_helper("(defmacro if (test then else) `(cond (,test ,then) (t ,else)))");
-    lisp_object_t result = test_eval_string_helper("(if (eq (car (cons 3 4)) 3) (two-arg-plus 9 9) 'bof)");
+    test_eval_string_helper("(defmacro if2 (test then else) `(cond (,test ,then) (t ,else)))");
+    lisp_object_t result = test_eval_string_helper("(if2 (eq (car (cons 3 4)) 3) (two-arg-plus 9 9) 'bof)");
     check(result == 18 << 4, "test1");
-    result = test_eval_string_helper("(if (eq (car (cons 3 4)) 4) (two-arg-plus 9 9) 'bof)");
+    result = test_eval_string_helper("(if2 (eq (car (cons 3 4)) 4) (two-arg-plus 9 9) 'bof)");
     check(eq(result, sym("bof")) != NIL, "test2");
     free_interpreter();
 }
@@ -1220,11 +1220,11 @@ static void test_macroexpansion_bug()
     test_name = "macroexpansion_bug";
     init_interpreter(65536 * 2);
     define_defmacro();
-    test_eval_string_helper("(defmacro if (p a &optional b) (cond (b `(cond (,p ,a) (t ,b))) (t `(cond (,p ,a) (t nil)))))");
-    test_eval_string_helper("(set-symbol-function '%%and #'(lambda (things) (if (eq things nil) nil (let ((x (car things))) `(if ,x ,(%%and (cdr things)) nil)))))");
+    test_eval_string_helper("(defmacro if2 (p a &optional b) (cond (b `(cond (,p ,a) (t ,b))) (t `(cond (,p ,a) (t nil)))))");
+    test_eval_string_helper("(set-symbol-function '%%and #'(lambda (things) (if2 (eq things nil) nil (let ((x (car things))) `(if2 ,x ,(%%and (cdr things)) nil)))))");
     lisp_object_t result = test_eval_string_helper("(%%and (cons 'a (cons 'b (cons 'c nil))))");
     char *str = print_object(result);
-    check(strcmp("(if a (if b (if c nil nil) nil) nil)", str) == 0, "ok");
+    check(strcmp("(if2 a (if2 b (if2 c nil nil) nil) nil)", str) == 0, "ok");
     free(str);
     str = print_object(macroexpand_all(result));
     check(strcmp("(cond (a (cond (b (cond (c nil) (t nil))) (t nil))) (t nil))", str) == 0, "macroexpand_all ok");
@@ -1421,7 +1421,7 @@ static void test_varargs_list()
 {
     test_name = "varargs_list";
     init_interpreter(65536);
-    lisp_object_t mylist = list(interp->syms.lambda, sym("hello"), NIL);
+    lisp_object_t mylist = list(interp->syms.lambda, sym("hello"), VARARGS_LIST_SENTINEL);
     char *str = print_object(mylist);
     check(strcmp("(lambda hello)", str) == 0, "function");
     free(str);
@@ -1520,6 +1520,15 @@ static void test_compile_condition_case()
 {
     test_name = "compile_condition_case";
     test_eval_helper("(condition-case e (let ((result 14)) (cons result result)))", "(14 . 14)");
+}
+
+static void test_if()
+{
+    test_name = "if";
+    test_eval_helper("(if t 'a 'b)", "a");
+    test_eval_helper("(if nil 'a 'b)", "b");
+    test_eval_helper("(if t 'a)", "a");
+    test_eval_helper("(if nil 'a)", "nil");
 }
 
 int main(int argc, char **argv)
@@ -1646,6 +1655,7 @@ int main(int argc, char **argv)
     test_set_symbol_function();
     test_set_symbol_value();
     test_compile_condition_case();
+    test_if();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

@@ -42,6 +42,7 @@ lisp_object_t load(lisp_object_t filename);
 // clang-format off
 #define NIL                   0x7ffffffffffffff2
 #define T                     0xfffffffffffffff2
+#define VARARGS_LIST_SENTINEL 0x3ffffffffffffff2
 #define TYPE_MASK             0x000000000000000f
 #define PTR_MASK              0xfffffffffffffff0
 #define SYMBOL_TYPE           0x0000000000000002
@@ -117,7 +118,7 @@ lisp_object_t gensym();
 lisp_object_t compile_toplevel(lisp_object_t expr);
 
 struct syms {
-    lisp_object_t lambda, quote, cond, built_in_function, progn, tagbody, set, go, amprest, ampbody, ampoptional, condition_case, quasiquote, unquote, unquote_splice, let, integer, symbol, cons, string, vector, macro, function, funcall, block, pctblock, return_from;
+    lisp_object_t lambda, quote, cond, built_in_function, progn, tagbody, set, go, amprest, ampbody, ampoptional, condition_case, quasiquote, unquote, unquote_splice, let, integer, symbol, cons, string, vector, macro, function, funcall, block, pctblock, return_from, if_;
 };
 
 struct cons {
@@ -171,7 +172,7 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p);
 
 lisp_object_t list(lisp_object_t first, ...);
 
-#define List(...) list(__VA_ARGS__, NIL)
+#define List(...) list(__VA_ARGS__, VARARGS_LIST_SENTINEL)
 
 struct return_context {
     lisp_object_t type;

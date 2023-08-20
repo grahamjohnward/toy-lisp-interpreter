@@ -106,18 +106,6 @@ static lisp_object_t compile_tagbody(lisp_object_t expr, struct lexical_context 
         return cons(compile(car(expr), ctxt), compile_tagbody(cdr(expr), ctxt));
 }
 
-static lisp_object_t compile_cond_clauses(lisp_object_t clauses, struct lexical_context *ctxt)
-{
-    if (clauses == NIL) {
-        return NIL;
-    } else {
-        lisp_object_t first_clause = car(clauses);
-        lisp_object_t a = car(first_clause);
-        lisp_object_t b = cadr(first_clause);
-        return cons(List(compile(a, ctxt), compile(b, ctxt)), compile_cond_clauses(cdr(clauses), ctxt));
-    }
-}
-
 static lisp_object_t compile_if(lisp_object_t expr, struct lexical_context *ctxt)
 {
     lisp_object_t test_form = cadr(expr);
@@ -162,8 +150,6 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
             return List(interp->syms.quasiquote, compile_quasiquote(cadr(expr), ctxt, 0));
         } else if (symbol == interp->syms.unquote) {
             return raise(sym("runtime-error"), sym("comma-not-inside-backquote"));
-        } else if (symbol == interp->syms.cond) {
-            return cons(interp->syms.cond, compile_cond_clauses(cdr(expr), ctxt));
         } else if (symbol == interp->syms.if_) {
             return compile_if(expr, ctxt);
         } else if (symbol == interp->syms.let) {

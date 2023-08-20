@@ -6,8 +6,8 @@
 
 ;; Define another function
 (set-symbol-function 'test2 #'(lambda (x)
-  (cond ((eq x (quote bof)) (quote boo))
-	(t (quote ohno)))))
+  (if (eq x (quote bof)) (quote boo)
+	(quote ohno))))
 
 ;; Test the function
 (test2 (quote bof))

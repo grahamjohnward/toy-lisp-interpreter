@@ -19,9 +19,12 @@
 (defun list (&rest args)
   args)
 
-(defmacro old-if (p a &optional b)
-  (cond (b `(cond (,p ,a) (t ,b)))
-	(t `(cond (,p ,a) (t nil)))))
+(defmacro cond (&rest clauses)
+  (let ((first-clause (car clauses)))
+    (if (eq first-clause nil)
+	nil
+	`(if ,(car first-clause) ,(car (cdr first-clause))
+	     ,(apply #'cond (cdr clauses))))))
 
 (defmacro when (p &body a)
   `(if ,p

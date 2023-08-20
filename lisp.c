@@ -224,7 +224,6 @@ static void init_symbols()
 {
     interp->syms.lambda = sym("lambda");
     interp->syms.quote = sym("quote");
-    interp->syms.cond = sym("cond");
     interp->syms.built_in_function = sym("built-in-function");
     interp->syms.progn = sym("progn");
     interp->syms.tagbody = sym("tagbody");
@@ -653,7 +652,6 @@ lisp_object_t gc()
 #define GC_COPY_SYMBOL(S) gc_copy(heap, &interp->syms.S)
     GC_COPY_SYMBOL(lambda);
     GC_COPY_SYMBOL(quote);
-    GC_COPY_SYMBOL(cond);
     GC_COPY_SYMBOL(built_in_function);
     GC_COPY_SYMBOL(progn);
     GC_COPY_SYMBOL(tagbody);
@@ -1486,16 +1484,6 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
     }
 }
 
-lisp_object_t evcon(lisp_object_t c, lisp_object_t a)
-{
-    if (c == NIL)
-        return NIL;
-    else if (eval(caar(c), a) != NIL)
-        return eval(cadar(c), a);
-    else
-        return evcon(cdr(c), a);
-}
-
 lisp_object_t evlis(lisp_object_t m, lisp_object_t a)
 {
     if (null(m) != NIL)
@@ -1758,18 +1746,6 @@ static lisp_object_t macroexpand_all_list(lisp_object_t list)
         return cons(macroexpand_all(car(list)), macroexpand_all_list(cdr(list)));
 }
 
-static lisp_object_t macroexpand_all_cond_clauses(lisp_object_t clauses)
-{
-    if (clauses == NIL) {
-        return NIL;
-    } else {
-        lisp_object_t first_clause = car(clauses);
-        lisp_object_t a = car(first_clause);
-        lisp_object_t b = cadr(first_clause);
-        return cons(cons(macroexpand_all(a), cons(macroexpand_all(b), NIL)), macroexpand_all_cond_clauses(cdr(clauses)));
-    }
-}
-
 static lisp_object_t macroexpand_all_tagbody(lisp_object_t tagbody)
 {
     if (tagbody == NIL) {
@@ -1815,9 +1791,7 @@ lisp_object_t macroexpand_all(lisp_object_t e)
         return e;
     } else if (symbolp(car(e)) != NIL) {
         lisp_object_t s = car(e);
-        if (s == interp->syms.cond) {
-            return cons(s, macroexpand_all_cond_clauses(cdr(e)));
-        } else if (s == interp->syms.if_) {
+        if (s == interp->syms.if_) {
             lisp_object_t test_form = cadr(e);
             lisp_object_t then_form = caddr(e);
             lisp_object_t else_form = cadr(cddr(e));
@@ -1896,8 +1870,6 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
             return eval_quasiquote(cadr(e), a, 0);
         } else if (eq(car(e), interp->syms.unquote) != NIL) {
             return raise(sym("runtime-error"), sym("comma-not-inside-backquote"));
-        } else if (eq(car(e), interp->syms.cond) != NIL) {
-            return evcon(cdr(e), a);
         } else if (eq(car(e), interp->syms.if_) != NIL) {
             return eval_if(e, a);
         } else if (eq(car(e), interp->syms.let) != NIL) {

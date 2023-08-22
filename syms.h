@@ -24,7 +24,6 @@ struct syms {
     lisp_object_t vector;
     lisp_object_t macro;
     lisp_object_t function;
-    lisp_object_t funcall;
     lisp_object_t block;
     lisp_object_t pctblock;
     lisp_object_t return_from;

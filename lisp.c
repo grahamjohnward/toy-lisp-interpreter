@@ -244,7 +244,6 @@ static void init_symbols()
     interp->syms.vector = sym("vector");
     interp->syms.macro = sym("macro");
     interp->syms.function = sym("function");
-    interp->syms.funcall = sym("funcall");
     interp->syms.block = sym("block");
     interp->syms.pctblock = sym("%block");
     interp->syms.return_from = sym("return-from");
@@ -672,7 +671,6 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(vector);
     GC_COPY_SYMBOL(macro);
     GC_COPY_SYMBOL(function);
-    GC_COPY_SYMBOL(funcall);
     GC_COPY_SYMBOL(return_from);
     GC_COPY_SYMBOL(pctblock);
     GC_COPY_SYMBOL(block);

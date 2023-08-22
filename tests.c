@@ -118,12 +118,12 @@ static void test_parse_single_integer_list()
 {
     test_name = "parse_single_integer_list";
     char *test_string = "(14)";
-    init_interpreter(256);
+    init_interpreter(32768);
     lisp_object_t result = parse1_wrapper(test_string);
     check(consp(result), "consp");
     lisp_object_t result_car = car(result);
     check(integerp(result_car), "car is int");
-    check(result_car == 14, "car value");
+    check(result_car == 14 << 4, "car value");
     lisp_object_t result_cdr = cdr(result);
     check(NIL == result_cdr, "cdr is null");
     free_interpreter();
@@ -367,7 +367,7 @@ static void test_parse_multiple_symbols()
     char *s1 = "foo";
     init_interpreter(32768);
     interp->symbol_table = NIL;
-    lisp_object_t sym1 = parse1_wrapper(s1);
+    parse1_wrapper(s1);
     char *s2 = "bar";
     lisp_object_t sym2 = parse1_wrapper(s2);
     char *str = print_object(interp->symbol_table);
@@ -1508,6 +1508,7 @@ int main(int argc, char **argv)
     test_parse_large_negative_integer();
     test_integer_too_large();
     test_integer_too_negative();
+    test_parse_single_integer_list();
     test_parse_integer_list();
     test_parse_dotted_pair_of_integers();
     test_string_buffer();

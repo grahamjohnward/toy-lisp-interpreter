@@ -1557,14 +1557,6 @@ lisp_object_t evalset(lisp_object_t e, lisp_object_t a)
     }
 }
 
-static lisp_object_t extend_env_for_prog(lisp_object_t varlist, lisp_object_t a)
-{
-    if (varlist == NIL)
-        return a;
-    else
-        return extend_env_for_prog(cdr(varlist), cons(cons(car(varlist), NIL), a));
-}
-
 lisp_object_t evalprogn(lisp_object_t e, lisp_object_t a)
 {
     lisp_object_t return_value = NIL;

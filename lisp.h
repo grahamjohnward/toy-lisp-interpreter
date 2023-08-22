@@ -117,10 +117,6 @@ lisp_object_t type_of(lisp_object_t obj);
 lisp_object_t gensym();
 lisp_object_t compile_toplevel(lisp_object_t expr);
 
-struct syms {
-    lisp_object_t lambda, quote, built_in_function, progn, tagbody, set, go, amprest, ampbody, ampoptional, condition_case, quasiquote, unquote, unquote_splice, let, integer, symbol, cons, string, vector, macro, function, funcall, block, pctblock, return_from, if_;
-};
-
 struct cons {
     object_header_t header;
     lisp_object_t car;
@@ -184,6 +180,8 @@ struct return_context {
     lisp_object_t *tagbody_forms;
     size_t tagbody_forms_len;
 };
+
+#include "syms.h"
 
 struct lisp_interpreter {
     struct syms syms;

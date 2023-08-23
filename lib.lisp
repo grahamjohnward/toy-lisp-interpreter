@@ -167,6 +167,14 @@
      (let ,varlist
        (tagbody ,@body))))
 
+(defmacro prog1 (&body forms)
+  (let ((first (car forms))
+	(result (gensym)))
+    `(progn
+       (let ((,result ,first))
+	 ,@(cdr forms)
+	 ,result))))
+    
 (defmacro return (&optional value)
   `(return-from nil ,value))
 

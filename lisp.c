@@ -256,14 +256,18 @@ lisp_object_t greater_than(lisp_object_t o1, lisp_object_t o2)
 {
     check_integer(o1);
     check_integer(o2);
-    return o1 > o2 ? T : NIL;
+    int64_t int1 = ((int64_t)o1) >> 4;
+    int64_t int2 = ((int64_t)o2) >> 4;
+    return int1 > int2 ? T : NIL;
 }
 
 lisp_object_t less_than(lisp_object_t o1, lisp_object_t o2)
 {
     check_integer(o1);
     check_integer(o2);
-    return o1 < o2 ? T : NIL;
+    int64_t int1 = ((int64_t)o1) >> 4;
+    int64_t int2 = ((int64_t)o2) >> 4;
+    return int1 < int2 ? T : NIL;
 }
 
 lisp_object_t do_apply(lisp_object_t fn, lisp_object_t args)

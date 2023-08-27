@@ -1498,6 +1498,24 @@ static void test_if()
     test_eval_helper("(if nil 'a)", "nil");
 }
 
+static void test_less_than()
+{
+    test_name = "less_than";
+    test_eval_helper("(two-arg-less-than 3 2)", "nil");
+    test_eval_helper("(two-arg-less-than 2 3)", "t");
+    test_eval_helper("(two-arg-less-than -3 2)", "t");
+    test_eval_helper("(two-arg-less-than 2 -3)", "nil");
+}
+
+static void test_greater_than()
+{
+    test_name = "greater_than";
+    test_eval_helper("(two-arg-greater-than 3 2)", "t");
+    test_eval_helper("(two-arg-greater-than 2 3)", "nil");
+    test_eval_helper("(two-arg-greater-than -3 2)", "nil");
+    test_eval_helper("(two-arg-greater-than 2 -3)", "t");
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1621,6 +1639,8 @@ int main(int argc, char **argv)
     test_set_symbol_value();
     test_compile_condition_case();
     test_if();
+    test_less_than();
+    test_greater_than();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

@@ -180,3 +180,37 @@
 
 (defmacro lambda (arglist &body body)
   `(function (lambda ,arglist ,@body)))
+
+(defun null (x)
+  (eq x nil))
+
+
+(defun merge (list1 list2 comparator)
+  (when (null list1)
+    (return-from merge list2))
+  (when (null list2)
+    (return-from merge list1))
+  (if (funcall comparator (car list1) (car list2))
+      (cons (car list1) (merge (cdr list1) list2 comparator))
+      (cons (car list2) (merge list1 (cdr list2) comparator))))
+
+(defun length (list)
+  (if (null list)
+      0
+      (+ 1 (length (cdr list)))))
+
+(defun copy-sublist (list n)
+  (if (= n 0) nil
+      (cons (car list) (copy-sublist (cdr list) (- n 1)))))
+
+(defun nthcdr (n list)
+  (if (= n 0) list
+      (nthcdr (- n 1) (cdr list))))
+
+(defun sort (list comparator)
+  (let ((length (length list)))
+    (when (eq length 1)
+      (return-from sort list))
+    (let ((list1 (copy-sublist list (/ length 2)))
+	  (list2 (nthcdr (/ length 2) list)))
+      (merge (sort list1 comparator) (sort list2 comparator) comparator))))

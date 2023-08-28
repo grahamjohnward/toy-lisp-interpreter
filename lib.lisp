@@ -161,7 +161,6 @@
 		(setq ,list-var (cdr ,list-var))
 		(go iterate)))))))
 
-
 (defmacro prog (varlist &body body)
   `(block nil
      (let ,varlist
@@ -184,7 +183,6 @@
 (defun null (x)
   (eq x nil))
 
-
 (defun merge (list1 list2 comparator)
   (when (null list1)
     (return-from merge list2))
@@ -193,11 +191,6 @@
   (if (funcall comparator (car list1) (car list2))
       (cons (car list1) (merge (cdr list1) list2 comparator))
       (cons (car list2) (merge list1 (cdr list2) comparator))))
-
-(defun length (list)
-  (if (null list)
-      0
-      (+ 1 (length (cdr list)))))
 
 (defun copy-sublist (list n)
   (if (= n 0) nil

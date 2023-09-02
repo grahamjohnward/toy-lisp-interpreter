@@ -723,6 +723,7 @@ static void test_eval_helper(char *exprstr, char *expectedstr)
 {
     init_interpreter(65536 * 4);
     char *exprstr_save = exprstr;
+    char *stuff = NULL;
     lisp_object_t result = test_eval_string_helper(exprstr);
     char *resultstr = print_object(result);
     struct string_buffer sb;
@@ -735,7 +736,7 @@ static void test_eval_helper(char *exprstr, char *expectedstr)
         string_buffer_append(&sb, " ACTUAL => ");
         string_buffer_append(&sb, resultstr);
     }
-    char *stuff = string_buffer_to_string(&sb);
+    stuff = string_buffer_to_string(&sb);
     check(ok, stuff);
     free(stuff);
     free(resultstr);

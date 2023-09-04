@@ -207,3 +207,7 @@
     (let ((list1 (copy-sublist list (/ length 2)))
 	  (list2 (nthcdr (/ length 2) list)))
       (merge (sort list1 comparator) (sort list2 comparator) comparator))))
+
+(defparameter * nil)
+
+(defparameter + nil)

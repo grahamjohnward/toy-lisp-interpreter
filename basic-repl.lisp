@@ -1,18 +1,15 @@
 (condition-case eof
     (let (input)
       (tagbody
-	 (princ "Welcome to Graham's Lisp\n")
+	 (princ "Welcome to Graham's Lisp (basic REPL)\n")
        repl
 	 (princ "> ")
-	 (setq input (read))
+	 (set 'input (read))
 	 (condition-case e
-             (progn
-	       (setq * (eval input))
-	       (print *))
+	     (print (eval input))
 	   (runtime-error (print e))
 	   (unbound-variable (print e))
 	   (type-error (print e)))
-	 (setq + input)
 	 (go repl)))
   (end-of-file
    (exit 0)))

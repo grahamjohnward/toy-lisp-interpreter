@@ -54,12 +54,12 @@ lisp_object_t load(lisp_object_t filename);
 #define FORWARDING_POINTER    0x0000000000000001
 // clang-format on
 
-#define ConsPtr(obj) ((struct cons *)((obj)&PTR_MASK))
-#define SymbolPtr(obj) ((struct symbol *)((obj)&PTR_MASK))
-#define StringPtr(obj) ((struct string_header *)((obj)&PTR_MASK))
-#define VectorPtr(obj) ((struct vector *)((obj)&PTR_MASK))
-#define FunctionPtr(obj) ((void (*)())((((obj)&PTR_MASK) >> 4)))
-#define LispFunctionPtr(obj) ((struct lisp_function *)((obj)&PTR_MASK))
+#define ConsPtr(obj) ((struct cons *)((obj) & PTR_MASK))
+#define SymbolPtr(obj) ((struct symbol *)((obj) & PTR_MASK))
+#define StringPtr(obj) ((struct string_header *)((obj) & PTR_MASK))
+#define VectorPtr(obj) ((struct vector *)((obj) & PTR_MASK))
+#define FunctionPtr(obj) ((void (*)())((((obj) & PTR_MASK) >> 4)))
+#define LispFunctionPtr(obj) ((struct lisp_function *)((obj) & PTR_MASK))
 
 lisp_object_t svref(lisp_object_t vector, size_t index);
 lisp_object_t svref_set(lisp_object_t vector, size_t index, lisp_object_t newvalue);

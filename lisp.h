@@ -3,6 +3,7 @@
 
 #include <setjmp.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "string_buffer.h"
 #include "text_stream.h"
@@ -29,11 +30,13 @@ void free_interpreter();
 char *print_object(lisp_object_t obj);
 void print_object_to_buffer(lisp_object_t, struct string_buffer *);
 
-#define TRACE(obj)                                                                                \
-    do {                                                                                          \
-        char *str = print_object(obj);                                                            \
-        printf("%s:%d %s: %s (%p) = %s\n", __FILE__, __LINE__, __func__, #obj, (void *)obj, str); \
-        free(str);                                                                                \
+#define TRACE(obj)                                                                                    \
+    do {                                                                                              \
+        if (getenv("NO_TRACING") == NULL) {                                                           \
+            char *str = print_object(obj);                                                            \
+            printf("%s:%d %s: %s (%p) = %s\n", __FILE__, __LINE__, __func__, #obj, (void *)obj, str); \
+            free(str);                                                                                \
+        }                                                                                             \
     } while (0);
 
 void load_str(char *str);

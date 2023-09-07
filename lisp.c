@@ -355,7 +355,6 @@ void init_interpeter_from_image(char *image)
     }
     interp = (struct lisp_interpreter *)malloc(sizeof(struct lisp_interpreter));
     assert(sizeof(lisp_object_t) == sizeof(void *));
-    interp->environ = NIL;
     interp->return_stack = NULL;
     interp->top_of_stack = get_rbp(2);
     do_read(fd, (char *)&interp->symbol_table, sizeof(lisp_object_t));
@@ -379,7 +378,6 @@ void init_interpreter(size_t heap_size)
     assert(sizeof(lisp_object_t) == sizeof(void *));
     interp->symbol_table = NIL;
     interp->return_stack = NULL;
-    interp->environ = NIL;
     interp->top_of_stack = get_rbp(2);
     lisp_heap_init(&interp->heap, heap_size);
     init_symbols();
@@ -1899,7 +1897,7 @@ lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x)
 
 lisp_object_t eval_toplevel(lisp_object_t e)
 {
-    return eval(compile_toplevel(macroexpand_all(e)), interp->environ);
+    return eval(compile_toplevel(macroexpand_all(e)), NIL);
 }
 
 static void load_eval_callback(void *ignored, lisp_object_t obj)

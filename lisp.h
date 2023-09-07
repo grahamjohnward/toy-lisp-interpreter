@@ -188,7 +188,6 @@ struct return_context {
 
 struct lisp_interpreter {
     struct syms syms;
-    lisp_object_t environ;
     lisp_object_t symbol_table; /* A root for GC */
     /* Machinery for returning from prog */
     struct return_context *return_stack;

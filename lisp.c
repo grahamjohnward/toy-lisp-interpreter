@@ -867,6 +867,7 @@ lisp_object_t getprop(lisp_object_t sym, lisp_object_t ind)
 lisp_object_t putprop(lisp_object_t sym, lisp_object_t ind, lisp_object_t value)
 {
     check_symbol(sym);
+    lisp_object_t tmp = NIL;
     struct symbol *symptr = SymbolPtr(sym);
     for (lisp_object_t o = symptr->plist; o != NIL; o = cdr(o)) {
         if (eq(car(o), ind) != NIL) {
@@ -874,7 +875,10 @@ lisp_object_t putprop(lisp_object_t sym, lisp_object_t ind, lisp_object_t value)
             return value;
         }
     }
-    symptr->plist = cons(cons(ind, value), symptr->plist);
+    tmp = cons(cons(ind, value), symptr->plist);
+    /* Sym may have been moved by GC, so look up its pointer again */
+    symptr = SymbolPtr(sym);
+    symptr->plist = tmp;
     return value;
 }
 

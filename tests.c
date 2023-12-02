@@ -660,13 +660,16 @@ static void test_assoc()
 {
     test_name = "assoc";
     init_interpreter(32768);
+    lisp_object_t b = NIL;
+    lisp_object_t x = NIL;
+    lisp_object_t result = NIL;
     char *text1 = "((A . (M N)) (B . (car X)) (C . (quote M)) (C . (cdr x)))";
     char *text2 = "B";
     char *text3 = "X";
     lisp_object_t alist = parse1_wrapper(text1);
-    lisp_object_t b = parse1_wrapper(text2);
-    lisp_object_t x = parse1_wrapper(text3);
-    lisp_object_t result = assoc(b, alist);
+    b = parse1_wrapper(text2);
+    x = parse1_wrapper(text3);
+    result = assoc(b, alist);
     char *str = print_object(result);
     check(strcmp("(B car X)", str) == 0, "match found");
     free(str);
@@ -1355,7 +1358,7 @@ static void test_nonexistent_function()
 static void test_unquote_splice_bug()
 {
     test_name = "unquote_splice_bug";
-    init_interpreter(32768);
+    init_interpreter(65536);
     lisp_object_t result = test_eval_string_helper("(let ((x '(1 2 3))) `(foo ,@x bar))");
     char *str = print_object(result);
     char *expected = "(foo 1 2 3 bar)";

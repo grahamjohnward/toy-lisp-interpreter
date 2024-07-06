@@ -161,6 +161,11 @@ static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, lisp
     return storage;
 }
 
+lisp_object_t svref_c(lisp_object_t vector, size_t index)
+{
+    return svref(vector, index << 4);
+}
+
 lisp_object_t svref(lisp_object_t vector, lisp_object_t index)
 {
     lisp_object_t *storage = check_vector_bounds_get_storage(vector, index);
@@ -175,8 +180,6 @@ lisp_object_t svref_set(lisp_object_t vector, lisp_object_t index, lisp_object_t
 }
 
 static void gc_if_needed(size_t);
-
-static lisp_object_t allocate_function();
 
 lisp_object_t allocate_vector(lisp_object_t size)
 {
@@ -248,6 +251,13 @@ static void init_symbols()
     interp->syms.pctblock = sym("%block");
     interp->syms.return_from = sym("return-from");
     interp->syms.if_ = sym("if");
+    interp->syms.pop = sym("pop");
+    interp->syms.push = sym("push");
+    interp->syms.copy = sym("copy");
+    interp->syms.swap_pop = sym("swap-pop");
+    interp->syms.swap = sym("swap");
+    interp->syms.call = sym("call");
+    interp->syms.ret = sym("ret");
 }
 
 lisp_object_t length(lisp_object_t seq);
@@ -293,6 +303,10 @@ lisp_object_t set_symbol_function(lisp_object_t symbol, lisp_object_t function);
 lisp_object_t set_symbol_value(lisp_object_t symbol, lisp_object_t value);
 
 lisp_object_t symbol_value(lisp_object_t symbol);
+
+lisp_object_t nthcdr(lisp_object_t n, lisp_object_t list);
+
+lisp_object_t eval2(lisp_object_t e);
 
 #define FUNCALL_ARITY -1
 
@@ -342,6 +356,9 @@ static void init_builtins()
     DEFBUILTIN("set-symbol-function", set_symbol_function, 2);
     DEFBUILTIN("set-symbol-value", set_symbol_value, 2);
     DEFBUILTIN("symbol-value", symbol_value, 1);
+    DEFBUILTIN("compile", compile_toplevel, 1);
+    DEFBUILTIN("compile3", compile3_toplevel, 1);
+    DEFBUILTIN("nthcdr", nthcdr, 2);
 #undef DEFBUILTIN
 }
 
@@ -477,7 +494,7 @@ static lisp_object_t allocate_new_symbol(lisp_object_t name)
     return symbol;
 }
 
-static lisp_object_t allocate_function()
+lisp_object_t allocate_function()
 {
     struct lisp_heap *heap = &interp->heap;
     gc_if_needed(sizeof(struct lisp_function));
@@ -1388,7 +1405,7 @@ lisp_object_t pairlis2(lisp_object_t x, lisp_object_t y, lisp_object_t a)
         return cons(cons(car(x), car(y)), pairlis2(cdr(x), cdr(y), a));
 }
 
-static void push_return_context(lisp_object_t type)
+void push_return_context(lisp_object_t type)
 {
     struct return_context *ctxt = malloc(sizeof(struct return_context));
     ctxt->type = type;
@@ -1397,9 +1414,11 @@ static void push_return_context(lisp_object_t type)
     ctxt->tagbody_forms = NULL;
     ctxt->tagbody_forms_len = 0;
     interp->return_stack = ctxt;
+    // for lexical scope, save current frame in here
+    // ctxt->frame = interp->frame;
 }
 
-static lisp_object_t pop_return_context()
+lisp_object_t pop_return_context()
 {
     struct return_context *ctxt = interp->return_stack;
     lisp_object_t retval = ctxt->return_value;
@@ -1422,7 +1441,23 @@ lisp_object_t raise(lisp_object_t sym, lisp_object_t value)
     }
     interp->return_stack->return_value = value;
     longjmp(interp->return_stack->buf, 1);
+    // Should also reset stack frame in lexical scope world
     return NIL; /* we never actually return */
+}
+
+lisp_object_t nthcdr(lisp_object_t n, lisp_object_t list)
+{
+    lisp_object_t result = list;
+    check_integer(n);
+    int n_int = n >> 4;
+    for (int i = 0; i < n_int; i++)
+        result = cdr(result);
+    return result;
+}
+
+lisp_object_t eval2(lisp_object_t e)
+{
+    return NIL;
 }
 
 static lisp_object_t apply_lambda(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
@@ -1563,6 +1598,7 @@ lisp_object_t evalset(lisp_object_t e, lisp_object_t a)
 
 lisp_object_t evalprogn(lisp_object_t e, lisp_object_t a)
 {
+    TRACE(e);
     lisp_object_t return_value = NIL;
     for (lisp_object_t o = e; o != NIL; o = cdr(o))
         return_value = eval(car(o), a);
@@ -2063,4 +2099,21 @@ lisp_object_t save_image(lisp_object_t name)
     do_write(fd, interp->heap.heap, interp->heap.size_bytes);
     close(fd);
     exit(0);
+}
+
+// Seems like this may be dodgy in some GC-related way, but can't put my
+// finger on why
+lisp_object_t push(lisp_object_t obj, lisp_object_t *place)
+{
+    // GC may happen in here and it will scan the C stack.  It will not know
+    // what to do with `place` - it certainly won't dereference and copy it.
+    // That could mean the object pointed to goes unreferenced.
+    //
+    // HOWEVER, inside `cons`, `*place` will be on the stack and the GC will
+    // see it.  So perhaps this is in fact OK?  No it is not, because the
+    // object will have been updated as it appears on the stack here, but not
+    // necessarily wherever `place` points (though probably it is also
+    // somewhere on the stack).
+    *place = cons(obj, *place);
+    return *place;
 }

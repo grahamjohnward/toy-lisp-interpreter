@@ -1,39 +1,9 @@
+#include "lexical_scope.h"
 #include "lisp.h"
 
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-struct lexical_context {
-    lisp_object_t block_alist;
-    lisp_object_t next_block_number;
-};
-
-static void lexical_context_init(struct lexical_context *ctxt)
-{
-    ctxt->block_alist = NIL;
-    ctxt->next_block_number = 0;
-}
-
-static lisp_object_t lexical_context_enter_block(struct lexical_context *ctxt, lisp_object_t block_name)
-{
-    struct symbol *s = SymbolPtr(interp->syms.pctblock);
-    lisp_object_t block_number = NIL;
-    if (s->value == NIL)
-        s->value = 0;
-    block_number = s->value;
-    ctxt->block_alist = cons(cons(block_name, block_number), ctxt->block_alist);
-    s->value += 16;
-    return block_number;
-}
-
-static void lexical_context_leave_block(struct lexical_context *ctxt, lisp_object_t block_name)
-{
-    lisp_object_t head = car(ctxt->block_alist);
-    assert(head != NIL);
-    assert(eq(car(head), block_name) != NIL);
-    ctxt->block_alist = cdr(ctxt->block_alist);
-}
 
 static lisp_object_t compile(lisp_object_t, struct lexical_context *ctxt);
 
@@ -58,11 +28,45 @@ static lisp_object_t compile_let_varlist(lisp_object_t expr, struct lexical_cont
     }
 }
 
+static lisp_object_t reverse1(lisp_object_t list, lisp_object_t aux)
+{
+    lisp_object_t tmp1 = NIL;
+    lisp_object_t tmp2 = NIL;
+    lisp_object_t tmp3 = NIL;
+    if (list == NIL)
+        return aux;
+    tmp1 = cdr(list);
+    tmp3 = car(list);
+    tmp2 = cons(tmp3, aux);
+    return reverse1(tmp1, tmp2);
+}
+
+static lisp_object_t reverse(lisp_object_t list)
+{
+    return reverse1(list, NIL);
+}
+
 static lisp_object_t compile_let(lisp_object_t expr, struct lexical_context *ctxt)
 {
-    lisp_object_t varlist = cadr(expr);
-    lisp_object_t body = cddr(expr);
-    return cons(interp->syms.let, cons(compile_let_varlist(varlist, ctxt), compile_list(body, ctxt)));
+    lisp_object_t result2 = NIL;
+    lisp_object_t bindings = NIL;
+    lisp_object_t varform = NIL, body = NIL, varlist = NIL, compiled_varlist = NIL;
+    lisp_object_t thing = NIL;
+    lisp_object_t foo = NIL, bar = NIL;
+    varlist = cadr(expr);
+    body = cddr(expr);
+    compiled_varlist = compile_let_varlist(varlist, ctxt);
+
+    for (varform = varlist; varform != NIL; varform = cdr(varform)) {
+        bar = consp(car(varform)) != NIL ? caar(varform) : car(varform);
+        bindings = cons(bar, bindings);
+    }
+    foo = reverse(bindings);
+    ctxt->bindings = cons(foo, ctxt->bindings);
+    thing = compile_list(body, ctxt);
+    result2 = cons(interp->syms.let, cons(compiled_varlist, thing));
+    ctxt->bindings = cdr(ctxt->bindings);
+    return result2;
 }
 
 static lisp_object_t compile_quasiquote_list(lisp_object_t expr, struct lexical_context *ctxt, int depth);
@@ -128,10 +132,57 @@ static lisp_object_t compile_block(lisp_object_t expr, struct lexical_context *c
     return result;
 }
 
+static lisp_object_t compile_lambda(lisp_object_t expr, struct lexical_context *ctxt)
+{
+    // What this needs is a surefire way to detect closures (it is easy)
+    assert(car(expr) == interp->syms.lambda);
+    lisp_object_t arglist = cadr(expr);
+    lisp_object_t body = cddr(expr);
+    ctxt->bindings = cons(arglist, ctxt->bindings);
+    lisp_object_t result = List(interp->syms.function, cons(interp->syms.lambda, cons(arglist, compile_list(body, ctxt))));
+    ctxt->bindings = cdr(ctxt->bindings);
+    return result;
+}
+
+static lisp_object_t compile_condition_case_exception_clauses(lisp_object_t expr, struct lexical_context *ctxt, lisp_object_t exc)
+{
+    if (expr == NIL)
+        return NIL;
+    lisp_object_t first_clause = car(expr);
+    lisp_object_t exception_type = car(first_clause);
+    lisp_object_t code = cadr(first_clause);
+    ctxt->bindings = cons(List(exc), ctxt->bindings);
+    lisp_object_t compiled_code = compile(code, ctxt);
+    ctxt->bindings = cdr(ctxt->bindings);
+    return cons(List(exception_type, compiled_code), compile_condition_case_exception_clauses(cdr(expr), ctxt, exc));
+}
+
+static lisp_object_t compile_condition_case(lisp_object_t expr, struct lexical_context *ctxt)
+{
+    lisp_object_t exc = cadr(expr);
+    lisp_object_t body = caddr(expr);
+    lisp_object_t clauses = cdr(cddr(expr));
+    lisp_object_t compiled_body = compile(body, ctxt);
+    // Could imagine putting exc in the context and popping it off after?
+    return cons(interp->syms.condition_case, cons(exc, cons(compiled_body, compile_condition_case_exception_clauses(clauses, ctxt, exc))));
+}
+
 static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
 {
     if (atom(expr) != NIL) {
-        // With lexical scope we will do something interesting here
+        if (expr != NIL && expr != T && symbolp(expr) != NIL) {
+            lisp_object_t lookup_result = lexical_context_lookup(ctxt, expr);
+
+            if (lookup_result == NIL) {
+                char *str = print_object(expr);
+                // Could check symbol value slot here before warning
+                printf("Oh no unbound variable: %s\n", str);
+                free(str);
+            } else {
+                // lisp_object_t thing = List(expr, lookup(ctxt, expr));
+                // TRACE(thing);
+            }
+        }
         return expr;
     } else if (symbolp(car(expr)) != NIL) {
         lisp_object_t symbol = car(expr);
@@ -164,19 +215,13 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
             // Nothing to do here
             return expr;
         } else if (symbol == interp->syms.condition_case) {
-            lisp_object_t exc = cadr(expr);
-            lisp_object_t body = caddr(expr);
-            lisp_object_t clauses = cdr(cddr(expr));
-            return cons(interp->syms.condition_case, cons(exc, cons(compile(body, ctxt), compile_let_varlist(clauses, ctxt))));
+            return compile_condition_case(expr, ctxt);
         } else if (symbol == interp->syms.function) {
             lisp_object_t function = cadr(expr);
-            if (symbolp(function) != NIL) {
+            if (symbolp(function) != NIL)
                 return expr;
-            } else {
-                lisp_object_t arglist = cadr(function);
-                lisp_object_t body = cddr(function);
-                return List(interp->syms.function, cons(interp->syms.lambda, cons(arglist, compile_list(body, ctxt))));
-            }
+            else
+                return compile_lambda(function, ctxt);
         } else {
             return cons(car(expr), compile_list(cdr(expr), ctxt));
         }

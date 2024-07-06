@@ -9,6 +9,7 @@ static void test_push_pop()
     struct vm vm;
     vm_init(&vm, 1024);
     init_interpreter(1024 * 1024);
+    init_vm_instruction_definitions();
     vm_run_instruction(&vm, List(sym("push"), sym("foo")));
     vm_run_instruction(&vm, List(sym("push"), sym("bar")));
 
@@ -29,6 +30,7 @@ static void test_push_pop()
 static void test_call()
 {
     init_interpreter(1024 * 1024 * 4);
+    init_vm_instruction_definitions();
     struct vm vm;
     vm_init(&vm, 1024);
 
@@ -51,6 +53,7 @@ static void test_call()
 static void test_function()
 {
     init_interpreter(1024 * 1024 * 4);
+    init_vm_instruction_definitions();
     struct vm vm;
     vm_init(&vm, 1024);
 
@@ -70,35 +73,34 @@ static void test_function()
     // swap
     // pop
     // ret
-    lisp_object_t lambda_code = allocate_vector(7 << 4);
+    lisp_object_t lambda_code = allocate_vector(6 << 4);
     lisp_object_t push = sym("push");
     svref_set(lambda_code, 0 << 4, List(push, sym("hello"))); // not happening
     svref_set(lambda_code, 1 << 4, List(sym("copy"), 1 << 4));
 
-    struct symbol *bof = SymbolPtr(sym("cons"));
+    struct symbol *bof = SymbolPtr(interp->syms.cons);
 
     svref_set(lambda_code, 2 << 4, List(push, bof->function));
     svref_set(lambda_code, 3 << 4, sym("call"));
-    svref_set(lambda_code, 4 << 4, sym("swap"));
-    svref_set(lambda_code, 5 << 4, sym("pop"));
-    svref_set(lambda_code, 6 << 4, sym("ret"));
+    svref_set(lambda_code, 4 << 4, List(sym("swap-pop"), 1 << 4));
+    svref_set(lambda_code, 5 << 4, sym("ret"));
 
-    struct symbol *symptr = SymbolPtr(sym("foo"));
-
+    /* Make the above code the function value of a symbol */
     lisp_object_t fn = allocate_function();
     struct lisp_function *fnptr = LispFunctionPtr(fn);
-    fnptr->kind = sym("lambda");
+    fnptr->kind = interp->syms.lambda;
     fnptr->actual_function = lambda_code;
+    struct symbol *symptr = SymbolPtr(sym("foo"));
     symptr->function = fn;
 
+    /* Some code to call the function */
     lisp_object_t calling_code = allocate_vector(3 << 4);
-
     svref_set(calling_code, 0 << 4, List(push, sym("snoogler")));
     svref_set(calling_code, 1 << 4, List(push, fn));
     svref_set(calling_code, 2 << 4, sym("call"));
 
+    /* Run the code */
     vm.current_code_vector = calling_code;
-
     vm_run(&vm);
 
     free_interpreter();

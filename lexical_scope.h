@@ -4,6 +4,7 @@ struct lexical_context {
     lisp_object_t block_alist;
     lisp_object_t next_block_number;
     lisp_object_t bindings;
+    lisp_object_t current_stack_increment;
 };
 
 void lexical_context_init(struct lexical_context *ctxt);

@@ -15,6 +15,8 @@ void vm_init(struct vm *vm, size_t size);
 
 void vm_free(struct vm *vm);
 
+void init_vm_instruction_definitions();
+
 void vm_print_stack(struct vm *vm);
 
 lisp_object_t vm_pop2(struct vm *vm);
@@ -30,6 +32,8 @@ void vm_run_instruction(struct vm *vm, lisp_object_t ins);
 void vm_inst_push(struct vm *vm, lisp_object_t obj);
 
 void vm_inst_copy(struct vm *vm, lisp_object_t offset);
+
+void vm_inst_swap_pop(struct vm *vm, lisp_object_t n);
 
 void vm_inst_swap(struct vm *vm);
 

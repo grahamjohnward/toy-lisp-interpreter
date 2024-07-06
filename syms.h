@@ -28,6 +28,13 @@ struct syms {
     lisp_object_t pctblock;
     lisp_object_t return_from;
     lisp_object_t if_;
+    lisp_object_t pop;
+    lisp_object_t push;
+    lisp_object_t copy;
+    lisp_object_t swap_pop;
+    lisp_object_t swap;
+    lisp_object_t call;
+    lisp_object_t ret;
 };
 
 #endif

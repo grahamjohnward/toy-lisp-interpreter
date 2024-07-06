@@ -64,13 +64,19 @@ lisp_object_t load(lisp_object_t filename);
 #define FunctionPtr(obj) ((void (*)())((((obj) & PTR_MASK) >> 4)))
 #define LispFunctionPtr(obj) ((struct lisp_function *)((obj) & PTR_MASK))
 
-lisp_object_t svref(lisp_object_t vector, size_t index);
-lisp_object_t svref_set(lisp_object_t vector, size_t index, lisp_object_t newvalue);
+lisp_object_t svref_c(lisp_object_t vector, size_t index);
+lisp_object_t svref(lisp_object_t vector, lisp_object_t index);
+lisp_object_t svref_set(lisp_object_t vector, lisp_object_t index, lisp_object_t newvalue);
 
 lisp_object_t allocate_string(size_t len, char *str);
 lisp_object_t allocate_vector(size_t size);
+lisp_object_t allocate_function();
 
 void get_string_parts(lisp_object_t string, size_t *lenptr, char **strptr);
+
+lisp_object_t length(lisp_object_t seq);
+
+lisp_object_t push(lisp_object_t obj, lisp_object_t *place);
 
 lisp_object_t symbolp(lisp_object_t obj);
 lisp_object_t integerp(lisp_object_t obj);
@@ -119,6 +125,9 @@ lisp_object_t save_image(lisp_object_t name);
 lisp_object_t type_of(lisp_object_t obj);
 lisp_object_t gensym();
 lisp_object_t compile_toplevel(lisp_object_t expr);
+lisp_object_t compile3_toplevel(lisp_object_t expr);
+
+void init_compiler();
 
 struct cons {
     object_header_t header;

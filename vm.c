@@ -18,6 +18,28 @@ void vm_free(struct vm *vm)
     free(vm->data_stack);
 }
 
+static void define_vm_instruction(lisp_object_t symbol, void (*function_pointer)(void), int arity, int stack_change)
+{
+    putprop(symbol, sym("%vm-ins-fp"), (((lisp_object_t)function_pointer) << 4) | FUNCTION_POINTER_TYPE);
+    putprop(symbol, sym("%vm-ins-arity"), ((uint64_t)arity) << 4);
+    putprop(symbol, sym("%vm-ins-stack-change"), ((uint64_t)stack_change) << 4);
+}
+
+void init_vm_instruction_definitions()
+{
+#define DEFINE_VM_INSTRUCTION(S, F, A, N) define_vm_instruction(interp->syms.S, (void (*)(void))F, A, N)
+    // clang-format off
+    DEFINE_VM_INSTRUCTION(push,     vm_inst_push,     1,  1);
+    DEFINE_VM_INSTRUCTION(copy,     vm_inst_copy,     1,  1);
+    DEFINE_VM_INSTRUCTION(swap_pop, vm_inst_swap_pop, 1,  1);
+    DEFINE_VM_INSTRUCTION(swap,     vm_inst_swap,     0,  0);
+    DEFINE_VM_INSTRUCTION(pop,      vm_inst_pop,      0, -1);
+    DEFINE_VM_INSTRUCTION(call,     vm_inst_call,     0,  0);
+    DEFINE_VM_INSTRUCTION(ret,      vm_inst_ret,      0,  0);
+    // clang-format on
+#undef DEFINE_VM_INSTRUCTION
+}
+
 void vm_print_stack(struct vm *vm)
 {
     /* Visually speaking, stack grows up here: */
@@ -60,24 +82,16 @@ void vm_run_instruction(struct vm *vm, lisp_object_t ins)
     TRACE(ins);
     if (consp(ins) != NIL) {
         lisp_object_t first = car(ins);
-        if (first == sym("push")) {
-            vm_inst_push(vm, cadr(ins));
-        } else if (first == sym("copy")) {
-            vm_inst_copy(vm, cadr(ins));
-        } else {
+        lisp_object_t arity = getprop(first, sym("%vm-ins-arity"));
+        if (arity != 1 << 4)
             abort();
-        }
-    } else if (ins == sym("swap")) {
-        vm_inst_swap(vm);
-    } else if (ins == sym("pop")) {
-        vm_inst_pop(vm);
-    } else if (ins == sym("call")) {
-        vm_inst_call(vm);
-    } else if (ins == sym("ret")) {
-        vm_inst_ret(vm);
+        void (*fp)() = FunctionPtr(getprop(first, sym("%vm-ins-fp")));
+        ((void (*)(struct vm *, lisp_object_t))fp)(vm, cadr(ins));
     } else {
-        abort();
+        void (*fp)() = FunctionPtr(getprop(ins, sym("%vm-ins-fp")));
+        ((void (*)(struct vm *))fp)(vm);
     }
+    return;
 }
 
 /** Instructions **/
@@ -91,6 +105,13 @@ void vm_inst_push(struct vm *vm, lisp_object_t obj)
 void vm_inst_copy(struct vm *vm, lisp_object_t offset)
 {
     vm_inst_push(vm, *(vm->top_of_data_stack - (offset >> 4) - 1));
+}
+
+void vm_inst_swap_pop(struct vm *vm, lisp_object_t n)
+{
+    lisp_object_t new_top = *(vm->top_of_data_stack - 1);
+    vm->top_of_data_stack -= n >> 4;
+    *(vm->top_of_data_stack - 1) = new_top;
 }
 
 void vm_inst_swap(struct vm *vm)

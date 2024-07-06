@@ -44,6 +44,7 @@ static lisp_object_t last(lisp_object_t list)
         return last(cdr(list));
 }
 
+// XXX change for stack machine
 static lisp_object_t compile2_let_varlist(lisp_object_t varlist, int *n, lisp_object_t *bindings)
 {
     if (varlist == NIL)
@@ -62,6 +63,7 @@ static lisp_object_t compile2_let_varlist(lisp_object_t varlist, int *n, lisp_ob
     return cons(List(sym("%setv"), 0, (*n)++ << 4, initializer), compile2_let_varlist(cdr(varlist), n, bindings));
 }
 
+// XXX change for stack machine
 static lisp_object_t compile2_let(lisp_object_t expr, struct lexical_context *ctxt)
 {
     lisp_object_t result = NIL;
@@ -80,6 +82,8 @@ static lisp_object_t compile2_let(lisp_object_t expr, struct lexical_context *ct
 
 static lisp_object_t compile2_quasiquote_list(lisp_object_t expr, struct lexical_context *ctxt, int depth);
 
+// XXX change for stack machine
+// ??? how to compile quasiquote to stack machine???
 static lisp_object_t compile2_quasiquote(lisp_object_t expr, struct lexical_context *ctxt, int depth)
 {
     if (consp(expr) == NIL) {
@@ -109,6 +113,7 @@ static lisp_object_t compile2_quasiquote_list(lisp_object_t expr, struct lexical
         return cons(compile2_quasiquote(car(expr), ctxt, depth), compile2_quasiquote_list(cdr(expr), ctxt, depth));
 }
 
+// XXX change for stack machine
 static lisp_object_t compile2_tagbody(lisp_object_t expr, struct lexical_context *ctxt)
 {
     if (expr == NIL)
@@ -119,6 +124,7 @@ static lisp_object_t compile2_tagbody(lisp_object_t expr, struct lexical_context
         return cons(compile2(car(expr), ctxt), compile2_tagbody(cdr(expr), ctxt));
 }
 
+// XXX change for stack machine
 static lisp_object_t compile2_if(lisp_object_t expr, struct lexical_context *ctxt)
 {
     lisp_object_t test_form = cadr(expr);

@@ -44,6 +44,11 @@ static void parse_wrapper(char *str, void (*callback)(void *, lisp_object_t), vo
     parse(&ts, callback, callback_data);
 }
 
+static void init_interpreter_for_tests()
+{
+    init_interpreter(65536);
+}
+
 static void test_skip_whitespace()
 {
     test_name = "skip_whitespace";
@@ -117,14 +122,17 @@ static void test_integer_too_negative()
 static void test_parse_single_integer_list()
 {
     test_name = "parse_single_integer_list";
+    lisp_object_t result = NIL;
+    lisp_object_t result_car = NIL;
+    lisp_object_t result_cdr = NIL;
     char *test_string = "(14)";
-    init_interpreter(32768);
-    lisp_object_t result = parse1_wrapper(test_string);
+    init_interpreter_for_tests();
+    result = parse1_wrapper(test_string);
     check(consp(result), "consp");
-    lisp_object_t result_car = car(result);
+    result_car = car(result);
     check(integerp(result_car), "car is int");
     check(result_car == 14 << 4, "car value");
-    lisp_object_t result_cdr = cdr(result);
+    result_cdr = cdr(result);
     check(NIL == result_cdr, "cdr is null");
     free_interpreter();
 }
@@ -133,16 +141,20 @@ static void test_parse_integer_list()
 {
     test_name = "parse_integer_list";
     char *test_string = "(23 71)";
-    init_interpreter(32768);
-    lisp_object_t result = parse1_wrapper(test_string);
+    lisp_object_t result = NIL;
+    lisp_object_t result_car = NIL;
+    lisp_object_t result_cdr = NIL;
+    lisp_object_t cadr = NIL;
+    init_interpreter_for_tests();
+    result = parse1_wrapper(test_string);
     check(consp(result), "consp");
-    lisp_object_t result_car = car(result);
+    result_car = car(result);
     check(integerp(result_car), "car is int");
     check(result_car == 23 << 4, "car value");
-    lisp_object_t result_cdr = cdr(result);
+    result_cdr = cdr(result);
     check(NIL != result_cdr, "cdr is not null");
     check(consp(result_cdr), "cdr is a pair");
-    lisp_object_t cadr = car(result_cdr);
+    cadr = car(result_cdr);
     check(integerp(cadr), "cadr is int");
     check(cadr == 71 << 4, "cadr value");
     free_interpreter();
@@ -152,8 +164,9 @@ static void test_parse_dotted_pair_of_integers()
 {
     test_name = "parse_dotted_pair_of_integers";
     char *test_string = "(45 . 123)";
-    init_interpreter(32768);
-    lisp_object_t result = parse1_wrapper(test_string);
+    lisp_object_t result = NIL;
+    init_interpreter_for_tests();
+    result = parse1_wrapper(test_string);
     check(consp(result), "consp");
     check(integerp(car(result)), "car is int");
     check(integerp(cdr(result)), "cdr is int");
@@ -180,8 +193,9 @@ static void test_print_integer()
 {
     test_name = "print_integer";
     char *test_string = "93";
-    init_interpreter(32768);
-    lisp_object_t obj = parse1_wrapper(test_string);
+    lisp_object_t obj = NIL;
+    init_interpreter_for_tests();
+    obj = parse1_wrapper(test_string);
     char *result = print_object(obj);
     check(strcmp("93", result) == 0, "string value");
     free(result);
@@ -192,8 +206,9 @@ static void test_print_single_integer_list()
 {
     test_name = "print_single_integer_list";
     char *test_string = "(453)";
-    init_interpreter(32768);
-    lisp_object_t obj = parse1_wrapper(test_string);
+    lisp_object_t obj = NIL;
+    init_interpreter_for_tests();
+    obj = parse1_wrapper(test_string);
     char *result = print_object(obj);
     check(strcmp("(453)", result) == 0, "string value");
     free(result);
@@ -204,8 +219,9 @@ static void test_print_integer_list()
 {
     test_name = "print_integer_list";
     char *test_string = "(240 -44 902)";
-    init_interpreter(32768);
-    lisp_object_t obj = parse1_wrapper(test_string);
+    lisp_object_t obj = NIL;
+    init_interpreter_for_tests();
+    obj = parse1_wrapper(test_string);
     char *result = print_object(obj);
     check(strcmp("(240 -44 902)", result) == 0, "string value");
     free(result);
@@ -216,7 +232,7 @@ static void test_print_dotted_pair()
 {
     test_name = "print_dotted_pair";
     char *test_string = "(65 . 185)";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     lisp_object_t obj = parse1_wrapper(test_string);
     char *result = print_object(obj);
     check(strcmp("(65 . 185)", result) == 0, "string value");
@@ -228,7 +244,7 @@ static void test_print_complex_list()
 {
     test_name = "print_complex_list";
     char *test_string = "(1 (2 3 4 (5 (6 7 8 (9 . 0)))))";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     lisp_object_t obj = parse1_wrapper(test_string);
     char *result = print_object(obj);
     check(strcmp("(1 (2 3 4 (5 (6 7 8 (9 . 0)))))", result) == 0, "string value");
@@ -264,7 +280,7 @@ static void test_read_and_print_nil()
 {
     test_name = "read_and_print_nil";
     char *test_string = "nil";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     lisp_object_t obj = parse1_wrapper(test_string);
     check(obj == NIL, "is nil");
     char *result = print_object(obj);
@@ -277,7 +293,7 @@ static void test_read_and_print_t()
 {
     test_name = "read_and_print_t";
     char *test_string = "t";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     lisp_object_t obj = parse1_wrapper(test_string);
     check(obj == T, "is T");
     char *result = print_object(obj);
@@ -289,7 +305,7 @@ static void test_read_and_print_t()
 static void test_read_empty_list()
 {
     test_name = "read_empty_list";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     char *test_string = "()";
     lisp_object_t result = parse1_wrapper(test_string);
     check(result == NIL, "is nil");
@@ -299,9 +315,10 @@ static void test_read_empty_list()
 static void test_read_empty_list_in_list()
 {
     test_name = "read_empty_list_in_list";
-    init_interpreter(32768);
+    lisp_object_t result = NIL;
+    init_interpreter_for_tests();
     char *test_string = "(abc () xyz)";
-    lisp_object_t result = parse1_wrapper(test_string);
+    result = parse1_wrapper(test_string);
     char *str = print_object(result);
     check(strcmp(str, "(abc nil xyz)") == 0, "ok");
     free(str);
@@ -311,10 +328,13 @@ static void test_read_empty_list_in_list()
 static void test_strings()
 {
     test_name = "strings";
-    init_interpreter(32768);
-    lisp_object_t s1 = allocate_string(6, "hello");
-    lisp_object_t s2 = allocate_string(6, "hello");
-    lisp_object_t s3 = allocate_string(7, "oohaah");
+    lisp_object_t s1 = NIL;
+    lisp_object_t s2 = NIL;
+    lisp_object_t s3 = NIL;
+    init_interpreter_for_tests();
+    s1 = allocate_string(6, "hello");
+    s2 = allocate_string(6, "hello");
+    s3 = allocate_string(7, "oohaah");
     check(string_equalp(s1, s2) == T, "equal strings are equalp/1");
     check(string_equalp(s2, s1) == T, "equal strings are equalp/2");
     check(string_equalp(s1, s3) == NIL, "unequal strings are not equalp/1");
@@ -330,9 +350,11 @@ static void test_strings()
 static void test_print_empty_cons()
 {
     test_name = "print_empty_cons";
-    init_interpreter(32768);
-    lisp_object_t empty = cons(NIL, NIL);
-    char *str = print_object(empty);
+    lisp_object_t empty = NIL;
+    char *str = NULL;
+    init_interpreter_for_tests();
+    empty = cons(NIL, NIL);
+    str = print_object(empty);
     check(strcmp("(nil)", str) == 0, "(nil)");
     free(str);
     free_interpreter();
@@ -351,7 +373,7 @@ static void test_parse_symbol()
 {
     test_name = "parse_symbol";
     char *test_string = "foo";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     lisp_object_t result = parse1_wrapper(test_string);
     check(symbolp(result) == T, "symbolp");
     check(consp(result) == NIL, "not consp");
@@ -364,17 +386,19 @@ static void test_parse_symbol()
 static void test_parse_multiple_symbols()
 {
     test_name = "parse_multiple_symbols";
+    lisp_object_t sym2 = NIL;
+    lisp_object_t sym3 = NIL;
     char *s1 = "foo";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     interp->symbol_table = NIL;
     parse1_wrapper(s1);
     char *s2 = "bar";
-    lisp_object_t sym2 = parse1_wrapper(s2);
+    sym2 = parse1_wrapper(s2);
     char *str = print_object(interp->symbol_table);
     check(strcmp("(bar foo)", str) == 0, "symbol table looks right");
     free(str);
     char *s3 = "bar";
-    lisp_object_t sym3 = parse1_wrapper(s3);
+    sym3 = parse1_wrapper(s3);
     check(eq(sym2, sym3) == T, "symbols eq");
     str = print_object(interp->symbol_table);
     check(strcmp("(bar foo)", str) == 0, "symbol table looks right(2)");
@@ -386,8 +410,9 @@ static void test_parse_list_of_symbols()
 {
     test_name = "parse_list_of_symbols";
     char *test_string = "(hello you are nice)";
-    init_interpreter(32768);
-    lisp_object_t result = parse1_wrapper(test_string); // bad
+    lisp_object_t result = NIL;
+    init_interpreter_for_tests();
+    result = parse1_wrapper(test_string);
     check(consp(result) != NIL, "consp");
     check(symbolp(car((result))) != NIL, "first symbolp");
     char *str = print_object(result);
@@ -399,16 +424,18 @@ static void test_parse_list_of_symbols()
 static void test_parse_string()
 {
     test_name = "parse_string";
-    init_interpreter(32768);
+    lisp_object_t obj = NIL;
     char *string = "\"hello\"";
-    lisp_object_t obj = parse_string_wrapper(string);
+    char *str = NULL;
+    char *str2 = NULL;
+    init_interpreter_for_tests();
+    obj = parse_string_wrapper(string);
     check(stringp(obj), "stringp");
     size_t len;
-    char *str;
     get_string_parts(obj, &len, &str);
     check(len == 5, "length");
     check(strcmp("hello", str) == 0, "value");
-    char *str2 = print_object(obj);
+    str2 = print_object(obj);
     check(strcmp("\"hello\"", str2) == 0, "print_object");
     free(str2);
     free_interpreter();
@@ -417,9 +444,10 @@ static void test_parse_string()
 static void test_parse_string_with_escape_characters()
 {
     test_name = "parse_string_with_escape_characters";
-    init_interpreter(32768);
+    lisp_object_t obj = NIL;
+    init_interpreter_for_tests();
     char *string = "\"he\\\"llo\n\t\r\"";
-    lisp_object_t obj = parse_string_wrapper(string);
+    obj = parse_string_wrapper(string);
     check(stringp(obj), "stringp");
     size_t len;
     char *str;
@@ -435,9 +463,10 @@ static void test_parse_string_with_escape_characters()
 static void test_parse_list_of_strings()
 {
     test_name = "parse_list_of_strings";
-    init_interpreter(32768);
+    lisp_object_t obj = NIL;
+    init_interpreter_for_tests();
     char *string = "(\"hello\" \"world\")";
-    lisp_object_t obj = parse1_wrapper(string);
+    obj = parse1_wrapper(string);
     check(consp(obj), "list returned");
     lisp_object_t s1 = car(obj);
     check(stringp(s1), "first element is string");
@@ -474,7 +503,7 @@ static void test_parse_multiple_objects()
 {
     test_name = "parse_multiple_objects";
     char *test_string = "foo bar";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     struct string_buffer sb;
     string_buffer_init(&sb);
     parse_wrapper(test_string, test_parse_multiple_objects_callback, (void *)&sb);
@@ -495,9 +524,9 @@ static void test_parse_handle_eof()
 {
     test_name = "parse_handle_eof";
     char *test_string = "foo bar\n";
-    init_interpreter(32768);
     struct string_buffer sb;
     string_buffer_init(&sb);
+    init_interpreter_for_tests();
     int count = 0;
     parse_wrapper(test_string, test_parse_handle_eof_callback, &count);
     check(count == 2, "two objects");
@@ -508,14 +537,16 @@ static void test_parse_quote()
 {
     test_name = "parse_quote";
     char *test_string = "'FOO";
-    init_interpreter(32768);
-    lisp_object_t result = parse1_wrapper(test_string);
+    lisp_object_t result = NIL;
+    char *str = NULL;
     struct string_buffer sb;
     string_buffer_init(&sb);
+    init_interpreter_for_tests();
+    result = parse1_wrapper(test_string); // IT"S THIS
     print_object_to_buffer(result, &sb);
-    char *str = string_buffer_to_string(&sb);
-    string_buffer_free_links(&sb);
-    check(strcmp("'FOO", str) == 0, "parse quote");
+    str = string_buffer_to_string(&sb); // not this
+    string_buffer_free_links(&sb); // not htis
+    check(strcmp("'FOO", str) == 0, "parse quote"); // not this
     free(str);
     free_interpreter();
 }
@@ -523,8 +554,11 @@ static void test_parse_quote()
 static void test_vector_initialization()
 {
     test_name = "vector_initialization";
-    init_interpreter(32768);
-    lisp_object_t v = allocate_vector(3 << 4);
+    lisp_object_t v = NIL;
+    /* Initialize unused stack space allocated due to 16-byte stack alignment: */
+    lisp_object_t dummy = NIL;
+    init_interpreter_for_tests();
+    v = allocate_vector(3 << 4);
     check(eq(svref(v, 0), NIL) != NIL, "first element nil");
     check(eq(svref(v, 1), NIL) != NIL, "second element nil");
     check(eq(svref(v, 2), NIL) != NIL, "third element nil");
@@ -534,12 +568,15 @@ static void test_vector_initialization()
 static void test_vector_svref()
 {
     test_name = "vector_svref";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     char *symbol_text = "foo";
-    lisp_object_t sym = parse1_wrapper(symbol_text);
-    lisp_object_t v = allocate_vector(3 << 4);
+    lisp_object_t sym = NIL;
+    lisp_object_t v = NIL;
+    lisp_object_t list = NIL;
+    sym = parse1_wrapper(symbol_text);
+    v = allocate_vector(3 << 4);
     char *list_text = "(a b c)";
-    lisp_object_t list = parse1_wrapper(list_text);
+    list = parse1_wrapper(list_text);
     svref_set(v, 0, 14);
     svref_set(v, 1 << 4, sym);
     svref_set(v, 2 << 4, list);
@@ -553,17 +590,21 @@ static void test_parse_vector()
 {
     test_name = "parse_vector";
     char *text = "#(a b c)";
-    init_interpreter(32768);
-    lisp_object_t result = parse1_wrapper(text);
+    init_interpreter_for_tests();
+    lisp_object_t result = NIL;
+    lisp_object_t sym_a = NIL;
+    lisp_object_t sym_b = NIL;
+    lisp_object_t sym_c = NIL;
+    result = parse1_wrapper(text);
     check(vectorp(result) == T, "vectorp");
     char *a_text = "a";
-    lisp_object_t sym_a = parse1_wrapper(a_text);
+    sym_a = parse1_wrapper(a_text);
     check(eq(sym_a, svref(result, 0)) == T, "first element");
     char *b_text = "b";
-    lisp_object_t sym_b = parse1_wrapper(b_text);
+    sym_b = parse1_wrapper(b_text);
     check(eq(sym_b, svref(result, 1 << 4)) == T, "second element");
     char *c_text = "c";
-    lisp_object_t sym_c = parse1_wrapper(c_text);
+    sym_c = parse1_wrapper(c_text);
     check(eq(sym_c, svref(result, 2 << 4)) == T, "third element");
     free_interpreter();
 }
@@ -572,8 +613,9 @@ static void test_print_vector()
 {
     test_name = "print_vector";
     char *text = "#(a b c)";
-    init_interpreter(32768);
-    lisp_object_t result = parse1_wrapper(text);
+    init_interpreter_for_tests();
+    lisp_object_t result = NIL;
+    result = parse1_wrapper(text);
     char *str = print_object(result);
     check(strcmp("#(a b c)", str) == 0, "correct string");
     free(str);
@@ -595,7 +637,7 @@ static void test_cdr_of_nil()
 static void test_parse_list_of_dotted_pairs()
 {
     test_name = "parse_list_of_dotted_pairs";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     char *text1 = "((X . SHAKESPEARE) (Y . (THE TEMPEST)))";
     lisp_object_t obj = parse1_wrapper(text1);
     char *str = print_object(obj);
@@ -607,7 +649,7 @@ static void test_parse_list_of_dotted_pairs()
 static void test_sublis()
 {
     test_name = "test_sublis";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     char *text1 = "((X . SHAKESPEARE) (Y . (THE TEMPEST)))";
     char *text2 = "(X WROTE Y)";
     lisp_object_t obj1 = parse1_wrapper(text1);
@@ -629,7 +671,7 @@ static void test_null()
 static void test_append()
 {
     test_name = "append";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     char *text1 = "(A B)";
     char *text2 = "(C D E)";
     lisp_object_t obj1 = parse1_wrapper(text1);
@@ -644,7 +686,7 @@ static void test_append()
 static void test_member()
 {
     test_name = "member";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     char *text1 = "A";
     char *text2 = "X";
     char *text3 = "(A B C D)";
@@ -659,7 +701,7 @@ static void test_member()
 static void test_assoc()
 {
     test_name = "assoc";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     lisp_object_t b = NIL;
     lisp_object_t x = NIL;
     lisp_object_t result = NIL;
@@ -680,10 +722,13 @@ static void test_assoc()
 static void test_sym()
 {
     test_name = "sym";
-    init_interpreter(32768);
-    lisp_object_t x1 = sym("x");
-    lisp_object_t x2 = sym("x");
-    lisp_object_t y = sym("y");
+    lisp_object_t x1 = NIL;
+    lisp_object_t x2 = NIL;
+    lisp_object_t y = NIL;
+    init_interpreter_for_tests();
+    x1 = sym("x");
+    x2 = sym("x");
+    y = sym("y");
     check(eq(x1, x2) != NIL, "(eq x1 x2)");
     check(eq(x1, y) == NIL, "(not (eq x1 y))");
     check(eq(x2, y) == NIL, "(not (eq x2 y))");
@@ -692,7 +737,7 @@ static void test_sym()
 
 static void test_evalquote_helper(char *fnstr, char *exprstr, char *expected)
 {
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     char *fnstr_copy = fnstr;
     lisp_object_t fn = parse1_wrapper(fnstr);
     lisp_object_t expr = parse1_wrapper(exprstr);
@@ -717,14 +762,15 @@ static void test_evalquote()
 
 static lisp_object_t test_eval_string_helper(char *exprstr)
 {
-    lisp_object_t expr = parse1_wrapper(exprstr);
-    lisp_object_t result = eval_toplevel(expr);
+    lisp_object_t expr = NIL, result = NIL;
+    expr = parse1_wrapper(exprstr);
+    result = eval_toplevel(expr);
     return result;
 }
 
 static void test_eval_helper(char *exprstr, char *expectedstr)
 {
-    init_interpreter(65536 * 4);
+    init_interpreter_for_tests();
     char *exprstr_save = exprstr;
     char *stuff = NULL;
     lisp_object_t result = test_eval_string_helper(exprstr);
@@ -771,7 +817,7 @@ static void test_load1()
 
 static void test_load()
 {
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     test_load1();
     free_interpreter();
 }
@@ -803,7 +849,7 @@ static void test_rplacd()
 static void test_rest_args()
 {
     test_name = "rest_args";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     char *teststr = "(set-symbol-function 'foo #'(lambda (a b &rest c) (cons c (cons b a))))";
     eval_toplevel(parse1_wrapper(teststr));
     teststr = "(foo 1 2 3)";
@@ -899,7 +945,7 @@ static void test_condition_case()
 static void test_functionp()
 {
     test_name = "functionp";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     check(functionp(test_eval_string_helper("(function (lambda (x) (cons x x)))")) == T, "lambda t");
     check(functionp(test_eval_string_helper("(function cons)")) == T, "cons t");
     check(functionp(parse1_wrapper("foo")) == NIL, "symbol nil");
@@ -942,7 +988,7 @@ static void define_defmacro()
 static void test_defmacro()
 {
     test_name = "defmacro";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     define_defmacro();
     test_eval_string_helper("(defmacro if2 (test then else) `(if ,test ,then ,else))");
     lisp_object_t result = test_eval_string_helper("(if2 (eq (car (cons 3 4)) 3) (two-arg-plus 9 9) 'bof)");
@@ -955,7 +1001,7 @@ static void test_defmacro()
 static void test_unquote_splice()
 {
     test_name = "unquote_splice";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     define_defmacro();
     test_eval_string_helper("(defmacro when (test &body then) `(if ,test (progn ,@then) nil))");
     lisp_object_t result = test_eval_string_helper("(let ((x 'foo)) (when (eq (car (cons 3 2)) 3) (set 'x 'bof) (cons x 14)))");
@@ -968,7 +1014,7 @@ static void test_unquote_splice()
 static void test_optional_arguments()
 {
     test_name = "optional_arguments";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     eval_toplevel(parse1_wrapper("(set-symbol-function 'test #'(lambda (a &optional b) (cons 'hello (cons a (cons b 'foo)))))"));
     lisp_object_t result = test_eval_string_helper("(test 3 4)");
     char *str = print_object(result);
@@ -985,7 +1031,7 @@ static void test_optional_arguments()
 static void test_progn()
 {
     test_name = "progn";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     lisp_object_t result = test_eval_string_helper("(let ((x 3) (y 4)) (progn (set 'x 12) (set 'y 13) (cons x y)))");
     char *str = print_object(result);
     check(strcmp(str, "(12 . 13)") == 0, "ok");
@@ -996,7 +1042,7 @@ static void test_progn()
 static void test_tagbody()
 {
     test_name = "tagbody";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     lisp_object_t result = test_eval_string_helper("(let ((x 10)) (block b (tagbody iterate (if (= x 0) (return-from b 'done) (progn (set 'x (two-arg-minus x 1)) (go iterate))))))");
     char *str = print_object(result);
     check(strcmp("done", str) == 0, "ok");
@@ -1007,7 +1053,7 @@ static void test_tagbody()
 static void test_tagbody_bug()
 {
     test_name = "tagbody_bug";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     lisp_object_t result = test_eval_string_helper("(let ((x 2)) (progn (tagbody (set 'x 14)) x))");
     check(result == 14 << 4, "ok");
     free_interpreter();
@@ -1023,7 +1069,7 @@ static void test_tagbody_returns_nil()
 static void test_tagbody_condition_case()
 {
     test_name = "tagbody_condition_case";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     lisp_object_t result = test_eval_string_helper("(block b (tagbody (condition-case e (raise 'ohno) (ohno (go hello))) (return-from b 'bad) hello (return-from b 'hello)))");
     char *str = print_object(result);
     check(strcmp("hello", str) == 0, "ok");
@@ -1040,7 +1086,7 @@ static void test_let()
 static void test_macroexpand1()
 {
     test_name = "macroexpand1";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     define_defmacro();
     lisp_object_t expr = NIL;
     lisp_object_t result = NIL;
@@ -1057,7 +1103,7 @@ static void test_macroexpand1()
 static void test_macroexpand()
 {
     test_name = "macroexpand";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     define_defmacro();
     lisp_object_t expr = NIL;
     lisp_object_t result = NIL;
@@ -1074,7 +1120,7 @@ static void test_macroexpand()
 static void test_macroexpand_all_if()
 {
     test_name = "macroexpand_all_if";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     define_defmacro();
     test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
     test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
@@ -1089,7 +1135,7 @@ static void test_macroexpand_all_if()
 static void test_macroexpand_all_progn()
 {
     test_name = "macroexpand_all_progn";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     define_defmacro();
     lisp_object_t expr = NIL;
     lisp_object_t result = NIL;
@@ -1106,7 +1152,7 @@ static void test_macroexpand_all_progn()
 static void test_macroexpand_all_lambda()
 {
     test_name = "macroexpand_all_lambda";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     define_defmacro();
     lisp_object_t expr = NIL;
     lisp_object_t result = NIL;
@@ -1123,7 +1169,7 @@ static void test_macroexpand_all_lambda()
 static void test_macroexpand_all_tagbody()
 {
     test_name = "macroexpand_all_tagbody";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     define_defmacro();
     lisp_object_t expr = NIL;
     lisp_object_t result = NIL;
@@ -1140,7 +1186,7 @@ static void test_macroexpand_all_tagbody()
 static void test_macroexpand_all_prog()
 {
     test_name = "macroexpand_all_prog";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     define_defmacro();
     lisp_object_t expr = NIL;
     lisp_object_t result = NIL;
@@ -1157,7 +1203,7 @@ static void test_macroexpand_all_prog()
 static void test_macroexpand_all_set()
 {
     test_name = "macroexpand_all_set";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     define_defmacro();
     lisp_object_t expr = NIL;
     lisp_object_t result = NIL;
@@ -1174,7 +1220,7 @@ static void test_macroexpand_all_set()
 static void test_macroexpand_all_let()
 {
     test_name = "macroexpand_all_let";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     define_defmacro();
     lisp_object_t expr = NIL;
     lisp_object_t result = NIL;
@@ -1191,7 +1237,7 @@ static void test_macroexpand_all_let()
 static void test_macroexpand_all_defmacro()
 {
     test_name = "macroexpand_all_defmacro";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     define_defmacro();
     lisp_object_t expr = NIL;
     lisp_object_t result = NIL;
@@ -1208,7 +1254,7 @@ static void test_macroexpand_all_defmacro()
 static void test_macroexpand_all_condition_case()
 {
     test_name = "macroexpand_all_condition_case";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     define_defmacro();
     lisp_object_t expr = NIL;
     lisp_object_t result = NIL;
@@ -1231,7 +1277,7 @@ static void test_lambda_implicit_progn()
 static void test_lisp_heap_cons()
 {
     test_name = "lisp_heap_cons";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     struct lisp_heap *heap = &interp->heap;
     char *oldfreeptr = heap->freeptr;
     lisp_object_t new_cons = cons(NIL, T);
@@ -1259,7 +1305,7 @@ static void test_lisp_heap_copy_single_object()
 static void test_lisp_heap_gc_simple()
 {
     test_name = "lisp_heap_gc_simple";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     char *orig_from_space = interp->heap.from_space;
     char *orig_to_space = interp->heap.to_space;
     check(orig_from_space == interp->heap.heap, "from_space");
@@ -1336,7 +1382,7 @@ static void test_apply()
 static void test_parse_function()
 {
     test_name = "parse_function";
-    init_interpreter(32768);
+    init_interpreter_for_tests();
     lisp_object_t result = parse1_wrapper("#'cons");
     char *str = print_object(result);
     check(strcmp("(function cons)", str) == 0, "ok");
@@ -1347,8 +1393,9 @@ static void test_parse_function()
 static void test_nonexistent_function()
 {
     test_name = "nonexistent_function";
-    init_interpreter(32768);
-    lisp_object_t result = test_eval_string_helper("(condition-case e (function nonexistent) (undefined-function e))");
+    init_interpreter_for_tests();
+    lisp_object_t result = NIL;
+    result = test_eval_string_helper("(condition-case e (function nonexistent) (undefined-function e))");
     char *str = print_object(result);
     check(strcmp("(undefined-function . nonexistent)", str) == 0, "ok");
     free(str);
@@ -1358,7 +1405,7 @@ static void test_nonexistent_function()
 static void test_unquote_splice_bug()
 {
     test_name = "unquote_splice_bug";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     lisp_object_t result = test_eval_string_helper("(let ((x '(1 2 3))) `(foo ,@x bar))");
     char *str = print_object(result);
     char *expected = "(foo 1 2 3 bar)";
@@ -1370,7 +1417,7 @@ static void test_unquote_splice_bug()
 static void test_gensym()
 {
     test_name = "gensym";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     lisp_object_t result = gensym();
     char *str = print_object(result);
     check(strcmp("g0", str) == 0, "g0");
@@ -1391,7 +1438,7 @@ static void test_gensym()
 static void test_varargs_list()
 {
     test_name = "varargs_list";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     lisp_object_t mylist = list(interp->syms.lambda, sym("hello"), VARARGS_LIST_SENTINEL);
     char *str = print_object(mylist);
     check(strcmp("(lambda hello)", str) == 0, "function");
@@ -1406,7 +1453,7 @@ static void test_varargs_list()
 static void test_block()
 {
     test_name = "block";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     lisp_object_t result = test_eval_string_helper("(block foo (return-from foo 12) (print \"shouldn't happen\"))");
     char *str = print_object(result);
     check(strcmp("12", str) == 0, "ok");
@@ -1415,7 +1462,7 @@ static void test_block()
 static void test_nil_block()
 {
     test_name = "nil_block";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     lisp_object_t result = test_eval_string_helper("(block nil (return-from nil 12) (print \"shouldn't happen\"))");
     char *str = print_object(result);
     check(strcmp("12", str) == 0, "ok");
@@ -1425,7 +1472,7 @@ static void test_nil_block()
 static void test_nested_block()
 {
     test_name = "nested_block";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     lisp_object_t result = test_eval_string_helper("(block foo (block bar (return-from foo 12) (print \"shouldn't happen\")) 14)");
     char *str = print_object(result);
     check(strcmp("12", str) == 0, "ok");
@@ -1435,7 +1482,7 @@ static void test_nested_block()
 static void test_nested_nil_block()
 {
     test_name = "nested_nil_block";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     lisp_object_t result = test_eval_string_helper("(block nil (cons (block nil (return-from nil 12) (print \"shouldn't happen\")) 14))");
     char *str = print_object(result);
     check(strcmp("(12 . 14)", str) == 0, "ok");
@@ -1451,7 +1498,7 @@ static void test_compile_bug()
 static void test_macroexpand_function_lambda()
 {
     test_name = "macroexpand_function_lambda";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     define_defmacro();
     test_eval_string_helper("(defmacro my-block (&body stuff) `(block nil ,@stuff))");
     lisp_object_t result = test_eval_string_helper("(funcall (function (lambda (x) (my-block (return-from nil (cons x 'hello))))) 12)");
@@ -1464,7 +1511,7 @@ static void test_macroexpand_function_lambda()
 static void test_set_symbol_function()
 {
     test_name = "set_symbol_function";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     test_eval_string_helper("(set-symbol-function 'boo #'(lambda (x) (cons ':boo x)))");
     lisp_object_t result = test_eval_string_helper("(boo 14)");
     char *str = print_object(result);
@@ -1476,7 +1523,7 @@ static void test_set_symbol_function()
 static void test_set_symbol_value()
 {
     test_name = "set_symbol_value";
-    init_interpreter(65536);
+    init_interpreter_for_tests();
     lisp_object_t result = test_eval_string_helper("(progn (set-symbol-value 'foo 14) (symbol-value 'foo))");
     char *str = print_object(result);
     check(strcmp("14", str) == 0, "basic");
@@ -1520,6 +1567,41 @@ static void test_greater_than()
     test_eval_helper("(two-arg-greater-than 2 -3)", "t");
 }
 
+static void test_nthcdr()
+{
+    test_name = "nthcdr";
+    test_eval_helper("(nthcdr 0 '(a b))", "(a b)");
+    test_eval_helper("(nthcdr 1 '(a b))", "(b)");
+    test_eval_helper("(nthcdr 2 '(a b))", "nil");
+    test_eval_helper("(nthcdr 3 '(a b))", "nil");
+}
+
+static void test_push()
+{
+    test_name = "push";
+    lisp_object_t l = NIL;
+    lisp_object_t a = NIL;
+    lisp_object_t b = NIL;
+    lisp_object_t c = NIL;
+    init_interpreter_for_tests();
+    a = sym("a");
+    b = sym("b");
+    c = sym("c");
+    l = cons(a, NIL);
+    push(b, &l);
+    push(c, &l);
+    char *str = print_object(l);
+    check(strcmp("(c b a)", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
+static void test_compile3()
+{
+    init_interpreter_for_tests();
+    init_compiler();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1556,9 +1638,11 @@ int main(int argc, char **argv)
     test_parse_string();
     test_parse_string_with_escape_characters();
     test_parse_list_of_strings();
+
     test_eq();
     test_parse_multiple_objects();
     test_parse_handle_eof();
+    // This guy:
     test_parse_quote();
     test_vector_initialization();
     test_vector_svref();
@@ -1645,6 +1729,7 @@ int main(int argc, char **argv)
     test_if();
     test_less_than();
     test_greater_than();
+    test_nthcdr();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

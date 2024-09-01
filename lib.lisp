@@ -112,7 +112,7 @@
 		 iterate
 		   (when (eq i (length a))
 		     (return-from equalp t))
-		   (when (not (eq (svref a i) (svref b i)))
+		   (when (not (equalp (svref a i) (svref b i)))
 		     (return-from equalp nil))
 		   (setq i (+ i 1))
 		   (go iterate))))))

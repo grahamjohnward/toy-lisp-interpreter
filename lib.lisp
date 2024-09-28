@@ -161,6 +161,18 @@
 		(setq ,list-var (cdr ,list-var))
 		(go iterate)))))))
 
+(defmacro while (condition &body body)
+  (let ((iterate-tag (gensym))
+	(out-tag (gensym)))
+    `(tagbody
+	,iterate-tag
+	(if ,condition
+	    (progn
+	      ,@body
+	      (go ,iterate-tag))
+	    (go ,out-tag))
+	,out-tag)))
+
 (defmacro prog (varlist &body body)
   `(block nil
      (let ,varlist
@@ -211,3 +223,49 @@
 (defparameter * nil)
 
 (defparameter + nil)
+
+(defmacro assert (thing-that-should-be-true)
+  `(when (not ,thing-that-should-be-true)
+     (raise 'assertion-failed ',thing-that-should-be-true)))
+
+(defun append (list1 list2)
+  (if (null list1)
+      list2
+      (cons (car list1) (append (cdr list1) list2))))
+
+(defun caar (x)
+  (car (car x)))
+
+(defun cadr (x)
+  (car (cdr x)))
+
+(defun cdar (x)
+  (cdr (car x)))
+
+(defun cddr (x)
+  (cdr (cdr x)))
+
+(defun caddr (x)
+  (car (cddr x)))
+
+(defun caadr (x)
+  (car (cadr x)))
+
+(defun assoc (item alist)
+  (if (null alist)
+      nil
+      (if (eq item (caar alist))
+	  (car alist)
+	  (assoc item (cdr alist)))))
+
+(defun find (item list)
+  (if (null list)
+      nil
+      (if (equalp item (car list))
+	  (car list)
+	  (find item (cdr list)))))
+
+(defun mapcar (function list)
+  (if (null list)
+      nil
+      (cons (funcall function (car list)) (mapcar function (cdr list)))))

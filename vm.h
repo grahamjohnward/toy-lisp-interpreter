@@ -51,7 +51,7 @@ void vm_inst_swap(struct vm *vm);
 
 void vm_inst_pop(struct vm *vm);
 
-void vm_inst_call(struct vm *vm);
+void vm_inst_call(struct vm *vm, lisp_object_t n);
 
 void vm_inst_ret(struct vm *vm);
 

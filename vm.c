@@ -46,7 +46,7 @@ void init_vm_instruction_definitions()
     DEFINE_VM_INSTRUCTION(swap_pop,   vm_inst_swap_pop,   1);
     DEFINE_VM_INSTRUCTION(swap,       vm_inst_swap,       0);
     DEFINE_VM_INSTRUCTION(pop,        vm_inst_pop,        0);
-    DEFINE_VM_INSTRUCTION(call,       vm_inst_call,       0);
+    DEFINE_VM_INSTRUCTION(call,       vm_inst_call,       1);
     DEFINE_VM_INSTRUCTION(ret,        vm_inst_ret,        0);
     DEFINE_VM_INSTRUCTION(copy2,      vm_inst_copy2,      1);
     DEFINE_VM_INSTRUCTION(abort,      vm_inst_abort,      0);
@@ -161,7 +161,7 @@ void vm_inst_pop(struct vm *vm)
     vm->top_of_data_stack--;
 }
 
-void vm_inst_call(struct vm *vm)
+void vm_inst_call(struct vm *vm, lisp_object_t n)
 {
     lisp_object_t fn = vm_pop(vm);
     /* For now at least, you can call a symbol.  This makes it easier to write VM code by hand. */

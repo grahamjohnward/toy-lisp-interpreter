@@ -1684,7 +1684,7 @@ static void test_vm_call()
     test_name = "vm_call";
     init_interpreter(1024 * 1024 * 4);
 
-    lisp_object_t code_vector = parse1_wrapper("#(push foo push bar push 2 push cons call)");
+    lisp_object_t code_vector = parse1_wrapper("#(push foo push bar push 2 push cons call 2)");
     interp->vm.registers.code_vector = code_vector;
     vm_run(&interp->vm);
 
@@ -1701,7 +1701,7 @@ static void test_vm_function()
     init_interpreter(1024 * 1024 * 4);
 
     // lisp_object_t lambda_code = parse1_wrapper("#(push hello copy2 2 push cons call swap-pop 1 ret)");
-    lisp_object_t lambda_code = parse1_wrapper("#(push hello copy2 2 push 2 push cons call ret)");
+    lisp_object_t lambda_code = parse1_wrapper("#(push hello copy2 2 push 2 push cons call 2 ret)");
     /* Make the above code the function value of a symbol */
     lisp_object_t fn = allocate_function();
     struct lisp_function *fnptr = LispFunctionPtr(fn);
@@ -1711,7 +1711,7 @@ static void test_vm_function()
     symptr->function = fn;
 
     /* Some code to call the function */
-    lisp_object_t calling_code = parse1_wrapper("#(push world push 1 push placeholder call)");
+    lisp_object_t calling_code = parse1_wrapper("#(push world push 1 push placeholder call 1)");
     svref_set(calling_code, 5 << 4, fn);
 
     /* Run the code */

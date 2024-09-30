@@ -1,14 +1,18 @@
-#include <assert.h>
 
 #include "lexical_scope.h"
 #include "lisp.h"
+
+#include "interp.h"
+
+#include <assert.h>
+#include <stdio.h>
 
 void lexical_context_init(struct lexical_context *ctxt)
 {
     ctxt->block_alist = NIL;
     ctxt->next_block_number = 0;
     ctxt->bindings = NIL;
-    ctxt->current_stack_increment = NIL;
+    ctxt->n_bindings = 0;
 }
 
 lisp_object_t lexical_context_enter_block(struct lexical_context *ctxt, lisp_object_t block_name)
@@ -31,19 +35,52 @@ void lexical_context_leave_block(struct lexical_context *ctxt, lisp_object_t blo
     ctxt->block_alist = cdr(ctxt->block_alist);
 }
 
-/* Returns the stack offset as a lisp integer */
-lisp_object_t lexical_context_lookup(struct lexical_context *ctxt, lisp_object_t sym)
+static lisp_object_t reverse1(lisp_object_t list, lisp_object_t aux)
 {
-    assert(symbolp(sym) != NIL);
-    int i = 0;
-    for (lisp_object_t bindings = ctxt->bindings; bindings != NIL; bindings = cdr(bindings)) {
-        int j = 0;
-        for (lisp_object_t varlist = car(bindings); varlist != NIL; varlist = cdr(varlist)) {
-            if (eq(car(varlist), sym) != NIL)
-                return cons(i << 4, j << 4);
-            j++;
+    lisp_object_t tmp1 = NIL;
+    lisp_object_t tmp2 = NIL;
+    lisp_object_t tmp3 = NIL;
+    if (list == NIL)
+        return aux;
+    tmp1 = cdr(list);
+    tmp3 = car(list);
+    tmp2 = cons(tmp3, aux);
+    return reverse1(tmp1, tmp2);
+}
+
+static lisp_object_t reverse(lisp_object_t list)
+{
+    return reverse1(list, NIL);
+}
+
+void lexical_context_enter_scope(struct lexical_context *ctxt, lisp_object_t bindings)
+{
+    ctxt->bindings = cons(bindings, ctxt->bindings);
+    lisp_object_t len = length(bindings);
+    ctxt->n_bindings += len;
+    TRACE(ctxt->bindings);
+}
+
+void lexical_context_leave_scope(struct lexical_context *ctxt)
+{
+    ctxt->n_bindings -= length(car(ctxt->bindings));
+    ctxt->bindings = cdr(ctxt->bindings);
+}
+
+lisp_object_t lexical_context_lookup(struct lexical_context *ctxt, lisp_object_t symbol)
+{
+    lisp_object_t bindings = ctxt->bindings;
+    lisp_object_t i = ctxt->n_bindings;
+    while (bindings != NIL) {
+        lisp_object_t bindings_one_scope = car(bindings);
+        while (bindings_one_scope != NIL) {
+            if (eq(car(bindings_one_scope), symbol) != NIL) {
+                return i;
+            }
+            i -= 16;
+            bindings_one_scope = cdr(bindings_one_scope);
         }
-        i++;
+        bindings = cdr(bindings);
     }
     return NIL;
 }

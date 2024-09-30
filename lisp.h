@@ -1,7 +1,6 @@
 #ifndef LISP_H
 #define LISP_H
 
-#include <setjmp.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -75,6 +74,7 @@ lisp_object_t allocate_function();
 void get_string_parts(lisp_object_t string, size_t *lenptr, char **strptr);
 
 lisp_object_t length(lisp_object_t seq);
+int length_c(lisp_object_t seq);
 
 lisp_object_t push(lisp_object_t obj, lisp_object_t *place);
 
@@ -126,6 +126,7 @@ lisp_object_t type_of(lisp_object_t obj);
 lisp_object_t gensym();
 lisp_object_t compile_toplevel(lisp_object_t expr);
 lisp_object_t compile3_toplevel(lisp_object_t expr);
+lisp_object_t append(lisp_object_t list1, lisp_object_t list2);
 
 void init_compiler();
 
@@ -181,28 +182,5 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p);
 lisp_object_t list(lisp_object_t first, ...);
 
 #define List(...) list(__VA_ARGS__, VARARGS_LIST_SENTINEL)
-
-struct return_context {
-    lisp_object_t type;
-    jmp_buf buf;
-    lisp_object_t return_value;
-    struct return_context *next;
-    /* tagbody_forms is here so it can be freed in pop_return_context() */
-    /* - it is not actually accessed: */
-    lisp_object_t *tagbody_forms;
-    size_t tagbody_forms_len;
-};
-
-#include "syms.h"
-
-struct lisp_interpreter {
-    struct syms syms;
-    lisp_object_t symbol_table;
-    struct return_context *return_stack;
-    struct lisp_heap heap;
-    lisp_object_t *top_of_stack;
-};
-
-extern struct lisp_interpreter *interp;
 
 #endif

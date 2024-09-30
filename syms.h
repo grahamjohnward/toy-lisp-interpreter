@@ -35,6 +35,14 @@ struct syms {
     lisp_object_t swap;
     lisp_object_t call;
     lisp_object_t ret;
+    lisp_object_t copy2;
+    lisp_object_t vm_ins_arity;
+    lisp_object_t vm_ins_fp;
+    lisp_object_t vm_make_function;
+    lisp_object_t provided_arg_count;
+    lisp_object_t abort;
+    lisp_object_t jmp;
+    lisp_object_t jmp_if_nil;
 };
 
 #endif

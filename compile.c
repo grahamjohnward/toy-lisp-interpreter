@@ -1,3 +1,4 @@
+#include "interp.h"
 #include "lexical_scope.h"
 #include "lisp.h"
 

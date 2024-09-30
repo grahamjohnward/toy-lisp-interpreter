@@ -2,9 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "interp.h"
+#include "lexical_scope.h"
 #include "lisp.h"
 #include "string_buffer.h"
 #include "text_stream.h"
+#include "vm.h"
 
 static char *test_name; /* Global */
 
@@ -1576,6 +1579,54 @@ static void test_nthcdr()
     test_eval_helper("(nthcdr 3 '(a b))", "nil");
 }
 
+static void test_lexical_context()
+{
+    test_name = "lexical_context";
+    init_interpreter_for_tests();
+    /*
+    Stack (growing downwards)
+
+    a
+    b
+    c
+    (nothing) <= frame pointer
+    */
+    lisp_object_t bindings1 = List(sym("a"), sym("b"), sym("c"));
+    lisp_object_t bindings2 = List(sym("x"), sym("y"), sym("z"), sym("a"));
+    struct lexical_context ctxt;
+    lexical_context_init(&ctxt);
+    lexical_context_enter_scope(&ctxt, bindings1);
+    check(lexical_context_lookup(&ctxt, sym("a")) == 3 << 4, "a offset");
+    lisp_object_t offset = lexical_context_lookup(&ctxt, sym("b"));
+    check(lexical_context_lookup(&ctxt, sym("b")) == 2 << 4, "b offset");
+    check(lexical_context_lookup(&ctxt, sym("c")) == 1 << 4, "c offset");
+    lexical_context_enter_scope(&ctxt, bindings2);
+    check(lexical_context_lookup(&ctxt, sym("x")) == 7 << 4, "x offset");
+    check(lexical_context_lookup(&ctxt, sym("y")) == 6 << 4, "y offset");
+    check(lexical_context_lookup(&ctxt, sym("z")) == 5 << 4, "z offset");
+    check(lexical_context_lookup(&ctxt, sym("a")) == 4 << 4, "a offset");
+    check(lexical_context_lookup(&ctxt, sym("b")) == 2 << 4, "b offset");
+    check(lexical_context_lookup(&ctxt, sym("c")) == 1 << 4, "c offset");
+    check(lexical_context_lookup(&ctxt, sym("notfound")) == NIL, "not found");
+    lexical_context_leave_scope(&ctxt);
+    lexical_context_leave_scope(&ctxt);
+    free_interpreter();
+}
+
+static void test_compile3_lambda()
+{
+    test_name = "compile3_lambda";
+    init_interpreter_for_tests();
+    // This actually needs to compile into code that returns the lambda itself
+    // maybe:
+    //   push <code vector>
+    //   push make-function
+    //   call
+    lisp_object_t compiled = compile3_toplevel(parse1_wrapper("#'(lambda (a b) (cons a b))"));
+    TRACE(compiled);
+    free_interpreter();
+}
+
 static void test_push()
 {
     test_name = "push";
@@ -1596,10 +1647,141 @@ static void test_push()
     free_interpreter();
 }
 
+static void test_vm_initialization()
+{
+    test_name = "vm_initialization";
+    init_interpreter_for_tests();
+    struct vm *vm = &interp->vm;
+    free_interpreter();
+}
+
 static void test_compile3()
 {
+    test_name = "compile3";
     init_interpreter_for_tests();
     init_compiler();
+}
+
+static void test_vm_push_pop()
+{
+    test_name = "vm_push_pop";
+
+    init_interpreter(1024 * 1024);
+
+    lisp_object_t code_vector = parse1_wrapper("#(push foo push bar)");
+    interp->vm.registers.code_vector = code_vector;
+    vm_run(&interp->vm);
+
+    check(eq(sym("bar"), vm_pop(&interp->vm)) != NIL, "stack1");
+    check(eq(sym("foo"), vm_pop(&interp->vm)) != NIL, "stack2");
+    check(interp->vm.top_of_data_stack == interp->vm.data_stack, "stack empty");
+
+    free_interpreter();
+}
+
+static void test_vm_call()
+{
+    test_name = "vm_call";
+    init_interpreter(1024 * 1024 * 4);
+
+    lisp_object_t code_vector = parse1_wrapper("#(push foo push bar push 2 push cons call)");
+    interp->vm.registers.code_vector = code_vector;
+    vm_run(&interp->vm);
+
+    char *str = print_object(vm_peek(&interp->vm));
+    check(strcmp("(foo . bar)", str) == 0, "ok");
+    free(str);
+
+    free_interpreter();
+}
+
+static void test_vm_function()
+{
+    test_name = "vm_function";
+    init_interpreter(1024 * 1024 * 4);
+
+    // lisp_object_t lambda_code = parse1_wrapper("#(push hello copy2 2 push cons call swap-pop 1 ret)");
+    lisp_object_t lambda_code = parse1_wrapper("#(push hello copy2 2 push 2 push cons call ret)");
+    /* Make the above code the function value of a symbol */
+    lisp_object_t fn = allocate_function();
+    struct lisp_function *fnptr = LispFunctionPtr(fn);
+    fnptr->kind = interp->syms.lambda;
+    fnptr->actual_function = lambda_code;
+    struct symbol *symptr = SymbolPtr(sym("foo"));
+    symptr->function = fn;
+
+    /* Some code to call the function */
+    lisp_object_t calling_code = parse1_wrapper("#(push world push 1 push placeholder call)");
+    svref_set(calling_code, 5 << 4, fn);
+
+    /* Run the code */
+    interp->vm.registers.code_vector = calling_code;
+    vm_run(&interp->vm);
+
+    /* Check the result */
+    lisp_object_t result = vm_peek(&interp->vm);
+    char *str = print_object(result);
+    check(strcmp("(hello . world)", str) == 0, "ok");
+    free(str);
+
+    free_interpreter();
+}
+
+static void test_vm_inst_jmp()
+{
+    test_name = "vm_inst_jmp";
+    init_interpreter_for_tests();
+
+    lisp_object_t code = parse1_wrapper("#(jmp 4 push foo push bar)");
+    interp->vm.registers.code_vector = code;
+    vm_run(&interp->vm);
+
+    lisp_object_t top = vm_pop(&interp->vm);
+    char *str = print_object(top);
+    check(strcmp("bar", str) == 0, "ok");
+    check(interp->vm.top_of_data_stack == interp->vm.data_stack, "stack empty");
+
+    free(str);
+    free_interpreter();
+}
+
+static void test_vm_inst_jmp_if_nil1()
+{
+    test_name = "vm_inst_jmp_if_nil1";
+    init_interpreter_for_tests();
+
+    lisp_object_t code = parse1_wrapper("#(push nil jmp-if-nil 6 push foo push bar)");
+    interp->vm.registers.code_vector = code;
+    vm_run(&interp->vm);
+
+    lisp_object_t top = vm_pop(&interp->vm);
+    char *str = print_object(top);
+    check(strcmp("bar", str) == 0, "ok");
+    check(interp->vm.top_of_data_stack == interp->vm.data_stack, "stack empty");
+
+    free(str);
+    free_interpreter();
+}
+
+static void test_vm_inst_jmp_if_nil2()
+{
+    test_name = "test_vm_inst_jmp_if_nil2";
+    init_interpreter_for_tests();
+
+    lisp_object_t code = parse1_wrapper("#(push abc jmp-if-nil 6 push foo push bar)");
+    interp->vm.registers.code_vector = code;
+    vm_run(&interp->vm);
+
+    lisp_object_t top = vm_pop(&interp->vm);
+    char *str = print_object(top);
+    check(strcmp("bar", str) == 0, "ok");
+    check(interp->vm.top_of_data_stack >= interp->vm.data_stack, "stack not empty");
+    top = vm_pop(&interp->vm);
+    str = print_object(top);
+    check(strcmp("foo", str) == 0, "ok");
+
+    free(str);
+    free_interpreter();
 }
 
 int main(int argc, char **argv)
@@ -1638,11 +1820,9 @@ int main(int argc, char **argv)
     test_parse_string();
     test_parse_string_with_escape_characters();
     test_parse_list_of_strings();
-
     test_eq();
     test_parse_multiple_objects();
     test_parse_handle_eof();
-    // This guy:
     test_parse_quote();
     test_vector_initialization();
     test_vector_svref();
@@ -1730,6 +1910,16 @@ int main(int argc, char **argv)
     test_less_than();
     test_greater_than();
     test_nthcdr();
+    test_lexical_context();
+    test_compile3_lambda();
+    test_push();
+    test_vm_initialization();
+    test_vm_push_pop();
+    test_vm_call();
+    test_vm_function();
+    test_vm_inst_jmp();
+    test_vm_inst_jmp_if_nil1();
+    test_vm_inst_jmp_if_nil2();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

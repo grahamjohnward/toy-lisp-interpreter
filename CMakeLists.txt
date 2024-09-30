@@ -8,11 +8,9 @@ add_library(lisp STATIC lisp.c lexical_scope.c compile.c compile3.c vm.c string_
 
 add_executable(tests tests.c)
 add_executable(main main.c)
-add_executable(vmtest vmtest.c)
 
 target_link_libraries(tests lisp)
 target_link_libraries(main lisp)
-target_link_libraries(vmtest lisp)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

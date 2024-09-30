@@ -1,4 +1,5 @@
 #include "lisp.h"
+#include "interp.h"
 #include "string_buffer.h"
 #include "text_stream.h"
 
@@ -258,6 +259,14 @@ static void init_symbols()
     interp->syms.swap = sym("swap");
     interp->syms.call = sym("call");
     interp->syms.ret = sym("ret");
+    interp->syms.copy2 = sym("copy2");
+    interp->syms.vm_ins_arity = sym("%vm-ins-arity");
+    interp->syms.vm_ins_fp = sym("%vm-ins-fp");
+    interp->syms.vm_make_function = sym("%vm-make-function");
+    interp->syms.provided_arg_count = sym("%provided-arg-count");
+    interp->syms.abort = sym("abort");
+    interp->syms.jmp = sym("jmp");
+    interp->syms.jmp_if_nil = sym("jmp-if-nil");
 }
 
 lisp_object_t length(lisp_object_t seq);
@@ -308,6 +317,10 @@ lisp_object_t nthcdr(lisp_object_t n, lisp_object_t list);
 
 lisp_object_t eval2(lisp_object_t e);
 
+lisp_object_t vm_make_function(lisp_object_t arity, lisp_object_t code_vector);
+
+lisp_object_t vm_eval(lisp_object_t code_vector);
+
 #define FUNCALL_ARITY -1
 
 static void init_builtins()
@@ -344,6 +357,7 @@ static void init_builtins()
     DEFBUILTIN("stringp", stringp, 1);
     DEFBUILTIN("vectorp", vectorp, 1);
     DEFBUILTIN("functionp", functionp, 1);
+    DEFBUILTIN("symbolp", symbolp, 1);
     DEFBUILTIN("string-equal-p", string_equalp, 2);
     DEFBUILTIN("length", length, 1);
     DEFBUILTIN("two-arg-greater-than", greater_than, 2);
@@ -359,6 +373,8 @@ static void init_builtins()
     DEFBUILTIN("compile", compile_toplevel, 1);
     DEFBUILTIN("compile3", compile3_toplevel, 1);
     DEFBUILTIN("nthcdr", nthcdr, 2);
+    DEFBUILTIN("%vm-make-function", vm_make_function, 2);
+    DEFBUILTIN("vm-eval", vm_eval, 1);
 #undef DEFBUILTIN
 }
 
@@ -397,8 +413,11 @@ void init_interpreter(size_t heap_size)
     interp->return_stack = NULL;
     interp->top_of_stack = get_rbp(2);
     lisp_heap_init(&interp->heap, heap_size);
+    // Should get this stack size from somewhere
+    vm_init(&interp->vm, 1024 * 1024);
     init_symbols();
     init_builtins();
+    init_vm_instruction_definitions(); /* Depends on init_symbols */
     interpreter_initialized = 1;
 }
 
@@ -694,6 +713,19 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(pctblock);
     GC_COPY_SYMBOL(block);
     GC_COPY_SYMBOL(if_);
+    GC_COPY_SYMBOL(pop);
+    GC_COPY_SYMBOL(push);
+    GC_COPY_SYMBOL(copy);
+    GC_COPY_SYMBOL(swap_pop);
+    GC_COPY_SYMBOL(swap);
+    GC_COPY_SYMBOL(call);
+    GC_COPY_SYMBOL(ret);
+    GC_COPY_SYMBOL(copy2);
+    GC_COPY_SYMBOL(vm_ins_arity);
+    GC_COPY_SYMBOL(vm_ins_fp);
+    GC_COPY_SYMBOL(vm_make_function);
+    GC_COPY_SYMBOL(provided_arg_count);
+    GC_COPY_SYMBOL(abort);
 #undef GC_COPY_SYMBOL
     /* Update pointers inside to-space objects */
     char *scanptr;
@@ -777,6 +809,7 @@ void free_interpreter()
 {
     if (interpreter_initialized) {
         lisp_heap_free(&interp->heap);
+        vm_free(&interp->vm);
         free(interp);
         interpreter_initialized = 0;
     }
@@ -1392,7 +1425,7 @@ lisp_object_t pairlis2(lisp_object_t x, lisp_object_t y, lisp_object_t a)
 {
     if (x == NIL)
         if (y != NIL)
-            return raise(sym("bad-args"), y);
+            return raise(sym("bad-args1"), y);
         else
             return a;
     else if (eq(car(x), interp->syms.amprest) != NIL || eq(car(x), interp->syms.ampbody) != NIL)
@@ -1400,7 +1433,7 @@ lisp_object_t pairlis2(lisp_object_t x, lisp_object_t y, lisp_object_t a)
     else if (eq(car(x), interp->syms.ampoptional) != NIL)
         return cons(cons(cadr(x), car(y)), NIL);
     else if (y == NIL)
-        return raise(sym("bad-args"), x);
+        return raise(sym("bad-args2"), x);
     else
         return cons(cons(car(x), car(y)), pairlis2(cdr(x), cdr(y), a));
 }
@@ -1598,7 +1631,6 @@ lisp_object_t evalset(lisp_object_t e, lisp_object_t a)
 
 lisp_object_t evalprogn(lisp_object_t e, lisp_object_t a)
 {
-    TRACE(e);
     lisp_object_t return_value = NIL;
     for (lisp_object_t o = e; o != NIL; o = cdr(o))
         return_value = eval(car(o), a);
@@ -1901,6 +1933,7 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
         } else if (eq(car(e), interp->syms.quasiquote) != NIL) {
             return eval_quasiquote(cadr(e), a, 0);
         } else if (eq(car(e), interp->syms.unquote) != NIL) {
+            TRACE(e);
             return raise(sym("runtime-error"), sym("comma-not-inside-backquote"));
         } else if (eq(car(e), interp->syms.if_) != NIL) {
             return eval_if(e, a);

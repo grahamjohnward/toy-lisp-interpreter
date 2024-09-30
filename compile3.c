@@ -1,103 +1,94 @@
+#include "interp.h"
+#include "lexical_scope.h"
 #include "lisp.h"
 #include "vm.h"
 
-// #include "lexical_scope.h"
-
 #include <assert.h>
+#include <stdio.h>
 
-struct amazing {
-    // We need to manage the stack of bindings (let inside lambda etc.) via lisp objects
-    // in case the GC runs while we're running the compiler.  In other words we don't
-    // want to use linked C structs
-    //
-    // So `bindings` may be some fancy thing
-    // But what?
-    lisp_object_t bindings;
-};
+lisp_object_t compile3(lisp_object_t expr, struct lexical_context *ctxt);
 
-static void amazing_init(struct amazing *ctxt)
+static lisp_object_t list_to_vector(lisp_object_t list)
 {
-    ctxt->bindings = NIL;
+    lisp_object_t len = length(list);
+    lisp_object_t vector = allocate_vector(len);
+    lisp_object_t i = 0;
+    for (lisp_object_t remaining = list; remaining != NIL; remaining = cdr(remaining)) {
+        svref_set(vector, i, car(remaining));
+        i += 16;
+    }
+    return vector;
 }
 
-static lisp_object_t reverse1(lisp_object_t list, lisp_object_t aux)
-{
-    lisp_object_t tmp1 = NIL;
-    lisp_object_t tmp2 = NIL;
-    lisp_object_t tmp3 = NIL;
-    if (list == NIL)
-        return aux;
-    tmp1 = cdr(list);
-    tmp3 = car(list);
-    tmp2 = cons(tmp3, aux);
-    return reverse1(tmp1, tmp2);
-}
-
-static lisp_object_t reverse(lisp_object_t list)
-{
-    return reverse1(list, NIL);
-}
-
-lisp_object_t compile3_lambda(lisp_object_t expr, struct amazing *ctxt)
+lisp_object_t compile3_lambda(lisp_object_t expr, struct lexical_context *ctxt)
 {
     assert(car(expr) == interp->syms.lambda);
     lisp_object_t arglist = cadr(expr);
     lisp_object_t body = cddr(expr);
-    /*
-      |<- low stack                      high stack ->|
-      blah blah  arg1       arg2      (garbage/nothing)
-                 ^ top - 2  ^ top -1  ^ top
-
-So for (lambda (a b c) ...), relative to top_of_data_stack, the offsets are
-
-  c 1
-  b 2
-  a 3
-
-at the start of the execution of the lambda.  Or stack looks like:
-
-  c
-  b
-  a
-
-What if we introduce (let ((a 1) (x 2) (y 3)) ... )?  Stack now looks like
-
-  3
-  2
-  1
-  c
-  b
-  a
-
-
-and a has a new binding.  Offsets are now
-
-y 1
-x 2
-a 3
-c 4 (unchanged binding)
-b 5 (unchanged binding)
-
-so original offsets have been changed by 3
-
-    */
-    ctxt->bindings = reverse(arglist);
-
-    abort();
+    lisp_object_t effective_arglist = append(arglist, cons(interp->syms.provided_arg_count, NIL));
+    lexical_context_enter_scope(ctxt, effective_arglist);
+    lisp_object_t compiled_body = compile3(cons(interp->syms.progn, body), ctxt);
+    lexical_context_leave_scope(ctxt);
+    lisp_object_t len = length(compiled_body);
+    lisp_object_t code = list_to_vector(compiled_body);
+    lisp_object_t result = List(
+        interp->syms.push, code,
+        interp->syms.push, 1 << 4,
+        interp->syms.push, interp->syms.vm_make_function,
+        interp->syms.call);
+    return result;
 }
 
-lisp_object_t compile3(lisp_object_t expr, struct amazing *ctxt)
+lisp_object_t compile3_list(lisp_object_t forms, struct lexical_context *ctxt)
 {
+    if (forms == NIL)
+        return NIL;
+    return append(compile3(car(forms), ctxt), compile3_list(cdr(forms), ctxt));
+}
+
+lisp_object_t compile3_progn(lisp_object_t expr, struct lexical_context *ctxt)
+{
+    assert(car(expr) == interp->syms.progn);
+    return compile3_list(cdr(expr), ctxt);
+}
+
+lisp_object_t compile3(lisp_object_t expr, struct lexical_context *ctxt)
+{
+    TRACE(expr);
     if (atom(expr) != NIL) {
-        abort();
+        // needs to handle quote
+        if (stringp(expr) != NIL || integerp(expr) != NIL) {
+            return List(interp->syms.push, expr);
+        } else {
+            lisp_object_t thing = lexical_context_lookup(ctxt, expr);
+            return List(interp->syms.copy2, thing);
+        }
     } else if (symbolp(car(expr)) != NIL) {
         lisp_object_t symbol = car(expr);
-        lisp_object_t function = cadr(expr);
-        if (symbolp(function) != NIL)
-            abort();
-        // return expr;
-        else
-            return compile3_lambda(function, ctxt);
+        if (symbol == interp->syms.function) {
+            lisp_object_t function = cadr(expr);
+            if (symbolp(function) != NIL)
+                abort();
+            else
+                return compile3_lambda(function, ctxt);
+        } else if (symbol == interp->syms.progn) {
+            return compile3_progn(expr, ctxt);
+        } else {
+            /* Compile the arguments - first to last (obviously) */
+            lisp_object_t result = NIL;
+            int arg_count = 0;
+            for (lisp_object_t args = cdr(expr); args != NIL; args = cdr(args)) {
+                lisp_object_t arg = car(args);
+                result = append(result, compile3(arg, ctxt));
+                arg_count++;
+            }
+            /* Provided argument count is the last argument */
+            lisp_object_t pass_arg_count = List(interp->syms.push, arg_count << 4);
+            /* Look up the symbol function at runtime */
+            lisp_object_t more_stuff = List(interp->syms.push, symbol, interp->syms.call);
+            result = append(append(result, pass_arg_count), more_stuff);
+            return result;
+        }
     } else {
         return raise(sym("bad-expression"), expr);
     }
@@ -105,7 +96,7 @@ lisp_object_t compile3(lisp_object_t expr, struct amazing *ctxt)
 
 lisp_object_t compile3_toplevel(lisp_object_t expr)
 {
-    struct amazing ctxt;
-    amazing_init(&ctxt);
-    return compile3(expr, &ctxt);
+    struct lexical_context ctxt;
+    lexical_context_init(&ctxt);
+    return list_to_vector(compile3(expr, &ctxt));
 }

@@ -1784,6 +1784,13 @@ static void test_vm_inst_jmp_if_nil2()
     free_interpreter();
 }
 
+static void test_keywords()
+{
+    test_name = "keywords";
+    test_eval_helper(":foo", ":foo");
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -1920,6 +1927,7 @@ int main(int argc, char **argv)
     test_vm_inst_jmp();
     test_vm_inst_jmp_if_nil1();
     test_vm_inst_jmp_if_nil2();
+    test_keywords();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

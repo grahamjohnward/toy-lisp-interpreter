@@ -510,6 +510,14 @@ static lisp_object_t allocate_new_symbol(lisp_object_t name)
     s->plist = NIL;
     lisp_object_t symbol = (uint64_t)s | SYMBOL_TYPE;
     interp->symbol_table = cons(symbol, interp->symbol_table);
+    /* Keywords */
+    size_t size;
+    char *str;
+    get_string_parts(name, &size, &str);
+    if (str[0] == ':') {
+        s->value = symbol;
+        s->plist = cons(cons(sym("param"), T), NIL);
+    }
     return symbol;
 }
 

@@ -220,9 +220,13 @@
 	  (list2 (nthcdr (/ length 2) list)))
       (merge (sort list1 comparator) (sort list2 comparator) comparator))))
 
-(defparameter * nil)
 
+(defparameter * nil)
+(defparameter ** nil)
+(defparameter *** nil)
 (defparameter + nil)
+(defparameter ++ nil)
+(defparameter +++ nil)
 
 (defmacro assert (thing-that-should-be-true)
   `(when (not ,thing-that-should-be-true)

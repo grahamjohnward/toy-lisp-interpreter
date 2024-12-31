@@ -74,19 +74,32 @@
     ctxt))
 
 (defun lexical-context-enter-scope (ctxt bindings)
-  (lexical-context-set-bindings ctxt (cons bindings (lexical-context-bindings ctxt)))
-  (lexical-context-set-binding-count ctxt (+ (lexical-context-binding-count ctxt) (length bindings))))
+  (lexical-context-set-bindings ctxt (cons bindings
+					   (lexical-context-bindings ctxt)))
+  (lexical-context-set-binding-count ctxt
+				     (+ (lexical-context-binding-count ctxt)
+					(length bindings))))
 
 (defun lexical-context-leave-scope (ctxt)
   (let ((bindings (lexical-context-bindings ctxt)))
-    (lexical-context-set-binding-count ctxt (- (lexical-context-binding-count ctxt) (length (car bindings))))
+    (lexical-context-set-binding-count ctxt
+				       (- (lexical-context-binding-count ctxt)
+					  (length (car bindings))))
     (lexical-context-set-bindings ctxt (cdr (lexical-context-bindings ctxt)))))
+
+(defun reverse-aux (list acc)
+  (if (null list)
+      acc
+      (reverse-aux (cdr list) (cons (car list) acc))))
+
+(defun reverse (list)
+  (reverse-aux list nil))
 
 (defun lexical-context-lookup (ctxt symbol)
   (let ((bindings (lexical-context-bindings ctxt))
-	(i (lexical-context-binding-count ctxt)))
+	(i (- (lexical-context-binding-count ctxt) 1)))
     (while (not (null bindings))
-      (let ((bindings-one-scope (car bindings)))
+      (let ((bindings-one-scope (reverse (car bindings))))
 	(while (not (null bindings-one-scope))
 	  (when (eq (car bindings-one-scope) symbol)
 	    (return-from lexical-context-lookup i))
@@ -134,7 +147,6 @@
   (assert (eq (car expr) 'progn))
   (compile4-list (cdr expr) ctxt))
 
-;; This should check the arg count somehow
 (defun compile4-lambda (expr ctxt)
   (assert (eq (car expr) 'lambda))
   (let ((arglist (cadr expr))
@@ -143,10 +155,11 @@
       (lexical-context-enter-scope ctxt effective-arglist)
       (let ((compiled-body (compile4 `(progn ,@body) ctxt)))
 	(lexical-context-leave-scope ctxt)
-	(let ((len (length compiled-body))
-	      (code (assemble compiled-body)))
-	  (let ((result `(push ,code push 1 push %vm-make-function call)))
-	    result))))))
+	(let ((argcount (length effective-arglist)))
+	  (let ((len (length compiled-body))
+		(code (assemble (append compiled-body `(swap-pop ,argcount)))))
+	    (let ((result `(push ,code push 1 push %vm-make-function call)))
+	      result)))))))
 
 (defun compile4-if (expr ctxt)
   (assert (eq (car expr) 'if))
@@ -163,19 +176,18 @@
 	  ,@(compile4 else-form ctxt)
 	  (label ,label2)))))
 
-;; This is problematic as the lexical scope stuff depends on the frame
-;; pointer which doesn't work here as we have no function call
 (defun compile4-let (expr ctxt)
   (assert (eq (car expr) 'let))
   (let ((bindings (cadr expr))
-	(body (caddr expr)))
+	(body (cddr expr)))
     (let ((arglist (mapcar #'car bindings))
 	  (forms (mapcar #'cadr bindings))
 	  (n (length bindings)))
       (let ((result (compile4-list forms ctxt)))
 	(lexical-context-enter-scope ctxt arglist)
 	(prog1
-	    (append (append result (compile4-progn `(progn ,body) ctxt)) `(swap-pop ,n))
+	    (append (append result (compile4-progn `(progn ,@body) ctxt))
+		    `(swap-pop ,n))
 	  (lexical-context-leave-scope ctxt))))))
 
 (defun compile4 (expr ctxt)
@@ -204,12 +216,14 @@
 			(setq result (append result (compile4 arg ctxt)))
 			(setq arg-count (+ 1 arg-count)))
 		      (let ((pass-arg-count `(push ,arg-count))
-			    (more-stuff `(push ,sym call)))
-			(setq result (append (append result pass-arg-count) more-stuff))
+			    (more-stuff `(push ,sym call ,(+ 1 arg-count))))
+			(setq result (append (append result pass-arg-count)
+					     more-stuff))
 			result))))))
-	(t (raise 'bad-expression))))
-      
+	(t (raise 'bad-expression expr))))
+
 ;; Ultimately this should simply be called `compile`
 (defun compile4-toplevel (expr)
   (let ((ctxt (make-lexical-context)))
+    ;; Should macroexpand before calling convert-quasiquote
     (assemble (compile4 (convert-quasiquote expr) ctxt))))

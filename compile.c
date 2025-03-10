@@ -58,15 +58,9 @@ static lisp_object_t compile_let(lisp_object_t expr, struct lexical_context *ctx
     body = cddr(expr);
     compiled_varlist = compile_let_varlist(varlist, ctxt);
 
-    for (varform = varlist; varform != NIL; varform = cdr(varform)) {
-        bar = consp(car(varform)) != NIL ? caar(varform) : car(varform);
-        bindings = cons(bar, bindings);
-    }
-    foo = reverse(bindings);
-    ctxt->bindings = cons(foo, ctxt->bindings);
     thing = compile_list(body, ctxt);
     result2 = cons(interp->syms.let, cons(compiled_varlist, thing));
-    ctxt->bindings = cdr(ctxt->bindings);
+
     return result2;
 }
 
@@ -135,13 +129,10 @@ static lisp_object_t compile_block(lisp_object_t expr, struct lexical_context *c
 
 static lisp_object_t compile_lambda(lisp_object_t expr, struct lexical_context *ctxt)
 {
-    // What this needs is a surefire way to detect closures (it is easy)
     assert(car(expr) == interp->syms.lambda);
     lisp_object_t arglist = cadr(expr);
     lisp_object_t body = cddr(expr);
-    ctxt->bindings = cons(arglist, ctxt->bindings);
     lisp_object_t result = List(interp->syms.function, cons(interp->syms.lambda, cons(arglist, compile_list(body, ctxt))));
-    ctxt->bindings = cdr(ctxt->bindings);
     return result;
 }
 
@@ -152,9 +143,7 @@ static lisp_object_t compile_condition_case_exception_clauses(lisp_object_t expr
     lisp_object_t first_clause = car(expr);
     lisp_object_t exception_type = car(first_clause);
     lisp_object_t code = cadr(first_clause);
-    ctxt->bindings = cons(List(exc), ctxt->bindings);
     lisp_object_t compiled_code = compile(code, ctxt);
-    ctxt->bindings = cdr(ctxt->bindings);
     return cons(List(exception_type, compiled_code), compile_condition_case_exception_clauses(cdr(expr), ctxt, exc));
 }
 
@@ -171,19 +160,6 @@ static lisp_object_t compile_condition_case(lisp_object_t expr, struct lexical_c
 static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
 {
     if (atom(expr) != NIL) {
-        if (expr != NIL && expr != T && symbolp(expr) != NIL) {
-            lisp_object_t lookup_result = lexical_context_lookup(ctxt, expr);
-
-            if (lookup_result == NIL) {
-                char *str = print_object(expr);
-                // Could check symbol value slot here before warning
-                printf("Oh no unbound variable: %s\n", str);
-                free(str);
-            } else {
-                // lisp_object_t thing = List(expr, lookup(ctxt, expr));
-                // TRACE(thing);
-            }
-        }
         return expr;
     } else if (symbolp(car(expr)) != NIL) {
         lisp_object_t symbol = car(expr);

@@ -1,4 +1,4 @@
-CC=clang-15
+CC=clang-19
 CFLAGS=-g
 
 PROG1 := tests

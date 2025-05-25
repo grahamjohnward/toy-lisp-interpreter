@@ -7,7 +7,12 @@
 	 (cons 'a 'b)
 	 (progn
 	   (setq fail-count (+ 1 fail-count))
-	   (print `(test failed ,',expression expected ,,expected-value was ,v)))))))
+	   (princ "Test failed\n")
+	   (print ',expression)
+	   (princ "Expected:\n")
+	   (print ,expected-value)
+	   (princ "Got:\n")
+	   (print v))))))
 
 (defmacro do-tests (&body tests)
   `(let ((test-count 0)

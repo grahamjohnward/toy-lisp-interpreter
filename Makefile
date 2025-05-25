@@ -14,7 +14,7 @@ LIB=lib$(LIBNAME).a
 
 all: $(PROG1) $(PROG2)
 
-$(LIB): lisp.o vm.o lexical_scope.o compile.o compile3.o string_buffer.o text_stream.o
+$(LIB): lisp.o vm.o lexical_scope.o compile.o string_buffer.o text_stream.o
 	$(AR) rs $@ $^
 
 $(PROG1): $(PROG1_OBJS) $(LIB)

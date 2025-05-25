@@ -7,8 +7,8 @@
 struct vm_call_stack_frame {
     lisp_object_t code_vector;
     lisp_object_t instruction_pointer;
-    /* This points to top of stack on entry to a function */
-    lisp_object_t *frame_pointer;
+    lisp_object_t environment;
+    lisp_object_t tags;
 };
 
 struct vm {
@@ -31,6 +31,8 @@ void init_vm_instruction_definitions();
 
 void vm_print_stack(struct vm *vm);
 
+lisp_object_t vm_get_stack(struct vm *vm);
+
 lisp_object_t vm_pop(struct vm *vm);
 
 lisp_object_t vm_peek(struct vm *vm);
@@ -41,24 +43,24 @@ void vm_run(struct vm *);
 
 void vm_inst_push(struct vm *vm, lisp_object_t obj);
 
-void vm_inst_copy(struct vm *vm, lisp_object_t offset);
-
-void vm_inst_copy2(struct vm *vm, lisp_object_t offset);
-
-void vm_inst_swap_pop(struct vm *vm, lisp_object_t n);
-
-void vm_inst_swap(struct vm *vm);
-
 void vm_inst_pop(struct vm *vm);
 
-void vm_inst_call(struct vm *vm, lisp_object_t n);
+void vm_inst_call(struct vm *vm);
 
 void vm_inst_ret(struct vm *vm);
+
+void vm_inst_get(struct vm *vm, lisp_object_t n, lisp_object_t m);
+
+void vm_inst_set(struct vm *vm, lisp_object_t n, lisp_object_t m);
 
 void vm_inst_abort(struct vm *vm);
 
 void vm_inst_jmp(struct vm *vm, lisp_object_t dest);
 
 void vm_inst_jmp_if_nil(struct vm *vm, lisp_object_t dest);
+
+void vm_inst_set_tag(struct vm *vm, lisp_object_t tag);
+
+void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag, lisp_object_t dest);
 
 #endif

@@ -1,3 +1,8 @@
+(defmacro trace (v &optional message)
+  (if message
+      `(print (list :trace ,message ',v ,v))
+      `(print (list :trace ',v ,v))))
+
 ;; not used
 (defun list-to-vector (list)
   (let ((length (length list)))
@@ -23,6 +28,7 @@
 (defparameter +jump-instructions+ '(jmp jmp-if-nil))
 
 (defun assemble (list)
+  (trace list)
   (let ((label-info (build-label-alist list)))
     (let ((label-alist (car label-info))
 	  (length (cdr label-info)))
@@ -65,8 +71,23 @@
 (defun lexical-context-set-binding-count (ctxt count)
   (set-svref ctxt 3 count))
 
+(defun lexical-context-push-tag-table (ctxt tag-table)
+  (set-svref ctxt 4 (cons tag-table (svref ctxt 4))))
+
+(defun lexical-context-tag-lookup (ctxt tag)
+  (let ((tag-tables (svref ctxt 4)))
+    (trace tag-tables)
+    (dolist (tag-table tag-tables)
+      (let ((pair (assoc tag tag-table)))
+	(when pair
+	  (return-from lexical-context-tag-lookup (cdr pair))))))
+  nil)
+
+(defun lexical-context-pop-tag-table (ctxt)
+  (set-svref ctxt 4 (cdr (svref ctxt 4))))
+
 (defun make-lexical-context ()
-  (let ((ctxt (make-vector 4)))
+  (let ((ctxt (make-vector 5)))
     (lexical-context-set-block-alist ctxt nil)
     (lexical-context-set-next-block-number ctxt 0)
     (lexical-context-set-bindings ctxt nil)
@@ -87,26 +108,25 @@
 					  (length (car bindings))))
     (lexical-context-set-bindings ctxt (cdr (lexical-context-bindings ctxt)))))
 
-(defun reverse-aux (list acc)
-  (if (null list)
-      acc
-      (reverse-aux (cdr list) (cons (car list) acc))))
-
-(defun reverse (list)
-  (reverse-aux list nil))
 
 (defun lexical-context-lookup (ctxt symbol)
   (let ((bindings (lexical-context-bindings ctxt))
-	(i (- (lexical-context-binding-count ctxt) 1)))
+	(n 0)
+	(m 1))
+    (trace bindings)
     (while (not (null bindings))
-      (let ((bindings-one-scope (reverse (car bindings))))
+      (let ((bindings-one-scope (car bindings)))
+	(trace bindings-one-scope)
 	(while (not (null bindings-one-scope))
-	  (when (eq (car bindings-one-scope) symbol)
-	    (return-from lexical-context-lookup i))
-	  (setq i (- i 1))
+          (when (eq (car bindings-one-scope) symbol)
+            (trace (list n m))		 
+	    (return-from lexical-context-lookup (list 'get n m)))
+	  (incf m)
 	  (setq bindings-one-scope (cdr bindings-one-scope))))
-      (setq bindings (cdr bindings))))
-  nil)
+      (setq bindings (cdr bindings))
+      (setq m 1)
+      (incf n)))
+  (print (list "OHNO" symbol)))
 
 (defun convert-quasiquote1 (expr)
   (cond ((symbolp expr) `(quote ,expr))
@@ -139,27 +159,50 @@
 (defun compile4-list (forms ctxt)
   (if (null forms)
       nil
-      (append (compile4 (car forms) ctxt) (compile4-list (cdr forms) ctxt))))
+      (if (null (cdr forms))
+	  (append (compile4 (car forms) ctxt) (compile4-list (cdr forms) ctxt))
+	  (append (compile4 (car forms) ctxt) '(pop) (compile4-list (cdr forms) ctxt)))))
   
-;; XXX not sure this is right as each expression will leave a value on
-;; the stack.  Probably need to stick a pop between each form
 (defun compile4-progn (expr ctxt)
   (assert (eq (car expr) 'progn))
   (compile4-list (cdr expr) ctxt))
 
+(defun parse-arglist (arglist)
+  (let ((result (make-vector 2)))
+    (let ((i 0) has-rest)
+      (tagbody
+	 (trace i)
+	 (dolist (arg arglist)
+	   (trace arg)
+	   (when (or (eq arg '&rest) (eq arg '&body))
+	     (setq has-rest t)
+	     (go done))
+	   (incf i))
+       done
+	 (set-svref result 0 has-rest)
+	 (set-svref result 1 i)
+	 (return-from parse-arglist result)))))
+
+;; (append a b) <=> `(,@a ,@b)
 (defun compile4-lambda (expr ctxt)
   (assert (eq (car expr) 'lambda))
   (let ((arglist (cadr expr))
 	(body (cddr expr)))
-    (let ((effective-arglist (append arglist (cons '%provided-arg-count nil))))
-      (lexical-context-enter-scope ctxt effective-arglist)
-      (let ((compiled-body (compile4 `(progn ,@body) ctxt)))
-	(lexical-context-leave-scope ctxt)
-	(let ((argcount (length effective-arglist)))
-	  (let ((len (length compiled-body))
-		(code (assemble (append compiled-body `(swap-pop ,argcount)))))
-	    (let ((result `(push ,code push 1 push %vm-make-function call)))
-	      result)))))))
+    (lexical-context-enter-scope ctxt
+				 (remove-if-not #'(lambda (x)
+						    (not (or
+							  (eq x '&rest)
+							  (eq x '&body))))
+						arglist))
+    (let ((compiled-body `(,@(compile4 `(progn ,@body) ctxt) ret)))
+      (lexical-context-leave-scope ctxt)
+      (let ((argcount (length arglist))
+	    (arg-info (parse-arglist arglist)))
+	(trace arg-info)
+	(let ((code (assemble compiled-body)))
+	  (let ((result `(push ,arg-info push ,code push 2 push %vm-make-function call)))
+	    (trace result)
+	    result))))))
 
 (defun compile4-if (expr ctxt)
   (assert (eq (car expr) 'if))
@@ -176,25 +219,63 @@
 	  ,@(compile4 else-form ctxt)
 	  (label ,label2)))))
 
+(defun transform-let (let-form)
+  (assert (eq (car let-form) 'let))
+  (let ((bindings (cadr let-form))
+	(body (cddr let-form)))
+    (let ((arglist (mapcar #'car bindings))
+	  (values (mapcar #'cadr bindings)))
+      `(funcall #'(lambda ,arglist ,@body) ,@values))))
+
 (defun compile4-let (expr ctxt)
   (assert (eq (car expr) 'let))
-  (let ((bindings (cadr expr))
-	(body (cddr expr)))
-    (let ((arglist (mapcar #'car bindings))
-	  (forms (mapcar #'cadr bindings))
-	  (n (length bindings)))
-      (let ((result (compile4-list forms ctxt)))
-	(lexical-context-enter-scope ctxt arglist)
-	(prog1
-	    (append (append result (compile4-progn `(progn ,@body) ctxt))
-		    `(swap-pop ,n))
-	  (lexical-context-leave-scope ctxt))))))
+  (compile4 (transform-let expr) ctxt))
+
+;; Because we don't have closures in the interpreted language
+(defun mapcar-with-context (function list context)
+  (if (null list)
+      nil
+      (cons (funcall function (car list) context)
+	    (mapcar-with-context function (cdr list) context))))
+
+;; This is OK to the extent that tags are only allowed at the top
+;; level of the tagbody.
+(defun compile4-tagbody (expr ctxt)
+  (assert (eq (car expr) 'tagbody))
+  (let (tag-alist (id (gensym)))
+    (dolist (form (cdr expr))
+      (when (symbolp form)		;form is tag
+	(let ((label (gensym)))
+	  (setq tag-alist (cons (cons form (list label id)) tag-alist)))))
+    (lexical-context-push-tag-table ctxt tag-alist)
+    (prog1 (apply #'append
+		  (mapcar-with-context
+		   #'(lambda (form ctxt)
+		       (if (symbolp form)
+			   `((label
+			      ,(car (lexical-context-tag-lookup ctxt form))))
+			   (compile4 form ctxt)))
+		   (cdr expr) ctxt))
+      (lexical-context-pop-tag-table ctxt))))
+
+(defun compile4-go (expr ctxt)
+  (assert (eq (car expr) 'go))
+  (let ((tag (cadr expr)))
+    (trace tag)
+    (trace (lexical-context-tag-lookup ctxt tag))
+    (let ((target (lexical-context-tag-lookup ctxt tag)))
+      (trace target)
+    `(tag-jmp ,@target))))
+
+(defun compile4-asm (expr ctxt)
+  (assert (eq (car expr) '%asm))
+  (cdr expr))
 
 (defun compile4 (expr ctxt)
   (cond ((atom expr) 
 	 (if (or (stringp expr) (integerp expr) (eq t expr) (eq nil expr))
 	     `(push ,expr)
-	     `(copy2 ,(lexical-context-lookup ctxt expr))))
+	     `(,@(lexical-context-lookup ctxt expr))))
 	((symbolp (car expr))
 	 (let ((sym (car expr)))
 	   (cond ((eq sym 'function)
@@ -210,13 +291,20 @@
 		  (compile4-if expr ctxt))
 		 ((eq sym 'let)
 		  (compile4-let expr ctxt))
+		 ((eq sym 'tagbody)
+		  (compile4-tagbody expr ctxt))
+		 ((eq sym 'go)
+		  (compile4-go expr ctxt))
+		 ((eq sym '%asm)
+		  (compile4-asm expr ctxt))
+		 ;; Maybe put this in compile-function-call
 		 (t (let ((arg-count 0)
 			  (result nil))
 		      (dolist (arg (cdr expr))
 			(setq result (append result (compile4 arg ctxt)))
 			(setq arg-count (+ 1 arg-count)))
 		      (let ((pass-arg-count `(push ,arg-count))
-			    (more-stuff `(push ,sym call ,(+ 1 arg-count))))
+			    (more-stuff `(push ,sym call)))
 			(setq result (append (append result pass-arg-count)
 					     more-stuff))
 			result))))))

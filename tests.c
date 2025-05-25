@@ -1658,7 +1658,7 @@ static void test_vm_call_builtin()
     START_OF_TEST("vm_call_builtin");
     init_interpreter(1024 * 1024 * 4);
 
-    lisp_object_t code_vector = parse1_wrapper("#(push foo push bar push 2 push cons call 2)");
+    lisp_object_t code_vector = parse1_wrapper("#(push foo push bar push 2 push cons call)");
     interp->vm.registers.code_vector = code_vector;
     vm_run(&interp->vm);
 
@@ -1669,23 +1669,89 @@ static void test_vm_call_builtin()
     free_interpreter();
 }
 
+static lisp_object_t make_function(lisp_object_t env, lisp_object_t code_vector)
+{
+    lisp_object_t fn = allocate_function();
+    struct lisp_function *fnptr = LispFunctionPtr(fn);
+    fnptr->kind = interp->syms.lambda;
+    fnptr->actual_function = cons(env, code_vector);
+    lisp_object_t sym = gensym();
+    struct symbol *symptr = SymbolPtr(sym);
+    symptr->function = fn;
+    return sym;
+}
+
+static void test_vm_inst_call_lambda()
+{
+    START_OF_TEST("vm_inst_call_lambda");
+    init_interpreter(1024 * 1024 * 4);
+    /* The function */
+    lisp_object_t symbol = make_function(NIL, parse1_wrapper("#()"));
+    /* Set up the stack */
+    vm_inst_push(&interp->vm, sym("foo"));
+    vm_inst_push(&interp->vm, sym("bar"));
+    vm_inst_push(&interp->vm, 2 << 4);
+    vm_inst_push(&interp->vm, symbol);
+    /* Call */
+    vm_inst_call(&interp->vm);
+    /* Check */
+    lisp_object_t env = interp->vm.registers.environment;
+    char *str = print_object(env);
+    check(vectorp(env) != NIL, "vector on top of stack");
+    check(svref_c(env, 0) == NIL, "0");
+    check(svref_c(env, 1) == sym("foo"), "1");
+    check(svref_c(env, 2) == sym("bar"), "2");
+    free(str);
+    free_interpreter();
+}
+
+static void test_vm_inst_get_set()
+{
+    START_OF_TEST("vm_inst_get_set");
+    init_interpreter(1024 * 1024 * 4);
+
+    lisp_object_t symbol = make_function(parse1_wrapper("#(nil abc xyz)"), parse1_wrapper("#()"));
+
+    vm_inst_push(&interp->vm, sym("foo"));
+    vm_inst_push(&interp->vm, sym("bar"));
+    vm_inst_push(&interp->vm, 2 << 4);
+    vm_inst_push(&interp->vm, symbol);
+    vm_inst_call(&interp->vm);
+
+    vm_inst_get(&interp->vm, 0, 1 << 4);
+    check(vm_pop(&interp->vm) == sym("foo"), "get");
+    vm_inst_get(&interp->vm, 1 << 4, 2 << 4);
+    check(vm_pop(&interp->vm) == sym("xyz"), "get closure env");
+
+    vm_inst_push(&interp->vm, sym("baz"));
+    vm_inst_set(&interp->vm, 0, 1 << 4);
+    vm_inst_get(&interp->vm, 0, 1 << 4);
+    check(vm_pop(&interp->vm) == sym("baz"), "set");
+
+    vm_inst_push(&interp->vm, sym("boo"));
+    vm_inst_set(&interp->vm, 1 << 4, 2 << 4);
+    vm_inst_get(&interp->vm, 1 << 4, 2 << 4);
+    check(vm_pop(&interp->vm) == sym("boo"), "set closure env");
+
+    free_interpreter();
+}
+
 static void test_vm_function()
 {
     START_OF_TEST("vm_function");
     init_interpreter(1024 * 1024 * 4);
 
-    // lisp_object_t lambda_code = parse1_wrapper("#(push hello copy2 2 push cons call swap-pop 1 ret)");
-    lisp_object_t lambda_code = parse1_wrapper("#(push hello copy2 2 push 2 push cons call 2 ret)");
+    lisp_object_t lambda_code = parse1_wrapper("#(push hello get 0 1 push 2 push cons call ret)");
     /* Make the above code the function value of a symbol */
     lisp_object_t fn = allocate_function();
     struct lisp_function *fnptr = LispFunctionPtr(fn);
     fnptr->kind = interp->syms.lambda;
-    fnptr->actual_function = lambda_code;
+    fnptr->actual_function = cons(NIL /* env */, lambda_code);
     struct symbol *symptr = SymbolPtr(sym("foo"));
     symptr->function = fn;
 
     /* Some code to call the function */
-    lisp_object_t calling_code = parse1_wrapper("#(push world push 1 push placeholder call 1)");
+    lisp_object_t calling_code = parse1_wrapper("#(push world push 1 push placeholder call)");
     svref_set(calling_code, 5 << 4, fn);
 
     /* Run the code */
@@ -1762,6 +1828,21 @@ static void test_keywords()
 {
     START_OF_TEST("keywords");
     test_eval_helper(":foo", ":foo");
+    free_interpreter();
+}
+
+static void test_vm_call_closure()
+{
+    START_OF_TEST("vm_call_closure");
+    init_interpreter_for_tests();
+    // #(push 2 push 1 push make-vector call 2 copy2 0)
+    lisp_object_t code = parse1_wrapper("#(push bog push #(ret) push #(foo bar) push 2 push %vm-make-closure call 2 call 1)");
+    // lisp_object_t code = parse1_wrapper("#(push 2 push 1 push make-vector call 2 copy2 0)");
+    interp->vm.registers.code_vector = code;
+    vm_run(&interp->vm);
+    lisp_object_t foo = vm_pop(&interp->vm);
+    char *str = print_object(foo);
+    free(str);
     free_interpreter();
 }
 
@@ -1891,17 +1972,19 @@ int main(int argc, char **argv)
     test_less_than();
     test_greater_than();
     test_nthcdr();
-    test_lexical_context();
-    test_compile3_lambda();
     test_push();
     test_vm_initialization();
     test_vm_push_pop();
-    test_vm_call();
+    test_vm_call_builtin();
+    test_vm_inst_call_lambda();
+    test_vm_inst_get_set();
+
     test_vm_function();
     test_vm_inst_jmp();
     test_vm_inst_jmp_if_nil1();
     test_vm_inst_jmp_if_nil2();
     test_keywords();
+    // test_vm_call_closure();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

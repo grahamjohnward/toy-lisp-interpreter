@@ -43,6 +43,11 @@ struct syms {
     lisp_object_t abort;
     lisp_object_t jmp;
     lisp_object_t jmp_if_nil;
+    lisp_object_t closure;
+    lisp_object_t make_env;
+    lisp_object_t get;
+    lisp_object_t set_tag;
+    lisp_object_t tag_jmp;
 };
 
 #endif

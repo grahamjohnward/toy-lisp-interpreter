@@ -55,7 +55,7 @@ static void check_symbol(lisp_object_t obj)
     check_type(obj, SYMBOL_TYPE);
 }
 
-static void check_vector(lisp_object_t obj)
+void check_vector(lisp_object_t obj)
 {
     check_type(obj, VECTOR_TYPE);
 }
@@ -267,6 +267,11 @@ static void init_symbols()
     interp->syms.abort = sym("abort");
     interp->syms.jmp = sym("jmp");
     interp->syms.jmp_if_nil = sym("jmp-if-nil");
+    interp->syms.closure = sym("closure");
+    interp->syms.make_env = sym("make-env");
+    interp->syms.get = sym("get");
+    interp->syms.set_tag = sym("set-tag");
+    interp->syms.tag_jmp = sym("tag-jmp");
 }
 
 lisp_object_t length(lisp_object_t seq);
@@ -317,9 +322,16 @@ lisp_object_t nthcdr(lisp_object_t n, lisp_object_t list);
 
 lisp_object_t eval2(lisp_object_t e);
 
-lisp_object_t vm_make_function(lisp_object_t arity, lisp_object_t code_vector);
+lisp_object_t vm_make_function(lisp_object_t arg_info, lisp_object_t code_vector);
 
 lisp_object_t vm_eval(lisp_object_t code_vector);
+
+lisp_object_t basic_eval(lisp_object_t e);
+
+static lisp_object_t get_vm_stack()
+{
+    return vm_get_stack(&interp->vm);
+}
 
 #define FUNCALL_ARITY -1
 
@@ -336,6 +348,7 @@ static void init_builtins()
     DEFBUILTIN("print", print, 1);
     DEFBUILTIN("princ", princ, 1);
     DEFBUILTIN("eval", eval_toplevel, 1);
+    DEFBUILTIN("basic-eval", basic_eval, 1);
     DEFBUILTIN("rplaca", rplaca, 2);
     DEFBUILTIN("rplacd", rplacd, 2);
     DEFBUILTIN("two-arg-plus", plus, 2);
@@ -371,10 +384,10 @@ static void init_builtins()
     DEFBUILTIN("set-symbol-value", set_symbol_value, 2);
     DEFBUILTIN("symbol-value", symbol_value, 1);
     DEFBUILTIN("compile", compile_toplevel, 1);
-    DEFBUILTIN("compile3", compile3_toplevel, 1);
     DEFBUILTIN("nthcdr", nthcdr, 2);
-    DEFBUILTIN("%vm-make-function", vm_make_function, 2);
     DEFBUILTIN("vm-eval", vm_eval, 1);
+    DEFBUILTIN("vm-get-stack", get_vm_stack, 0);
+    DEFBUILTIN("%vm-make-function", vm_make_function, 2);
 #undef DEFBUILTIN
 }
 
@@ -734,6 +747,11 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(vm_make_function);
     GC_COPY_SYMBOL(provided_arg_count);
     GC_COPY_SYMBOL(abort);
+    GC_COPY_SYMBOL(closure);
+    GC_COPY_SYMBOL(make_env);
+    GC_COPY_SYMBOL(get);
+    GC_COPY_SYMBOL(set_tag);
+    GC_COPY_SYMBOL(tag_jmp);
 #undef GC_COPY_SYMBOL
     /* Update pointers inside to-space objects */
     char *scanptr;
@@ -1240,7 +1258,11 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
         sprintf(buf, "%p", (FunctionPtr(obj)));
         string_buffer_append(sb, buf);
     } else if (functionp(obj) != NIL) {
-        string_buffer_append(sb, "#<function>");
+        struct lisp_function *fnptr = LispFunctionPtr(obj);
+        if (fnptr->kind == interp->syms.closure)
+            string_buffer_append(sb, "#<closure>");
+        else
+            string_buffer_append(sb, "#<function>");
     }
 }
 
@@ -1680,7 +1702,7 @@ lisp_object_t evaltagbody(lisp_object_t e, lisp_object_t a)
             table[i++] = car(x);
         else
             /* add symbol -> table index mapping to alist */
-            alist = cons(cons(car(x), i), alist);
+            alist = cons(cons(car(x), i << 4), alist);
     }
     interp->return_stack->tagbody_forms_len = i;
     interp->return_stack->tagbody_forms = table;
@@ -1697,14 +1719,18 @@ lisp_object_t evaltagbody(lisp_object_t e, lisp_object_t a)
 
 lisp_object_t evalgo(lisp_object_t tag)
 {
-    while (interp->return_stack && eq(interp->return_stack->type, interp->syms.tagbody) == NIL)
+    while (interp->return_stack) {
+        struct return_context *ctxt = interp->return_stack;
+        if (eq(ctxt->type, interp->syms.tagbody) != NIL) {
+            lisp_object_t lookup = assoc(tag, ctxt->return_value);
+            if (lookup != NIL) {
+                int val = (cdr(lookup) >> 4) + 1;
+                longjmp(ctxt->buf, val);
+            }
+        }
         pop_return_context();
-    struct return_context *ctxt = interp->return_stack;
-    if (ctxt && eq(ctxt->type, interp->syms.tagbody) != NIL) {
-        longjmp(ctxt->buf, cdr(assoc(tag, ctxt->return_value)) + 1);
-    } else {
-        raise(sym("error"), NIL);
     }
+    raise(sym("bad-tag"), tag);
     return NIL; /* never actually returned */
 }
 
@@ -1972,6 +1998,11 @@ lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 lisp_object_t evalquote(lisp_object_t fn, lisp_object_t x)
 {
     return apply(eval_function(fn, NIL), x, NIL);
+}
+
+lisp_object_t basic_eval(lisp_object_t e)
+{
+    return eval(compile_toplevel(e), NIL);
 }
 
 /* Load */

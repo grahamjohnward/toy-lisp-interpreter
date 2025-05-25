@@ -19,9 +19,10 @@ void vm_init(struct vm *vm, size_t data_stack_size)
     vm->call_stack = (struct vm_call_stack_frame *)malloc(sizeof(struct vm_call_stack_frame) * 1024);
     vm->call_stack_pointer = vm->call_stack;
     vm->top_of_data_stack = vm->data_stack;
-    vm->registers.frame_pointer = vm->data_stack;
     vm->registers.code_vector = NIL;
     vm->registers.instruction_pointer = 0;
+    vm->registers.environment = NIL;
+    vm->registers.tags = NIL;
     initialize_data_stack(vm);
 }
 
@@ -42,16 +43,17 @@ void init_vm_instruction_definitions()
 #define DEFINE_VM_INSTRUCTION(S, F, A) define_vm_instruction(interp->syms.S, (void (*)(void))F, A)
     // clang-format off
     DEFINE_VM_INSTRUCTION(push,       vm_inst_push,       1);
-    //DEFINE_VM_INSTRUCTION(copy,       vm_inst_copy,       1);
-    DEFINE_VM_INSTRUCTION(swap_pop,   vm_inst_swap_pop,   1);
-    DEFINE_VM_INSTRUCTION(swap,       vm_inst_swap,       0);
     DEFINE_VM_INSTRUCTION(pop,        vm_inst_pop,        0);
-    DEFINE_VM_INSTRUCTION(call,       vm_inst_call,       1);
+    DEFINE_VM_INSTRUCTION(call,       vm_inst_call,       0);
     DEFINE_VM_INSTRUCTION(ret,        vm_inst_ret,        0);
-    DEFINE_VM_INSTRUCTION(copy2,      vm_inst_copy2,      1);
+    DEFINE_VM_INSTRUCTION(get,        vm_inst_get,        2);
+    DEFINE_VM_INSTRUCTION(set,        vm_inst_set,        2);
     DEFINE_VM_INSTRUCTION(abort,      vm_inst_abort,      0);
     DEFINE_VM_INSTRUCTION(jmp,        vm_inst_jmp,        1);
     DEFINE_VM_INSTRUCTION(jmp_if_nil, vm_inst_jmp_if_nil, 1);
+    DEFINE_VM_INSTRUCTION(set_tag,    vm_inst_set_tag,    1);
+    DEFINE_VM_INSTRUCTION(tag_jmp,    vm_inst_tag_jmp,    2);
+
     // clang-format on
 #undef DEFINE_VM_INSTRUCTION
 }
@@ -71,6 +73,14 @@ void vm_print_stack(struct vm *vm)
     printf("<- STACK\n");
 }
 
+lisp_object_t vm_get_stack(struct vm *vm)
+{
+    lisp_object_t result = NIL;
+    for (lisp_object_t *p = vm->top_of_data_stack - 1; p >= vm->data_stack; p--)
+        result = cons(*p, result);
+    return result;
+}
+
 lisp_object_t vm_pop(struct vm *vm)
 {
     assert(vm->top_of_data_stack >= vm->data_stack);
@@ -80,7 +90,7 @@ lisp_object_t vm_pop(struct vm *vm)
 lisp_object_t vm_peek(struct vm *vm)
 {
     assert(vm->top_of_data_stack > vm->data_stack);
-    return *(vm->top_of_data_stack - 1);
+    return vm->top_of_data_stack[-1];
 }
 
 void vm_run_one_instruction(struct vm *vm)
@@ -89,6 +99,7 @@ void vm_run_one_instruction(struct vm *vm)
     TRACE(vm->registers.instruction_pointer);
     TRACE(vm->registers.code_vector);
     lisp_object_t instruction = svref(vm->registers.code_vector, vm->registers.instruction_pointer);
+    TRACE(instruction);
     lisp_object_t arity = getprop(instruction, interp->syms.vm_ins_arity);
     TRACE(instruction);
     if (arity == NIL)
@@ -104,6 +115,12 @@ void vm_run_one_instruction(struct vm *vm)
         lisp_object_t arg = svref(vm->registers.code_vector, vm->registers.instruction_pointer + 16);
         vm->registers.instruction_pointer += 32;
         ((void (*)(struct vm *, lisp_object_t))fp)(vm, arg);
+    } else if (arity == 2 << 4) {
+        lisp_object_t arg1 = svref(vm->registers.code_vector, vm->registers.instruction_pointer + 16);
+        lisp_object_t arg2 = svref(vm->registers.code_vector, vm->registers.instruction_pointer + 32);
+        vm->registers.instruction_pointer += 48;
+        ((void (*)(struct vm *, lisp_object_t, lisp_object_t))fp)(vm, arg1, arg2);
+        vm_print_stack(vm);
     } else {
         abort();
     }
@@ -131,87 +148,145 @@ void vm_inst_push(struct vm *vm, lisp_object_t obj)
     *(vm->top_of_data_stack++) = obj;
 }
 
-void vm_inst_copy(struct vm *vm, lisp_object_t offset)
-{
-    vm_inst_push(vm, *(vm->top_of_data_stack - (offset >> 4) - 1));
-}
-
-void vm_inst_copy2(struct vm *vm, lisp_object_t offset)
-{
-    vm_inst_push(vm, *(vm->registers.frame_pointer - (offset >> 4)));
-}
-
-void vm_inst_swap_pop(struct vm *vm, lisp_object_t n)
-{
-    lisp_object_t new_top = *(vm->top_of_data_stack - 1);
-    vm->top_of_data_stack -= n >> 4;
-    *(vm->top_of_data_stack - 1) = new_top;
-}
-
-void vm_inst_swap(struct vm *vm)
-{
-    lisp_object_t top = *(vm->top_of_data_stack - 1);
-    lisp_object_t second = *(vm->top_of_data_stack - 2);
-    *(vm->top_of_data_stack - 1) = second;
-    *(vm->top_of_data_stack - 2) = top;
-}
-
 void vm_inst_pop(struct vm *vm)
 {
     vm->top_of_data_stack--;
 }
 
-void vm_inst_call(struct vm *vm, lisp_object_t n)
+static void vm_setup_funcall(struct vm *vm)
 {
-    lisp_object_t fn = vm_pop(vm);
-    /* For now at least, you can call a symbol.  This makes it easier to write VM code by hand. */
+    // Stack for (funcall foo a b c) looks like:
+    //   4
+    //   c
+    //   b
+    //   a
+    //   foo
+    // and we want it to look like this (note same depth):
+    //   foo
+    //   3
+    //   c
+    //   b
+    //   a
+    // old and new values together
+    //   4     foo   -1
+    //   c     3     -2
+    //   b     c     -3
+    //   a     b     -4
+    //   foo   a     -5   <-- base
+    lisp_object_t argcount = vm_peek(vm);
+    int argcount_c = argcount >> 4;
+    int new_argcount_c = argcount_c - 1;
+    lisp_object_t *base = vm->top_of_data_stack - (new_argcount_c + 2);
+    vm->top_of_data_stack[-1] = *base;
+    for (lisp_object_t *p = base; p < vm->top_of_data_stack - 1; p++) {
+        p[0] = p[1];
+    }
+    vm->top_of_data_stack[-2] = new_argcount_c << 4;
+}
+
+static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
+{
+    lisp_object_t result = NIL;
+    lisp_object_t actual_function = fnptr->actual_function;
+    void (*fp)() = FunctionPtr(cadr(actual_function));
+    lisp_object_t arg1 = NIL;
+    lisp_object_t arg2 = NIL;
+    lisp_object_t arg3 = NIL;
+    lisp_object_t provided_arity = vm_pop(vm);
+    lisp_object_t arity = (int64_t)caddr(actual_function);
+    if (provided_arity != arity)
+        abort();
+    int arity_c = arity >> 4;
+    switch (arity_c) {
+    case 0:
+        result = ((lisp_object_t (*)())fp)();
+        break;
+    case 1:
+        arg1 = vm_pop(vm);
+        result = ((lisp_object_t (*)(lisp_object_t))fp)(arg1);
+        break;
+    case 2:
+        arg2 = vm_pop(vm);
+        arg1 = vm_pop(vm);
+        result = ((lisp_object_t (*)(lisp_object_t, lisp_object_t))fp)(arg1, arg2);
+        break;
+    case 3:
+        arg3 = vm_pop(vm);
+        arg2 = vm_pop(vm);
+        arg1 = vm_pop(vm);
+        result = ((lisp_object_t (*)(lisp_object_t, lisp_object_t, lisp_object_t))fp)(arg1, arg2, arg3);
+        break;
+    default:
+        abort();
+    }
+    vm_inst_push(vm, result);
+}
+
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#define min(a, b) ((a) < (b) ? (a) : (b))
+
+static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
+{
+    lisp_object_t n_args = vm_pop(vm);
+    assert(integerp(n_args) != NIL);
+    int n_args_int = n_args >> 4;
+
+    lisp_object_t actual_function = fnptr->actual_function;
+    lisp_object_t arg_info = cadr(actual_function);
+    TRACE(arg_info);
+    assert(vectorp(arg_info) != NIL);
+    lisp_object_t rest_args = svref_c(arg_info, 0);
+    lisp_object_t arity = svref_c(arg_info, 1);
+    int arity_int = arity >> 4;
+    TRACE(rest_args);
+    TRACE(arity);
+    lisp_object_t env_size = arity + 0x10;
+    if (rest_args != NIL)
+        /* Add a slot for the rest args */
+        env_size += 0x10;
+    lisp_object_t env = allocate_vector(env_size);
+    lisp_object_t actual_rest_args = NIL;
+    if (rest_args != NIL) {
+        /* arity does not include the rest args */
+        int rest_arg_count = n_args_int - arity_int;
+        for (int i = 0; i < rest_arg_count; i++) {
+            actual_rest_args = cons(vm_pop(vm), actual_rest_args);
+            TRACE(actual_rest_args);
+        }
+    }
+    for (int i = arity >> 4; i > 0; i--) {
+        svref_set(env, i << 4, vm_pop(vm));
+    }
+    if (rest_args != NIL)
+        svref_set(env, arity + 0x10, actual_rest_args);
+    svref_set(env, 0, car(fnptr->actual_function));
+    *vm->call_stack_pointer = vm->registers;
+    vm->call_stack_pointer++;
+
+    vm->registers.code_vector = caddr(actual_function);
+    vm->registers.instruction_pointer = 0;
+    vm->registers.environment = env;
+    vm->registers.tags = NIL;
+}
+
+void vm_inst_call(struct vm *vm)
+{
+    lisp_object_t fn = NIL;
+start:
+    fn = vm_pop(vm);
+    if (fn == sym("funcall")) {
+        vm_setup_funcall(vm);
+        goto start;
+    }
+    /* For now at least, you can call a symbol.  This makes it easier
+       to write VM code by hand. */
     if (symbolp(fn) != NIL)
         fn = (SymbolPtr(fn))->function;
     struct lisp_function *fnptr = LispFunctionPtr(fn);
-    lisp_object_t result = NIL;
     if (fnptr->kind == interp->syms.built_in_function) {
-        lisp_object_t actual_function = fnptr->actual_function;
-        void (*fp)() = FunctionPtr(cadr(actual_function));
-        lisp_object_t arg1 = NIL;
-        lisp_object_t arg2 = NIL;
-        lisp_object_t arg3 = NIL;
-        lisp_object_t provided_arity = vm_pop(vm);
-        lisp_object_t arity = (int64_t)caddr(actual_function);
-        if (provided_arity != arity)
-            abort();
-        int arity_c = arity >> 4;
-        switch (arity_c) {
-        case 0:
-            result = ((lisp_object_t(*)())fp)();
-            break;
-        case 1:
-            arg1 = vm_pop(vm);
-            result = ((lisp_object_t(*)(lisp_object_t))fp)(arg1);
-            break;
-        case 2:
-            arg2 = vm_pop(vm);
-            arg1 = vm_pop(vm);
-            result = ((lisp_object_t(*)(lisp_object_t, lisp_object_t))fp)(arg1, arg2);
-            break;
-        case 3:
-            arg3 = vm_pop(vm);
-            arg2 = vm_pop(vm);
-            arg1 = vm_pop(vm);
-            result = ((lisp_object_t(*)(lisp_object_t, lisp_object_t, lisp_object_t))fp)(arg1, arg2, arg3);
-            break;
-        default:
-            abort();
-        }
-        vm_inst_push(vm, result);
+        vm_call_builtin_function(vm, fnptr);
     } else if (fnptr->kind == interp->syms.lambda) {
-        *vm->call_stack_pointer = vm->registers;
-        vm->call_stack_pointer++;
-        vm->registers.code_vector = fnptr->actual_function;
-        vm->registers.instruction_pointer = 0;
-        // maybe make this a separate instruction and do it before pushing the args
-        // what else would we have to do
-        vm->registers.frame_pointer = vm->top_of_data_stack;
-        printf("INTERESTING2 %p\n", vm->registers.frame_pointer);
+        vm_call_lambda(vm, fnptr);
     } else {
         abort();
     }
@@ -221,17 +296,33 @@ void vm_inst_ret(struct vm *vm)
 {
     assert(vm->call_stack_pointer > vm->call_stack);
     struct vm_call_stack_frame *call_stack_frame = --vm->call_stack_pointer;
-    printf("INTERESTING %p %p\n", call_stack_frame->frame_pointer, vm->top_of_data_stack);
     vm->registers = *call_stack_frame;
 }
 
-lisp_object_t vm_make_function(lisp_object_t code_vector) // move this
+static lisp_object_t findenv(lisp_object_t env, int offset)
 {
-    lisp_object_t fn = allocate_function();
-    struct lisp_function *fnptr = LispFunctionPtr(fn);
-    fnptr->kind = interp->syms.lambda;
-    fnptr->actual_function = code_vector;
-    return fn;
+    check_vector(env); // Eventually this should raise an exception VM-style, not interpreter-style
+    for (int i = 0; i < offset; i++) {
+        lisp_object_t parent = svref(env, 0);
+        if (parent == NIL)
+            abort();
+        env = parent;
+    }
+    return env;
+}
+
+void vm_inst_get(struct vm *vm, lisp_object_t n, lisp_object_t m)
+{
+    lisp_object_t env = findenv(vm->registers.environment, n >> 4);
+    assert(length(env) > m);
+    vm_inst_push(vm, svref(env, m));
+}
+
+void vm_inst_set(struct vm *vm, lisp_object_t n, lisp_object_t m)
+{
+    lisp_object_t env = findenv(vm->registers.environment, n >> 4);
+    assert(length(env) > m);
+    svref_set(env, m, vm_pop(vm));
 }
 
 void vm_inst_abort(struct vm *vm)
@@ -251,8 +342,47 @@ void vm_inst_jmp_if_nil(struct vm *vm, lisp_object_t dest)
         vm->registers.instruction_pointer = dest;
 }
 
-/*
-What about setting things?
-New value on top of data stack
-Special instruction to set a stack location to value on top of stack?
- */
+lisp_object_t vm_make_function(lisp_object_t arg_info, lisp_object_t code)
+{
+    lisp_object_t fn = allocate_function();
+    struct lisp_function *fnptr = LispFunctionPtr(fn);
+    fnptr->actual_function = List(interp->vm.registers.environment, arg_info, code);
+    fnptr->kind = interp->syms.lambda;
+    return fn;
+}
+
+static int frame_has_tag(struct vm_call_stack_frame *frame, lisp_object_t tag)
+{
+    TRACE(tag);
+    for (lisp_object_t t = frame->tags; t != NIL; t = cdr(t)) {
+        TRACE(t);
+        if (eq(car(t), tag) != NIL) {
+            printf("BOOM\n");
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void vm_inst_set_tag(struct vm *vm, lisp_object_t tag)
+{
+    vm->registers.tags = cons(tag, vm->registers.tags);
+}
+
+void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag, lisp_object_t dest)
+{
+    if (frame_has_tag(&vm->registers, tag)) {
+        vm_inst_jmp(vm, dest);
+        return;
+    } else {
+        for (struct vm_call_stack_frame *frame = vm->call_stack_pointer - 1; frame >= vm->call_stack; frame--) {
+            if (frame_has_tag(frame, tag)) {
+                vm->call_stack_pointer = frame + 1;
+                vm->registers = *frame;
+                vm_inst_jmp(vm, dest);
+                return;
+            }
+        }
+    }
+    abort();
+}

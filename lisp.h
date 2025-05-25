@@ -63,12 +63,14 @@ lisp_object_t load(lisp_object_t filename);
 #define FunctionPtr(obj) ((void (*)())((((obj) & PTR_MASK) >> 4)))
 #define LispFunctionPtr(obj) ((struct lisp_function *)((obj) & PTR_MASK))
 
+void check_vector(lisp_object_t obj);
+
 lisp_object_t svref_c(lisp_object_t vector, size_t index);
 lisp_object_t svref(lisp_object_t vector, lisp_object_t index);
 lisp_object_t svref_set(lisp_object_t vector, lisp_object_t index, lisp_object_t newvalue);
 
 lisp_object_t allocate_string(size_t len, char *str);
-lisp_object_t allocate_vector(size_t size);
+lisp_object_t allocate_vector(lisp_object_t size);
 lisp_object_t allocate_function();
 
 void get_string_parts(lisp_object_t string, size_t *lenptr, char **strptr);

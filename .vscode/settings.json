@@ -36,6 +36,13 @@
         "cmath": "c",
         "type_traits": "c",
         "typeinfo": "c",
-        "optional": "c"
-    }
+        "optional": "c",
+        "vm.h": "c",
+        "lexical_scope.h": "c",
+        "string_buffer.h": "c",
+        "concepts": "c",
+        "unordered_map": "c",
+        "strings.h": "c"
+    },
+    "makefile.configureOnOpen": false
 }

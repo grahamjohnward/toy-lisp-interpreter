@@ -1,5 +1,5 @@
 (condition-case eof
-    (let (input)
+    (let (input result)
       (tagbody
 	 (princ "Welcome to Graham's Lisp\n")
        repl
@@ -7,11 +7,16 @@
 	 (setq input (read))
 	 (condition-case e
              (progn
-	       (setq * (eval input))
-	       (print *))
+	       (setq *** **)
+	       (setq ** *)
+	       (setq * result)
+	       (setq result (eval input))
+	       (print result))
 	   (runtime-error (print e))
 	   (unbound-variable (print e))
 	   (type-error (print e)))
+	 (setq +++ ++)
+	 (setq ++ +)
 	 (setq + input)
 	 (go repl)))
   (end-of-file

@@ -96,31 +96,31 @@
 (defmacro or (&rest things)
   (%or things))
 
- (defun equalp (a b)
-   (when (not (eq (type-of a) (type-of b)))
-     (return-from equalp nil))
-   (cond ((eq (type-of a) 'string)
-	  (string-equal-p a b))
-	 ((eq (type-of a) 'vector)
-	  (progn
-	    (when (not (eq (length a) (length b)))
-	      (return-from equalp nil))
-	    (return-from equalp
-	      (let (i)
-		(tagbody
-		   (setq i 0)
-		 iterate
-		   (when (eq i (length a))
-		     (return-from equalp t))
-		   (when (not (equalp (svref a i) (svref b i)))
-		     (return-from equalp nil))
-		   (setq i (+ i 1))
-		   (go iterate))))))
-	 ((and (eq (type-of a) 'cons) (eq (type-of b) 'cons))
-	  (if (equalp (car a) (car b))
-	      (return-from equalp (equalp (cdr a) (cdr b)))
-	      (return-from equalp nil)))
-	 (t (eq a b))))
+(defun equalp (a b)
+  (when (not (eq (type-of a) (type-of b)))
+    (return-from equalp nil))
+  (cond ((eq (type-of a) 'string)
+	 (string-equal-p a b))
+	((eq (type-of a) 'vector)
+	 (progn
+	   (when (not (eq (length a) (length b)))
+	     (return-from equalp nil))
+	   (return-from equalp
+	     (let (i)
+	       (tagbody
+		  (setq i 0)
+		iterate
+		  (when (eq i (length a))
+		    (return-from equalp t))
+		  (when (not (equalp (svref a i) (svref b i)))
+		    (return-from equalp nil))
+		  (setq i (+ i 1))
+		  (go iterate))))))
+	((and (eq (type-of a) 'cons) (eq (type-of b) 'cons))
+	 (if (equalp (car a) (car b))
+	     (return-from equalp (equalp (cdr a) (cdr b)))
+	     (return-from equalp nil)))
+	(t (eq a b))))
 
 (defun > (first &rest rest)
   (if (eq rest nil)
@@ -232,10 +232,16 @@
   `(when (not ,thing-that-should-be-true)
      (raise 'assertion-failed ',thing-that-should-be-true)))
 
-(defun append (list1 list2)
-  (if (null list1)
-      list2
-      (cons (car list1) (append (cdr list1) list2))))
+(defun append (&rest lists)
+  (let (result tail)
+    (dolist (list lists)
+      (dolist (item list)
+	(let ((new-pair (cons item nil)))
+	  (if result
+	      (rplacd tail new-pair)
+	      (setq result new-pair))
+	  (setq tail new-pair))))
+    result))
 
 (defun caar (x)
   (car (car x)))
@@ -255,6 +261,9 @@
 (defun caadr (x)
   (car (cadr x)))
 
+(defun cadddr (x)
+  (car (cdr (cddr x))))
+
 (defun assoc (item alist)
   (if (null alist)
       nil
@@ -273,3 +282,34 @@
   (if (null list)
       nil
       (cons (funcall function (car list)) (mapcar function (cdr list)))))
+
+(defun %reverse-aux (list acc)
+  (if (null list)
+      acc
+      (%reverse-aux (cdr list) (cons (car list) acc))))
+
+(defun reverse (list)
+  (%reverse-aux list nil))
+
+(defmacro incf (v &optional delta)
+  (when (null delta)
+    (setq delta 1))
+  `(setq ,v (+ ,v ,delta)))
+
+(defun remove-if-not (fn list)
+  (if (null list)
+      nil
+      (if (funcall fn (car list))
+	  (cons (car list) (remove-if-not fn (cdr list)))
+	  (remove-if-not fn (cdr list)))))
+
+(defun adjoin (item list &optional test)
+  (when (null test)
+    (setq test #'eq))
+  (let (foundp)
+    (dolist (obj list)
+      (when (funcall test obj)
+	(setq foundp t)))
+    (if foundp
+	list
+	(cons item list))))

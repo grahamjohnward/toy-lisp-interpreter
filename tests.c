@@ -999,6 +999,7 @@ static void test_plist()
 
 static void define_defmacro()
 {
+    lisp_object_t ignored = NIL;
     char *defmacro_str = "(progn"
                          "  (set-symbol-function 'defmacro"
                          "                      #'(lambda (name arglist &body body)"
@@ -1007,7 +1008,7 @@ static void define_defmacro()
                          "                               (putprop ',name 'macro 't)"
                          "                               result))))"
                          "  (putprop 'defmacro 'macro 't))";
-    test_eval_string_helper(defmacro_str);
+    ignored = test_eval_string_helper(defmacro_str);
 }
 
 static void test_defmacro()
@@ -1111,15 +1112,16 @@ static void test_let()
 static void test_macroexpand1()
 {
     START_OF_TEST("macroexpand1");
-    init_interpreter_for_tests();
-    define_defmacro();
     lisp_object_t expr = NIL;
     lisp_object_t result = NIL;
+    char *str = NULL;
+    init_interpreter_for_tests();
+    define_defmacro();
     test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
     test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
     expr = parse1_wrapper("(ooh (frob))");
     result = macroexpand1(expr, NIL);
-    char *str = print_object(result);
+    str = print_object(result);
     check(strcmp("((aah (frob)) . t)", str) == 0, "ok");
     free(str);
     free_interpreter();
@@ -1128,17 +1130,40 @@ static void test_macroexpand1()
 static void test_macroexpand()
 {
     START_OF_TEST("macroexpand");
-    init_interpreter_for_tests();
-    define_defmacro();
     lisp_object_t expr = NIL;
     lisp_object_t result = NIL;
+    char *str = NULL;
+    init_interpreter_for_tests();
+    define_defmacro();
     test_eval_string_helper("(defmacro ooh (x) `(aah ,x))");
     test_eval_string_helper("(defmacro aah (x) `(bar ,x))");
     expr = parse1_wrapper("(ooh (frob))");
     result = macroexpand(expr, NIL);
-    char *str = print_object(result);
+    str = print_object(result);
     check(strcmp("(bar (frob))", str) == 0, "ok");
     free(str);
+    free_interpreter();
+}
+
+static void test_macro_inside_quasiquote()
+{
+    START_OF_TEST("macro_inside_quasiquote");
+    lisp_object_t result = NIL;
+    lisp_object_t parsed = NIL;
+    char *str = NULL;
+    init_interpreter(65536);
+    define_defmacro();
+    test_eval_string_helper("(defmacro prog1- (&body forms)"
+                            "  (let ((first (car forms))"
+                            "        (result (gensym)))"
+                            "    `(progn"
+                            "       (let ((,result ,first))"
+                            "           ,@(cdr forms)"
+                            "           ,result))))");
+    parsed = parse1_wrapper("(,(prog1- (cons 1 2) 'foo) ,(prog1- (cons 3 4) 'bar) #(,(prog1- 'a 'b) 14 15))");
+    result = macroexpand_all_quasiquote(parsed, 1);
+    str = print_object(result);
+    check(strcmp("(,(progn (let ((g0 (cons 1 2))) 'foo g0)) ,(progn (let ((g1 (cons 3 4))) 'bar g1)) #(,(progn (let ((g5 'a)) 'b g5)) 14 15))", str) == 0, "ok");
     free_interpreter();
 }
 
@@ -1932,6 +1957,7 @@ int main(int argc, char **argv)
     test_let();
     test_macroexpand1();
     test_macroexpand();
+    test_macro_inside_quasiquote();
     test_macroexpand_all_if();
     test_macroexpand_all_progn();
     test_macroexpand_all_lambda();

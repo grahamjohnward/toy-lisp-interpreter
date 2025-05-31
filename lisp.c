@@ -1872,14 +1872,41 @@ static lisp_object_t macroexpand_all_let(lisp_object_t vars)
     }
 }
 
-static lisp_object_t macroexpand_all_quasiquote(lisp_object_t e)
+lisp_object_t macroexpand_all_quasiquote(lisp_object_t e, int depth)
 {
-    if (atom(e) != NIL)
+    assert(depth > 0);
+    if (symbolp(e) != NIL || integerp(e) != NIL) {
         return e;
-    else if (car(e) == interp->syms.unquote || car(e) == interp->syms.unquote_splice)
-        return cons(car(e), cons(macroexpand_all(cadr(e)), NIL));
-    else
-        return cons(car(e), cons(macroexpand_all_quasiquote(cadr(e)), NIL));
+    } else if (consp(e) != NIL) {
+        if (symbolp(car(e)) != NIL) {
+            lisp_object_t symbol = car(e);
+            // We are looking at:
+            //   (<symbol> <more stuff>)
+            // If <symbol> is quasiquote, we have:
+            //   (quasiquote <obj>)
+            // in which case we return the expression, but with <obj> processed at depth + 1
+            if (symbol == interp->syms.quasiquote) {
+                return List(symbol, macroexpand_all_quasiquote(cadr(e), depth + 1));
+            } else if (symbol == interp->syms.unquote || symbol == interp->syms.unquote_splice) {
+                if (depth == 1) {
+                    return List(symbol, macroexpand_all(cadr(e)));
+                } else {
+                    return List(symbol, macroexpand_all_quasiquote(cadr(e), depth - 1));
+                }
+            } else {
+                return cons(macroexpand_all_quasiquote(car(e), depth), macroexpand_all_quasiquote(cdr(e), depth));
+            }
+        } else {
+            return cons(macroexpand_all_quasiquote(car(e), depth), macroexpand_all_quasiquote(cdr(e), depth));
+        }
+    } else if (vectorp(e) != NIL) {
+        lisp_object_t vector_length = length(e);
+        lisp_object_t new_vector = allocate_vector(vector_length);
+        for (lisp_object_t i = 0; i < vector_length; i += 0x4)
+            svref_set(new_vector, i, macroexpand_all_quasiquote(svref(e, i), depth));
+        return new_vector;
+    }
+    return e;
 }
 
 lisp_object_t macroexpand_all(lisp_object_t e)
@@ -1909,7 +1936,7 @@ lisp_object_t macroexpand_all(lisp_object_t e)
         } else if (s == interp->syms.quote) {
             return e;
         } else if (s == interp->syms.quasiquote) {
-            return cons(s, macroexpand_all_quasiquote(cdr(e)));
+            return cons(s, macroexpand_all_quasiquote(cdr(e), 1));
         } else if (s == interp->syms.function) {
             if (symbolp(cadr(e)) != NIL) {
                 return e;

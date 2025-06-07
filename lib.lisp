@@ -264,6 +264,18 @@
 (defun cadddr (x)
   (car (cdr (cddr x))))
 
+(defun first (list)
+  (car list))
+
+(defun second (list)
+  (cadr list))
+
+(defun third (list)
+  (caddr list))
+
+(defun fourth (list)
+  (cadddr list))
+
 (defun assoc (item alist)
   (if (null alist)
       nil

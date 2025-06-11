@@ -1694,12 +1694,12 @@ static void test_vm_call_builtin()
     free_interpreter();
 }
 
-static lisp_object_t make_function(lisp_object_t env, lisp_object_t code_vector)
+static lisp_object_t make_function(lisp_object_t env, lisp_object_t code_vector, lisp_object_t arg_info)
 {
     lisp_object_t fn = allocate_function();
     struct lisp_function *fnptr = LispFunctionPtr(fn);
     fnptr->kind = interp->syms.lambda;
-    fnptr->actual_function = cons(env, code_vector);
+    fnptr->actual_function = List(env, arg_info, code_vector);
     lisp_object_t sym = gensym();
     struct symbol *symptr = SymbolPtr(sym);
     symptr->function = fn;
@@ -1711,7 +1711,8 @@ static void test_vm_inst_call_lambda()
     START_OF_TEST("vm_inst_call_lambda");
     init_interpreter(1024 * 1024 * 4);
     /* The function */
-    lisp_object_t symbol = make_function(NIL, parse1_wrapper("#()"));
+    lisp_object_t arg_info = parse1_wrapper("#(nil 2)");
+    lisp_object_t symbol = make_function(NIL, parse1_wrapper("#()"), arg_info);
     /* Set up the stack */
     vm_inst_push(&interp->vm, sym("foo"));
     vm_inst_push(&interp->vm, sym("bar"));
@@ -1723,9 +1724,9 @@ static void test_vm_inst_call_lambda()
     lisp_object_t env = interp->vm.registers.environment;
     char *str = print_object(env);
     check(vectorp(env) != NIL, "vector on top of stack");
-    check(svref_c(env, 0) == NIL, "0");
-    check(svref_c(env, 1) == sym("foo"), "1");
-    check(svref_c(env, 2) == sym("bar"), "2");
+    check(svref_c(env, 0) == NIL, "parent env is NIL");
+    check(svref_c(env, 1) == sym("foo"), "first arg");
+    check(svref_c(env, 2) == sym("bar"), "second arg");
     free(str);
     free_interpreter();
 }
@@ -1735,7 +1736,7 @@ static void test_vm_inst_get_set()
     START_OF_TEST("vm_inst_get_set");
     init_interpreter(1024 * 1024 * 4);
 
-    lisp_object_t symbol = make_function(parse1_wrapper("#(nil abc xyz)"), parse1_wrapper("#()"));
+    lisp_object_t symbol = make_function(parse1_wrapper("#(nil bof xyz)"), parse1_wrapper("#(get 0 1 ret)"), parse1_wrapper("#(nil 2)"));
 
     vm_inst_push(&interp->vm, sym("foo"));
     vm_inst_push(&interp->vm, sym("bar"));
@@ -1771,7 +1772,8 @@ static void test_vm_function()
     lisp_object_t fn = allocate_function();
     struct lisp_function *fnptr = LispFunctionPtr(fn);
     fnptr->kind = interp->syms.lambda;
-    fnptr->actual_function = cons(NIL /* env */, lambda_code);
+    lisp_object_t arg_info = parse1_wrapper("#(nil 1)");
+    fnptr->actual_function = List(NIL, arg_info, lambda_code);
     struct symbol *symptr = SymbolPtr(sym("foo"));
     symptr->function = fn;
 
@@ -2004,7 +2006,6 @@ int main(int argc, char **argv)
     test_vm_call_builtin();
     test_vm_inst_call_lambda();
     test_vm_inst_get_set();
-
     test_vm_function();
     test_vm_inst_jmp();
     test_vm_inst_jmp_if_nil1();

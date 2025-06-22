@@ -1858,18 +1858,44 @@ static void test_keywords()
     free_interpreter();
 }
 
-static void test_vm_call_closure()
+static void test_vm_inst_set_tag()
 {
-    START_OF_TEST("vm_call_closure");
+    START_OF_TEST("vm_inst_set_tag");
     init_interpreter_for_tests();
-    // #(push 2 push 1 push make-vector call 2 copy2 0)
-    lisp_object_t code = parse1_wrapper("#(push bog push #(ret) push #(foo bar) push 2 push %vm-make-closure call 2 call 1)");
-    // lisp_object_t code = parse1_wrapper("#(push 2 push 1 push make-vector call 2 copy2 0)");
-    interp->vm.registers.code_vector = code;
-    vm_run(&interp->vm);
-    lisp_object_t foo = vm_pop(&interp->vm);
-    char *str = print_object(foo);
+    // lisp_object_t code = parse1_wrapper("#(set-tag bof 5 tag-push foo push bar)");
+    vm_inst_set_tag(&interp->vm, sym("bof"), 4 << 4);
+    char *str = print_object(interp->vm.registers.tags);
+    check(strcmp("((bof . 4))", str) == 0, "ok");
     free(str);
+    free_interpreter();
+}
+
+static void test_vm_inst_tag_jmp()
+{
+    START_OF_TEST("vm_inst_tag_jmp");
+    init_interpreter_for_tests();
+
+    struct vm *vm = &interp->vm;
+    vm->registers.code_vector = parse1_wrapper("#(foo bar baz quux boof)");
+    vm->registers.instruction_pointer = 0;
+    vm->registers.environment = NIL;
+    vm->registers.tags = NIL;
+    vm_inst_set_tag(vm, sym("bof"), 4 << 4);
+
+    lisp_object_t expected_code_vector = vm->registers.code_vector;
+    lisp_object_t expected_instruction_pointer = 4 << 4;
+
+    *vm->call_stack_pointer = vm->registers;
+    vm->call_stack_pointer++;
+    vm->registers.code_vector = parse1_wrapper("#(1 2 3 4 5)");
+    vm->registers.instruction_pointer = 0;
+    vm->registers.environment = NIL;
+    vm->registers.tags = NIL;
+
+    vm_inst_tag_jmp(vm, sym("bof"));
+    check(vm->registers.code_vector == expected_code_vector, "code vector");
+    check(vm->registers.instruction_pointer == expected_instruction_pointer, "instruction pointer");
+
     free_interpreter();
 }
 
@@ -2011,7 +2037,8 @@ int main(int argc, char **argv)
     test_vm_inst_jmp_if_nil1();
     test_vm_inst_jmp_if_nil2();
     test_keywords();
-    // test_vm_call_closure();
+    test_vm_inst_set_tag();
+    test_vm_inst_tag_jmp();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

@@ -99,7 +99,6 @@ void vm_run_one_instruction(struct vm *vm)
     TRACE(vm->registers.instruction_pointer);
     TRACE(vm->registers.code_vector);
     lisp_object_t instruction = svref(vm->registers.code_vector, vm->registers.instruction_pointer);
-    TRACE(instruction);
     lisp_object_t arity = getprop(instruction, interp->syms.vm_ins_arity);
     TRACE(instruction);
     if (arity == NIL)
@@ -351,37 +350,35 @@ lisp_object_t vm_make_function(lisp_object_t arg_info, lisp_object_t code)
     return fn;
 }
 
-static int frame_has_tag(struct vm_call_stack_frame *frame, lisp_object_t tag)
+static lisp_object_t frame_has_tag(struct vm_call_stack_frame *frame, lisp_object_t tag)
 {
-    TRACE(tag);
     for (lisp_object_t t = frame->tags; t != NIL; t = cdr(t)) {
-        TRACE(t);
-        if (eq(car(t), tag) != NIL) {
-            printf("BOOM\n");
-            return 1;
+        if (eq(caar(t), tag) != NIL) {
+            return cdar(t);
         }
     }
-    return 0;
+    return NIL;
 }
 
-void vm_inst_set_tag(struct vm *vm, lisp_object_t tag)
+void vm_inst_set_tag(struct vm *vm, lisp_object_t tag, lisp_object_t dest)
 {
-    vm->registers.tags = cons(tag, vm->registers.tags);
+    vm->registers.tags = cons(cons(tag, dest), vm->registers.tags);
 }
 
-void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag, lisp_object_t dest)
+void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
 {
-    if (frame_has_tag(&vm->registers, tag)) {
+    lisp_object_t dest = frame_has_tag(&vm->registers, tag);
+    if (dest != NIL) {
         vm_inst_jmp(vm, dest);
         return;
-    } else {
-        for (struct vm_call_stack_frame *frame = vm->call_stack_pointer - 1; frame >= vm->call_stack; frame--) {
-            if (frame_has_tag(frame, tag)) {
-                vm->call_stack_pointer = frame + 1;
-                vm->registers = *frame;
-                vm_inst_jmp(vm, dest);
-                return;
-            }
+    }
+    for (struct vm_call_stack_frame *frame = vm->call_stack_pointer - 1; frame >= vm->call_stack; frame--) {
+        lisp_object_t dest = frame_has_tag(frame, tag);
+        if (dest != NIL) {
+            vm->call_stack_pointer = frame + 1;
+            vm->registers = *frame;
+            vm_inst_jmp(vm, dest);
+            return;
         }
     }
     abort();

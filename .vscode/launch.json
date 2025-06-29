@@ -1,0 +1,233 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Tests",
+            "program": "${workspaceRoot}/build/tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}"
+        },
+        {
+            "name": "macro_inside_quasiquote",
+            "program": "${workspaceRoot}/build/tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "environment": [
+                {
+                    "name": "TESTS_TO_RUN",
+                    "value": "macro_inside_quasiquote"
+                }
+            ]
+        },
+        {
+            "name": "unquote_splice_nil",
+            "program": "${workspaceRoot}/build/tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "environment": [
+                {
+                    "name": "TESTS_TO_RUN",
+                    "value": "unquote_splice_nil"
+                }
+            ]
+        },
+        {
+            "name": "Tests (Makefile build)",
+            "program": "${workspaceRoot}/tests",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}"
+        },
+        {
+            "name": "Lib",
+            "program": "${workspaceRoot}/build/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "-heap-size=128k",
+                "lib.lisp"
+            ]
+        },
+        {
+            "name": "OMG2",
+            "program": "${workspaceRoot}/build/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "lib.lisp",
+                "compiler.lisp",
+                "omg2.lisp"
+            ]
+        },
+        {
+            "name": "Lisp tests",
+            "program": "${workspaceRoot}/build/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "--heap-size=512K",
+                "lib.lisp",
+                "tests.lisp"
+            ]
+        },
+        {
+            "name": "Stress GC 2",
+            "program": "${workspaceRoot}/build/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "stress-gc2.lisp"
+            ]
+        },
+        {
+            "name": "Stress GC 4",
+            "program": "${workspaceRoot}/build/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "lib.lisp",
+                "stress-gc4.lisp"
+            ]
+        },
+        {
+            "name": "VM bug",
+            "program": "${workspaceRoot}/build/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "vm-bug.lisp"
+            ]
+        },
+        {
+            "name": "Stress GC 5",
+            "program": "${workspaceRoot}/build/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "lib.lisp",
+                "stress-gc5.lisp"
+            ]
+        },
+        {
+            "name": "Stress GC 6",
+            "program": "${workspaceRoot}/build/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "--heap-size=30000",
+                "lib.lisp",
+                "stress-gc6.lisp"
+            ]
+        },
+        {
+            "name": "Stress GC 7",
+            "program": "${workspaceRoot}/build/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "lib.lisp",
+                "stress-gc7.lisp"
+            ]
+        },
+        {
+            "name": "Stress GC 7 (Makefile version)",
+            "program": "${workspaceRoot}/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "lib.lisp",
+                "stress-gc7.lisp"
+            ]
+        },
+        {
+            "name": "Load image",
+            "program": "${workspaceRoot}/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "--image=image",
+                "test2.lisp"
+            ]
+        },
+        {
+            "name": "Load image bug",
+            "program": "${workspaceRoot}/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "--image=image",
+                "test3.lisp"
+            ]
+        },
+        {
+            "name": "(2 2)",
+            "program": "${workspaceRoot}/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "test4.lisp"
+            ]
+        },
+        {
+            "name": "Macroexpand quasiquote",
+            "program": "${workspaceRoot}/build/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "macroexpand-quasiquote.lisp"
+            ]
+        },
+        {
+            "name": "Plus",
+            "program": "${workspaceRoot}/build/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "plus.lisp"
+            ]
+        },
+        {
+            "name": "Bug",
+            "program": "${workspaceRoot}/build/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "bug.lisp"
+            ]
+        },
+        {
+            "name": "Oops",
+            "program": "${workspaceRoot}/build/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "--heap-size=1m",
+                "lib.lisp",
+                "oops.lisp"
+            ]
+        }
+    ]
+}

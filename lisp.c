@@ -1788,10 +1788,12 @@ lisp_object_t eval_quasiquote(lisp_object_t e, lisp_object_t a, int depth)
         } else if (consp(car(e)) != NIL && eq(car(car(e)), interp->syms.unquote_splice) != NIL) {
             if (depth == 0) {
                 lisp_object_t result = eval(cadr(car(e)), a);
-                lisp_object_t last_pair;
-                for (last_pair = result; cdr(last_pair) != NIL; last_pair = cdr(last_pair))
-                    ;
-                rplacd(last_pair, eval_quasiquote(cdr(e), a, depth));
+                if (result != NIL) {
+                    lisp_object_t last_pair;
+                    for (last_pair = result; cdr(last_pair) != NIL; last_pair = cdr(last_pair))
+                        ;
+                    rplacd(last_pair, eval_quasiquote(cdr(e), a, depth));
+                }
                 return result;
             } else {
                 return cons(cons(interp->syms.unquote_splice, cons(eval_quasiquote(cadar(e), a, depth - 1), NIL)), NIL);

@@ -1870,6 +1870,17 @@ static void test_vm_inst_set_tag()
     free_interpreter();
 }
 
+static void test_unquote_splice_nil()
+{
+    START_OF_TEST("unquote_splice_nil");
+    init_interpreter_for_tests();
+    lisp_object_t result = test_eval_string_helper("`(foo ,@(progn nil))");
+    char *str = print_object(result);
+    check(strcmp("(foo)", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
 static void test_vm_inst_tag_jmp()
 {
     START_OF_TEST("vm_inst_tag_jmp");
@@ -2039,6 +2050,7 @@ int main(int argc, char **argv)
     test_keywords();
     test_vm_inst_set_tag();
     test_vm_inst_tag_jmp();
+    test_unquote_splice_nil();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

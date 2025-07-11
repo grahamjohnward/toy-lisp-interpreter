@@ -1691,27 +1691,26 @@ lisp_object_t evaltagbody(lisp_object_t e, lisp_object_t a)
             n++;
     }
     push_return_context(interp->syms.tagbody);
+    struct return_context *ctxt = interp->return_stack;
     /* forms in an array */
-    lisp_object_t *table = malloc(n * sizeof(lisp_object_t));
-    int i = 0;
+    ctxt->tagbody_forms = malloc(n * sizeof(lisp_object_t));
+    ctxt->tagbody_forms_len = 0;
     /* alist tag -> array index */
     lisp_object_t alist = NIL;
     for (lisp_object_t x = e; x != NIL; x = cdr(x)) {
         if (symbolp(car(x)) == NIL)
             /* not a symbol - add form to table */
-            table[i++] = car(x);
+            ctxt->tagbody_forms[ctxt->tagbody_forms_len++] = car(x);
         else
             /* add symbol -> table index mapping to alist */
-            alist = cons(cons(car(x), i << 4), alist);
+            alist = cons(cons(car(x), ctxt->tagbody_forms_len << 4), alist);
     }
-    interp->return_stack->tagbody_forms_len = i;
-    interp->return_stack->tagbody_forms = table;
     interp->return_stack->return_value = alist;
-    for (i = 0; i < n; i++) {
+    for (int i = 0; i < n; i++) {
         int v = setjmp(interp->return_stack->buf);
         if (v != 0)
             i = v - 1;
-        eval(table[i], a);
+        eval(ctxt->tagbody_forms[i], a);
     }
     pop_return_context();
     return NIL;

@@ -25,6 +25,7 @@ struct lisp_interpreter {
     struct lisp_heap heap;
     lisp_object_t *top_of_stack;
     struct vm vm;
+    int use_vm;
 };
 
 extern struct lisp_interpreter *interp;

@@ -419,12 +419,18 @@ void init_interpeter_from_image(char *image)
 
 void init_interpreter(size_t heap_size)
 {
+    init_interpreter2(heap_size, 0);
+}
+
+void init_interpreter2(size_t heap_size, int use_vm)
+{
     assert(!interpreter_initialized);
     interp = (struct lisp_interpreter *)malloc(sizeof(struct lisp_interpreter));
     assert(sizeof(lisp_object_t) == sizeof(void *));
     interp->symbol_table = NIL;
     interp->return_stack = NULL;
     interp->top_of_stack = get_rbp(2);
+    interp->use_vm = use_vm;
     lisp_heap_init(&interp->heap, heap_size);
     // Should get this stack size from somewhere
     vm_init(&interp->vm, 1024 * 1024);

@@ -9,11 +9,13 @@
 struct interpreter_settings {
     size_t heap_size;
     char *image;
+    int use_vm;
 };
 
 static struct option options[] = {
     { "heap-size", optional_argument, 0, 1 },
     { "image", optional_argument, 0, 2 },
+    { "use-vm", no_argument, 0, 3 },
     { 0, 0, 0, 0 }
 };
 
@@ -58,16 +60,13 @@ static int parse_args(int argc, char **argv, struct interpreter_settings *settin
 {
     settings->heap_size = 1024 * 1024; /* default */
     settings->image = NULL;
+    settings->use_vm = 0;
     int c;
     while (1) {
         int option_index;
         c = getopt_long_only(argc, argv, "", options, &option_index);
         if (c == -1)
             break;
-        if (!optarg) {
-            printf("%s: missing argument\n", options[option_index].name);
-            exit(1);
-        }
         switch (c) {
         case 1:
             settings->heap_size = parse_heap_size(optarg);
@@ -75,6 +74,9 @@ static int parse_args(int argc, char **argv, struct interpreter_settings *settin
         case 2:
             settings->image = malloc(strlen(optarg));
             strcpy(settings->image, optarg);
+            break;
+        case 3:
+            settings->use_vm = 1;
             break;
         default:
             abort();
@@ -90,7 +92,7 @@ int main(int argc, char **argv)
     if (settings.image)
         init_interpeter_from_image(settings.image);
     else
-        init_interpreter(settings.heap_size);
+        init_interpreter2(settings.heap_size, settings.use_vm);
     for (; i < argc; i++)
         load_str(argv[i]);
     free_interpreter();

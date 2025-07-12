@@ -23,6 +23,7 @@ lisp_object_t sym(char *string);
 char *read_token(struct text_stream *ts);
 
 void init_interpreter(size_t heap_size);
+void init_interpreter2(size_t heap_size, int use_vm);
 void init_interpeter_from_image(char *image);
 void free_interpreter();
 

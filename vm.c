@@ -53,6 +53,7 @@ void init_vm_instruction_definitions()
     DEFINE_VM_INSTRUCTION(jmp_if_nil, vm_inst_jmp_if_nil, 1);
     DEFINE_VM_INSTRUCTION(set_tag,    vm_inst_set_tag,    1);
     DEFINE_VM_INSTRUCTION(tag_jmp,    vm_inst_tag_jmp,    2);
+    DEFINE_VM_INSTRUCTION(nop,        vm_inst_nop,        0);
 
     // clang-format on
 #undef DEFINE_VM_INSTRUCTION
@@ -382,4 +383,8 @@ void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
         }
     }
     abort();
+}
+
+void vm_inst_nop(struct vm *vm)
+{
 }

@@ -1832,7 +1832,7 @@ static void test_vm_inst_jmp_if_nil1()
 
 static void test_vm_inst_jmp_if_nil2()
 {
-    START_OF_TEST("test_vm_inst_jmp_if_nil2");
+    START_OF_TEST("vm_inst_jmp_if_nil2");
     init_interpreter_for_tests();
 
     lisp_object_t code = parse1_wrapper("#(push abc jmp-if-nil 6 push foo push bar)");

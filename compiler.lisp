@@ -75,7 +75,6 @@
 
 (defun lexical-context-tag-lookup (ctxt tag)
   (let ((tag-tables (svref ctxt 4)))
-    (trace tag-tables)
     (dolist (tag-table tag-tables)
       (let ((pair (assoc tag tag-table)))
 	(when pair
@@ -166,9 +165,7 @@
   (let ((result (make-vector 2)))
     (let ((i 0) has-rest)
       (tagbody
-	 (trace i)
 	 (dolist (arg arglist)
-	   (trace arg)
 	   (when (or (eq arg '&rest) (eq arg '&body))
 	     (setq has-rest t)
 	     (go done))
@@ -193,10 +190,8 @@
       (lexical-context-leave-scope ctxt)
       (let ((argcount (length arglist))
 	    (arg-info (parse-arglist arglist)))
-	(trace arg-info)
 	(let ((code (assemble compiled-body)))
 	  (let ((result `(push ,arg-info push ,code push 2 push %vm-make-function call)))
-	    (trace result)
 	    result))))))
 
 (defun compile4-if (expr ctxt)
@@ -347,7 +342,6 @@
 		      (cdr form))))
 
 (defun macroexpand-all-list (list)
-  (trace list)
   (if (null list)
       nil
       (cons (macroexpand-all (car list)) (macroexpand-all-list (cdr list)))))

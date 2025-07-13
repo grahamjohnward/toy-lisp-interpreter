@@ -322,7 +322,8 @@ void vm_inst_set(struct vm *vm, lisp_object_t n, lisp_object_t m)
 {
     lisp_object_t env = findenv(vm->registers.environment, n >> 4);
     assert(length(env) > m);
-    svref_set(env, m, vm_pop(vm));
+    /* peek not pop here since we return the new value */
+    svref_set(env, m, vm_peek(vm));
 }
 
 void vm_inst_abort(struct vm *vm)

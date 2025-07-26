@@ -1865,7 +1865,7 @@ static void test_vm_inst_set_tag()
     // lisp_object_t code = parse1_wrapper("#(set-tag bof 5 tag-push foo push bar)");
     vm_inst_set_tag(&interp->vm, sym("bof"), 4 << 4);
     char *str = print_object(interp->vm.registers.tags);
-    check(strcmp("((bof . 4))", str) == 0, "ok");
+    check(strcmp("(#(bof 4 0))", str) == 0, "ok");
     free(str);
     free_interpreter();
 }
@@ -1896,6 +1896,7 @@ static void test_vm_inst_tag_jmp()
     lisp_object_t expected_code_vector = vm->registers.code_vector;
     lisp_object_t expected_instruction_pointer = 4 << 4;
 
+    /* As if a function call happened */
     *vm->call_stack_pointer = vm->registers;
     vm->call_stack_pointer++;
     vm->registers.code_vector = parse1_wrapper("#(1 2 3 4 5)");
@@ -1904,6 +1905,41 @@ static void test_vm_inst_tag_jmp()
     vm->registers.tags = NIL;
 
     vm_inst_tag_jmp(vm, sym("bof"));
+    check(vm->registers.code_vector == expected_code_vector, "code vector");
+    check(vm->registers.instruction_pointer == expected_instruction_pointer, "instruction pointer");
+
+    free_interpreter();
+}
+
+static void test_vm_inst_raise()
+{
+    START_OF_TEST("vm_inst_raise");
+    init_interpreter_for_tests();
+    struct vm *vm = &interp->vm;
+    vm->registers.code_vector = parse1_wrapper("#(foo bar baz quux boof)");
+    vm->registers.instruction_pointer = 0;
+    vm->registers.environment = NIL;
+    vm->registers.tags = NIL;
+    vm_inst_set_tag(vm, sym("bof"), 4 << 4);
+    lisp_object_t expected_code_vector = vm->registers.code_vector;
+    lisp_object_t expected_instruction_pointer = 4 << 4;
+
+    /* As if a function call happened */
+    *vm->call_stack_pointer = vm->registers;
+    vm->call_stack_pointer++;
+    vm->registers.code_vector = parse1_wrapper("#(1 2 3 4 5)");
+    vm->registers.instruction_pointer = 0;
+    vm->registers.environment = NIL;
+    vm->registers.tags = NIL;
+
+    /* raise is invoked like a function call */
+    vm_inst_push(vm, sym("bof")); /* tag */
+    vm_inst_push(vm, sym("return-value")); /* return value */
+    vm_inst_push(vm, 2 << 4); /* argcount */
+
+    vm_inst_raise(vm);
+
+    check(vm_peek(vm) == sym("return-value"), "return value");
     check(vm->registers.code_vector == expected_code_vector, "code vector");
     check(vm->registers.instruction_pointer == expected_instruction_pointer, "instruction pointer");
 
@@ -2051,6 +2087,7 @@ int main(int argc, char **argv)
     test_vm_inst_set_tag();
     test_vm_inst_tag_jmp();
     test_unquote_splice_nil();
+    test_vm_inst_raise();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

@@ -49,6 +49,7 @@ struct syms {
     lisp_object_t set_tag;
     lisp_object_t tag_jmp;
     lisp_object_t nop;
+    lisp_object_t raise;
 };
 
 #endif

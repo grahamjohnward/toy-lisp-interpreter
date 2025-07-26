@@ -51,9 +51,10 @@ void init_vm_instruction_definitions()
     DEFINE_VM_INSTRUCTION(abort,      vm_inst_abort,      0);
     DEFINE_VM_INSTRUCTION(jmp,        vm_inst_jmp,        1);
     DEFINE_VM_INSTRUCTION(jmp_if_nil, vm_inst_jmp_if_nil, 1);
-    DEFINE_VM_INSTRUCTION(set_tag,    vm_inst_set_tag,    1);
-    DEFINE_VM_INSTRUCTION(tag_jmp,    vm_inst_tag_jmp,    2);
+    DEFINE_VM_INSTRUCTION(set_tag,    vm_inst_set_tag,    2);
+    DEFINE_VM_INSTRUCTION(tag_jmp,    vm_inst_tag_jmp,    1);
     DEFINE_VM_INSTRUCTION(nop,        vm_inst_nop,        0);
+    DEFINE_VM_INSTRUCTION(raise,      vm_inst_raise,      0);
 
     // clang-format on
 #undef DEFINE_VM_INSTRUCTION
@@ -96,12 +97,12 @@ lisp_object_t vm_peek(struct vm *vm)
 
 void vm_run_one_instruction(struct vm *vm)
 {
-    vm_print_stack(vm);
-    TRACE(vm->registers.instruction_pointer);
-    TRACE(vm->registers.code_vector);
+    // vm_print_stack(vm);
+    //    TRACE(vm->registers.instruction_pointer);
+    //    TRACE(vm->registers.code_vector);
     lisp_object_t instruction = svref(vm->registers.code_vector, vm->registers.instruction_pointer);
     lisp_object_t arity = getprop(instruction, interp->syms.vm_ins_arity);
-    TRACE(instruction);
+    // TRACE(instruction);
     if (arity == NIL)
         abort();
     lisp_object_t lisp_function_pointer = getprop(instruction, interp->syms.vm_ins_fp);
@@ -120,7 +121,6 @@ void vm_run_one_instruction(struct vm *vm)
         lisp_object_t arg2 = svref(vm->registers.code_vector, vm->registers.instruction_pointer + 32);
         vm->registers.instruction_pointer += 48;
         ((void (*)(struct vm *, lisp_object_t, lisp_object_t))fp)(vm, arg1, arg2);
-        vm_print_stack(vm);
     } else {
         abort();
     }
@@ -233,13 +233,10 @@ static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
 
     lisp_object_t actual_function = fnptr->actual_function;
     lisp_object_t arg_info = cadr(actual_function);
-    TRACE(arg_info);
     assert(vectorp(arg_info) != NIL);
     lisp_object_t rest_args = svref_c(arg_info, 0);
     lisp_object_t arity = svref_c(arg_info, 1);
     int arity_int = arity >> 4;
-    TRACE(rest_args);
-    TRACE(arity);
     lisp_object_t env_size = arity + 0x10;
     if (rest_args != NIL)
         /* Add a slot for the rest args */
@@ -355,8 +352,8 @@ lisp_object_t vm_make_function(lisp_object_t arg_info, lisp_object_t code)
 static lisp_object_t frame_has_tag(struct vm_call_stack_frame *frame, lisp_object_t tag)
 {
     for (lisp_object_t t = frame->tags; t != NIL; t = cdr(t)) {
-        if (eq(caar(t), tag) != NIL) {
-            return cdar(t);
+        if (eq(svref_c(car(t), 0), tag) != NIL) {
+            return car(t);
         }
     }
     return NIL;
@@ -364,26 +361,75 @@ static lisp_object_t frame_has_tag(struct vm_call_stack_frame *frame, lisp_objec
 
 void vm_inst_set_tag(struct vm *vm, lisp_object_t tag, lisp_object_t dest)
 {
-    vm->registers.tags = cons(cons(tag, dest), vm->registers.tags);
+    ptrdiff_t stack_offset_c = vm->top_of_data_stack - vm->data_stack;
+    lisp_object_t stack_offset = stack_offset_c << 4;
+    lisp_object_t tag_info = allocate_vector(3 << 4);
+    svref_set(tag_info, 0, tag);
+    svref_set(tag_info, 1 << 4, dest);
+    svref_set(tag_info, 2 << 4, stack_offset);
+    vm->registers.tags = cons(tag_info, vm->registers.tags);
 }
+// Do we also need an instruction to clear a tag?  Think so ...
 
 void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
 {
-    lisp_object_t dest = frame_has_tag(&vm->registers, tag);
-    if (dest != NIL) {
-        vm_inst_jmp(vm, dest);
+    lisp_object_t tag_info = frame_has_tag(&vm->registers, tag);
+    if (tag_info != NIL) {
+        vm_inst_jmp(vm, svref_c(tag_info, 1));
         return;
     }
     for (struct vm_call_stack_frame *frame = vm->call_stack_pointer - 1; frame >= vm->call_stack; frame--) {
-        lisp_object_t dest = frame_has_tag(frame, tag);
-        if (dest != NIL) {
+        lisp_object_t tag_info = frame_has_tag(frame, tag);
+        if (tag_info != NIL) {
+            lisp_object_t dest = svref_c(tag_info, 1);
+            lisp_object_t stack_offset = svref_c(tag_info, 2);
             vm->call_stack_pointer = frame + 1;
             vm->registers = *frame;
+            vm->top_of_data_stack = vm->data_stack + (stack_offset >> 4);
             vm_inst_jmp(vm, dest);
             return;
         }
     }
     abort();
+}
+
+void vm_inst_raise(struct vm *vm)
+{
+    // So the idea now is that this instruction will be the (entire) body of the
+    // RAISE function, and tag and value should come from the stack.  I think it
+    // needs to be called as a built-in function not as a lambda.  Aha, but the
+    // built-in function calling machinery already unpacks the stack as below,
+    // so it's not simply a built-in.  How to do this?
+    //
+    // One way would be to change the calling convention for lambdas to put the
+    // environment set up in instructions rather than C code.
+    //
+    // Another would be just to eat the lambda overhead.
+    //
+    // Another option is just to make this a built-in that calls vm_inst_tag_jmp
+    // followed by vm_inst_push
+    //
+    // Yet another option is to separate RAISE the function (which needs to be
+    // funcallable) from RETURN-FROM which can be a compiler intrinsic.
+    //
+    // As a compiler intrinsic, this is
+    //   push <tag>  ; (known statically)
+    //   <evaluate value> ; (left on stack)
+    //   push 2
+    //   raise
+    // Now what about the funcallable version?  Can we build it with this
+    // instruction?  Yup, something like (raise 'tag value) =>
+    //   get 0
+    //   get 1
+    //   push 2
+    //   raise
+    lisp_object_t argcount = vm_pop(vm);
+    assert(argcount >> 4 == 2);
+    lisp_object_t value = vm_pop(vm);
+    lisp_object_t tag = vm_pop(vm);
+
+    vm_inst_tag_jmp(vm, tag);
+    vm_inst_push(vm, value);
 }
 
 void vm_inst_nop(struct vm *vm)

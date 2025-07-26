@@ -63,6 +63,8 @@ void vm_inst_set_tag(struct vm *vm, lisp_object_t tag, lisp_object_t dest);
 
 void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag);
 
+void vm_inst_raise(struct vm *vm);
+
 void vm_inst_nop(struct vm *vm);
 
 #endif

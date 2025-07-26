@@ -25,26 +25,20 @@
 	  (setq i (+ 1 i))))
     (cons label-alist i)))
 
-(defparameter +jump-instructions+ '(jmp jmp-if-nil))
-
 (defun assemble (list)
   (let ((label-info (build-label-alist list)))
     (let ((label-alist (car label-info))
-	  (length (cdr label-info)))
-      (let ((vector (make-vector length))
-	    (i 0)
-	    (state nil))
-	(dolist (obj list)
-	  (when (not (consp obj))
-	    (if state
-		(progn
-		  (setq state nil)
-		  (set-svref vector i (cdr (assoc obj label-alist))))
-		(progn
-		  (setq state (find obj +jump-instructions+))
-		  (set-svref vector i obj)))
-	    (setq i (+ 1 i))))
-	vector))))
+	  (vector (make-vector (cdr label-info)))
+	  (i 0))
+      (dolist (obj list)
+	(if (consp obj)
+	    (when (eq (car obj) 'target)
+	      (set-svref vector i (cdr (assoc (cadr obj) label-alist)))
+	      (incf i))
+	    (progn
+	      (set-svref vector i obj)
+	      (incf i))))
+      vector)))
 
 (defun lexical-context-block-alist (ctxt)
   (svref ctxt 0))
@@ -60,6 +54,21 @@
 
 (defun lexical-context-set-block-alist (ctxt block-alist)
   (set-svref ctxt 0 block-alist))
+
+(defun lexical-context-push-block (ctxt block-name block-id)
+  (lexical-context-set-block-alist ctxt (cons `(,block-name . ,block-id)
+					      (lexical-context-block-alist ctxt))))
+
+(defun lexical-context-lookup-block (ctxt block-name)
+  (let ((block-alist (lexical-context-block-alist ctxt)))
+    (let ((pair (assoc block-name block-alist)))
+      (when (null pair)
+	(raise 'bad-block block-name))
+      (cdr pair))))
+
+(defun lexical-context-pop-block (ctxt)
+  (lexical-context-set-block-alist ctxt
+				   (cdr (lexical-context-block-alist ctxt))))
 
 (defun lexical-context-set-next-block-number (ctxt next-block-number)
   (set-svref ctxt 1 next-block-number))
@@ -202,12 +211,13 @@
     (let ((label1 (gensym))
 	  (label2 (gensym)))
       `(,@(compile4 test-form ctxt)
-      	  jmp-if-nil ,label1
+	  jmp-if-nil (target ,label1)
 	  ,@(compile4 then-form ctxt)
-	  jmp ,label2
+	  jmp (target ,label2)
 	  (label ,label1)
 	  ,@(compile4 else-form ctxt)
-	  (label ,label2)))))
+	  (label ,label2)
+	  nop))))
 
 (defun transform-let (let-form)
   (assert (eq (car let-form) 'let))
@@ -228,34 +238,35 @@
       (cons (funcall function (car list) context)
 	    (mapcar-with-context function (cdr list) context))))
 
-;; This is OK to the extent that tags are only allowed at the top
-;; level of the tagbody.
 (defun compile4-tagbody (expr ctxt)
   (assert (eq (car expr) 'tagbody))
-  (let (tag-alist (id (gensym)))
+  (let (tag-alist)
     (dolist (form (cdr expr))
       (when (symbolp form)		;form is tag
 	(let ((label (gensym)))
-	  (setq tag-alist (cons (cons form (list label id)) tag-alist)))))
+	  (setq tag-alist (cons (cons form label) tag-alist)))))
     (lexical-context-push-tag-table ctxt tag-alist)
-    (prog1 (apply #'append
-		  (mapcar-with-context
-		   #'(lambda (form ctxt)
-		       (if (symbolp form)
-			   `((label
-			      ,(car (lexical-context-tag-lookup ctxt form))))
-			   (compile4 form ctxt)))
-		   (cdr expr) ctxt))
+    (prog1
+	(append
+	 (apply #'append (mapcar #'(lambda (foo)
+				     `(set-tag ,(cdr foo) (target ,(cdr foo))))
+				 tag-alist))
+	 (apply #'append
+		(mapcar-with-context
+		 #'(lambda (form ctxt)
+		     (if (symbolp form)
+			 `((label
+			    ,(lexical-context-tag-lookup ctxt form)))
+			 (append (compile4 form ctxt) '(pop))))
+		 (cdr expr) ctxt))
+	 '(push nil))
       (lexical-context-pop-tag-table ctxt))))
 
 (defun compile4-go (expr ctxt)
   (assert (eq (car expr) 'go))
   (let ((tag (cadr expr)))
-    (trace tag)
-    (trace (lexical-context-tag-lookup ctxt tag))
     (let ((target (lexical-context-tag-lookup ctxt tag)))
-      (trace target)
-    `(tag-jmp ,@target))))
+      `(tag-jmp ,target))))
 
 (defun compile4-asm (expr ctxt)
   (assert (eq (car expr) '%asm))
@@ -266,6 +277,44 @@
   (let ((var (cadr (cadr expr)))
 	(val (caddr expr)))
     `(,@(compile4 val ctxt) set ,@(lexical-context-lookup ctxt var))))
+
+(defun compile4-block (expr ctxt)
+  (assert (eq (car expr) 'block))
+  (let ((block-name (cadr expr))
+	(block-id (gensym)))
+    (lexical-context-push-block ctxt block-name block-id)
+    (prog1
+	`(set-tag ,block-id (target ,block-id)
+		  ,@(compile4 `(progn ,@(cddr expr)) ctxt)
+		  (label ,block-id)
+		  nop)
+      (lexical-context-pop-block ctxt))))
+
+(defun compile4-return-from (expr ctxt)
+  (assert (eq (car expr) 'return-from))
+  (let ((block-name (cadr expr)))
+    (let ((block-id (lexical-context-lookup-block ctxt block-name)))
+      `(push ,block-id
+	     ,@(compile4 `(progn ,@(cddr expr)) ctxt)
+	     push 2
+	     raise))))
+
+(defun compile-condition-case (expr ctxt)
+  (assert (eq (car expr) 'condition-case))
+  (let ((e (cadr expr))
+	(body (caddr expr))
+	(handlers (cddr expr)))
+    (let ((tag-alist
+	   (mapcar #'(lambda (handler)
+		       (cons (car handler) (gensym)))
+		   handlers)))
+      ;; 1.  Set tags
+      ;; 2.  Body (skip over handlers)
+      ;; 3.  Handlers
+      ;; Each handler looks like:
+      ;; ????
+
+    )))
 
 (defun compile4 (expr ctxt)
   (cond ((atom expr) 
@@ -295,6 +344,12 @@
 		  (compile4-asm expr ctxt))
 		 ((eq sym 'set)
 		  (compile4-set expr ctxt))
+		 ((eq sym 'block)
+		  (compile4-block expr ctxt))
+		 ((eq sym 'return-from)
+		  (compile4-return-from expr ctxt))
+		 ((eq sym 'condition-case)
+		  (compile4-condition-case expr ctxt))
 		 ;; Maybe put this in compile-function-call
 		 (t (let ((arg-count 0)
 			  (result nil))

@@ -273,6 +273,7 @@ static void init_symbols()
     interp->syms.set_tag = sym("set-tag");
     interp->syms.tag_jmp = sym("tag-jmp");
     interp->syms.nop = sym("nop");
+    interp->syms.raise = sym("raise");
 }
 
 lisp_object_t length(lisp_object_t seq);
@@ -760,6 +761,7 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(set_tag);
     GC_COPY_SYMBOL(tag_jmp);
     GC_COPY_SYMBOL(nop);
+    GC_COPY_SYMBOL(raise);
 #undef GC_COPY_SYMBOL
     /* Update pointers inside to-space objects */
     char *scanptr;

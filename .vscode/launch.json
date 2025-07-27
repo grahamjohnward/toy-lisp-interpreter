@@ -12,6 +12,18 @@
             "cwd": "${workspaceRoot}"
         },
         {
+            "name": "GC bug 20250707",
+            "program": "${workspaceRoot}/build/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "lib.lisp",
+                "compiler.lisp",
+                "test-compile-tagbody.lisp"
+            ]
+        },
+        {
             "name": "macro_inside_quasiquote",
             "program": "${workspaceRoot}/build/tests",
             "type": "cppdbg",

@@ -174,7 +174,7 @@ static void vm_setup_funcall(struct vm *vm)
     //   a     b     -4
     //   foo   a     -5   <-- base
     lisp_object_t argcount = vm_peek(vm);
-    int argcount_c = argcount >> 4;
+    int argcount_c = Int(argcount);
     int new_argcount_c = argcount_c - 1;
     lisp_object_t *base = vm->top_of_data_stack - (new_argcount_c + 2);
     vm->top_of_data_stack[-1] = *base;
@@ -196,7 +196,7 @@ static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
     lisp_object_t arity = (int64_t)caddr(actual_function);
     if (provided_arity != arity)
         abort();
-    int arity_c = arity >> 4;
+    int arity_c = Int(arity);
     switch (arity_c) {
     case 0:
         result = ((lisp_object_t (*)())fp)();
@@ -229,14 +229,14 @@ static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
 {
     lisp_object_t n_args = vm_pop(vm);
     assert(integerp(n_args) != NIL);
-    int n_args_int = n_args >> 4;
+    int n_args_int = Int(n_args);
 
     lisp_object_t actual_function = fnptr->actual_function;
     lisp_object_t arg_info = cadr(actual_function);
     assert(vectorp(arg_info) != NIL);
     lisp_object_t rest_args = svref_c(arg_info, 0);
     lisp_object_t arity = svref_c(arg_info, 1);
-    int arity_int = arity >> 4;
+    int arity_int = Int(arity);
     lisp_object_t env_size = arity + 0x10;
     if (rest_args != NIL)
         /* Add a slot for the rest args */
@@ -251,7 +251,7 @@ static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
             TRACE(actual_rest_args);
         }
     }
-    for (int i = arity >> 4; i > 0; i--) {
+    for (int i = Int(arity); i > 0; i--) {
         svref_set(env, LispInt(i), vm_pop(vm));
     }
     if (rest_args != NIL)
@@ -310,14 +310,14 @@ static lisp_object_t findenv(lisp_object_t env, int offset)
 
 void vm_inst_get(struct vm *vm, lisp_object_t n, lisp_object_t m)
 {
-    lisp_object_t env = findenv(vm->registers.environment, n >> 4);
+    lisp_object_t env = findenv(vm->registers.environment, Int(n));
     assert(length(env) > m);
     vm_inst_push(vm, svref(env, m));
 }
 
 void vm_inst_set(struct vm *vm, lisp_object_t n, lisp_object_t m)
 {
-    lisp_object_t env = findenv(vm->registers.environment, n >> 4);
+    lisp_object_t env = findenv(vm->registers.environment, Int(n));
     assert(length(env) > m);
     /* peek not pop here since we return the new value */
     svref_set(env, m, vm_peek(vm));
@@ -385,7 +385,7 @@ void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
             lisp_object_t stack_offset = svref_c(tag_info, 2);
             vm->call_stack_pointer = frame + 1;
             vm->registers = *frame;
-            vm->top_of_data_stack = vm->data_stack + (stack_offset >> 4);
+            vm->top_of_data_stack = vm->data_stack + Int(stack_offset);
             vm_inst_jmp(vm, dest);
             return;
         }
@@ -424,7 +424,7 @@ void vm_inst_raise(struct vm *vm)
     //   push 2
     //   raise
     lisp_object_t argcount = vm_pop(vm);
-    assert(argcount >> 4 == 2);
+    assert(Int(argcount) == 2);
     lisp_object_t value = vm_pop(vm);
     lisp_object_t tag = vm_pop(vm);
 

@@ -155,7 +155,7 @@ static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, lisp
     struct vector *v = VectorPtr(vector);
     if (index >= v->len) {
         // This should be an exception
-        printf("Index %zu out of bounds for vector (len=%lu)\n", index >> 4, v->len >> 4);
+        printf("Index %zu out of bounds for vector (len=%lu)\n", (uint64_t)Int(index), (uint64_t)Int(v->len));
         abort();
     }
     lisp_object_t *storage = (lisp_object_t *)(((char *)v) + sizeof(struct vector));
@@ -170,13 +170,13 @@ lisp_object_t svref_c(lisp_object_t vector, size_t index)
 lisp_object_t svref(lisp_object_t vector, lisp_object_t index)
 {
     lisp_object_t *storage = check_vector_bounds_get_storage(vector, index);
-    return storage[index >> 4];
+    return storage[Int(index)];
 }
 
 lisp_object_t svref_set(lisp_object_t vector, lisp_object_t index, lisp_object_t newvalue)
 {
     lisp_object_t *storage = check_vector_bounds_get_storage(vector, index);
-    storage[index >> 4] = newvalue;
+    storage[Int(index)] = newvalue;
     return newvalue;
 }
 
@@ -282,8 +282,8 @@ lisp_object_t greater_than(lisp_object_t o1, lisp_object_t o2)
 {
     check_integer(o1);
     check_integer(o2);
-    int64_t int1 = ((int64_t)o1) >> 4;
-    int64_t int2 = ((int64_t)o2) >> 4;
+    int64_t int1 = Int(o1);
+    int64_t int2 = Int(o2);
     return int1 > int2 ? T : NIL;
 }
 
@@ -291,8 +291,8 @@ lisp_object_t less_than(lisp_object_t o1, lisp_object_t o2)
 {
     check_integer(o1);
     check_integer(o2);
-    int64_t int1 = ((int64_t)o1) >> 4;
-    int64_t int2 = ((int64_t)o2) >> 4;
+    int64_t int1 = Int(o1);
+    int64_t int2 = Int(o2);
     return int1 < int2 ? T : NIL;
 }
 
@@ -785,7 +785,7 @@ lisp_object_t gc()
         } else if (*headerptr == VECTOR_TYPE) {
             struct vector *v = (struct vector *)scanptr;
             lisp_object_t *storage = (lisp_object_t *)(scanptr + sizeof(struct vector));
-            for (int i = 0; i < v->len >> 4; i++)
+            for (int i = 0; i < Int(v->len); i++)
                 gc_copy(heap, storage + i);
             scanptr += v->size_bytes;
         } else if (*headerptr == FUNCTION_TYPE) {
@@ -830,7 +830,7 @@ lisp_object_t gc()
         } else {
             struct vector *v = (struct vector *)p;
             lisp_object_t *storage = (lisp_object_t *)(p + sizeof(struct vector));
-            for (int i = 0; i < v->len >> 4; i++)
+            for (int i = 0; i < Int(v->len); i++)
                 gc_check_copied_object(storage[i]);
             p += v->size_bytes;
         }
@@ -933,7 +933,7 @@ lisp_object_t gensym()
         symptr->value = 0;
     else if (integerp(value) != NIL)
         symptr->value += LispInt(1);
-    int n = symptr->value >> 4;
+    int n = Int(symptr->value);
     char *name = alloca(16);
     sprintf(name, "g%d", n);
     return sym(name);
@@ -1046,7 +1046,7 @@ int length_c(lisp_object_t seq)
         return result;
     if (vectorp(seq) != NIL) {
         struct vector *v = VectorPtr(seq);
-        return v->len >> 4;
+        return Int(v->len);
     } else if (consp(seq) != NIL) {
         check_cons(seq);
         lisp_object_t obj;
@@ -1522,7 +1522,7 @@ lisp_object_t nthcdr(lisp_object_t n, lisp_object_t list)
 {
     lisp_object_t result = list;
     check_integer(n);
-    int n_int = n >> 4;
+    int n_int = Int(n);
     for (int i = 0; i < n_int; i++)
         result = cdr(result);
     return result;
@@ -1546,7 +1546,7 @@ static lisp_object_t apply_built_in_function(lisp_object_t fn, lisp_object_t x, 
 {
     check_function_pointer(cadr(fn));
     void (*fp)() = FunctionPtr(cadr(fn));
-    int arity = ((int64_t)caddr(fn)) >> 4;
+    int arity = Int(caddr(fn));
     switch (arity) {
     case 0:
         return ((lisp_object_t (*)())fp)();
@@ -1733,7 +1733,7 @@ lisp_object_t evalgo(lisp_object_t tag)
         if (eq(ctxt->type, interp->syms.tagbody) != NIL) {
             lisp_object_t lookup = assoc(tag, ctxt->return_value);
             if (lookup != NIL) {
-                int val = (cdr(lookup) >> 4) + 1;
+                int val = Int(cdr(lookup)) + 1;
                 longjmp(ctxt->buf, val);
             }
         }
@@ -2142,8 +2142,8 @@ lisp_object_t times(lisp_object_t x, lisp_object_t y)
 {
     check_integer(x);
     check_integer(y);
-    int64_t xint = x >> 4;
-    int64_t yint = y >> 4;
+    int64_t xint = Int(x);
+    int64_t yint = Int(y);
     lisp_object_t result = LispInt(xint * yint);
     check_integer(result);
     return result;

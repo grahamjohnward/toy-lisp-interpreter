@@ -64,6 +64,8 @@ lisp_object_t load(lisp_object_t filename);
 #define FunctionPtr(obj) ((void (*)())((((obj) & PTR_MASK) >> 4)))
 #define LispFunctionPtr(obj) ((struct lisp_function *)((obj) & PTR_MASK))
 
+#define LispInt(x) (((uint64_t)(x)) << 4)
+
 void check_vector(lisp_object_t obj);
 
 lisp_object_t svref_c(lisp_object_t vector, size_t index);

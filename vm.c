@@ -35,7 +35,7 @@ void vm_free(struct vm *vm)
 static void define_vm_instruction(lisp_object_t symbol, void (*function_pointer)(void), int arity)
 {
     putprop(symbol, interp->syms.vm_ins_fp, (((lisp_object_t)function_pointer) << 4) | FUNCTION_POINTER_TYPE);
-    putprop(symbol, interp->syms.vm_ins_arity, ((uint64_t)arity) << 4);
+    putprop(symbol, interp->syms.vm_ins_arity, LispInt(arity));
 }
 
 void init_vm_instruction_definitions()
@@ -112,11 +112,11 @@ void vm_run_one_instruction(struct vm *vm)
     if (arity == 0) {
         vm->registers.instruction_pointer += 16;
         ((void (*)(struct vm *))fp)(vm);
-    } else if (arity == 1 << 4) {
+    } else if (arity == LispInt(1)) {
         lisp_object_t arg = svref(vm->registers.code_vector, vm->registers.instruction_pointer + 16);
         vm->registers.instruction_pointer += 32;
         ((void (*)(struct vm *, lisp_object_t))fp)(vm, arg);
-    } else if (arity == 2 << 4) {
+    } else if (arity == LispInt(2)) {
         lisp_object_t arg1 = svref(vm->registers.code_vector, vm->registers.instruction_pointer + 16);
         lisp_object_t arg2 = svref(vm->registers.code_vector, vm->registers.instruction_pointer + 32);
         vm->registers.instruction_pointer += 48;
@@ -181,7 +181,7 @@ static void vm_setup_funcall(struct vm *vm)
     for (lisp_object_t *p = base; p < vm->top_of_data_stack - 1; p++) {
         p[0] = p[1];
     }
-    vm->top_of_data_stack[-2] = new_argcount_c << 4;
+    vm->top_of_data_stack[-2] = LispInt(new_argcount_c);
 }
 
 static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
@@ -252,7 +252,7 @@ static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
         }
     }
     for (int i = arity >> 4; i > 0; i--) {
-        svref_set(env, i << 4, vm_pop(vm));
+        svref_set(env, LispInt(i), vm_pop(vm));
     }
     if (rest_args != NIL)
         svref_set(env, arity + 0x10, actual_rest_args);
@@ -362,11 +362,11 @@ static lisp_object_t frame_has_tag(struct vm_call_stack_frame *frame, lisp_objec
 void vm_inst_set_tag(struct vm *vm, lisp_object_t tag, lisp_object_t dest)
 {
     ptrdiff_t stack_offset_c = vm->top_of_data_stack - vm->data_stack;
-    lisp_object_t stack_offset = stack_offset_c << 4;
-    lisp_object_t tag_info = allocate_vector(3 << 4);
+    lisp_object_t stack_offset = LispInt(stack_offset_c);
+    lisp_object_t tag_info = allocate_vector(LispInt(3));
     svref_set(tag_info, 0, tag);
-    svref_set(tag_info, 1 << 4, dest);
-    svref_set(tag_info, 2 << 4, stack_offset);
+    svref_set(tag_info, LispInt(1), dest);
+    svref_set(tag_info, LispInt(2), stack_offset);
     vm->registers.tags = cons(tag_info, vm->registers.tags);
 }
 // Do we also need an instruction to clear a tag?  Think so ...

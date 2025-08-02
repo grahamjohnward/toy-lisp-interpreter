@@ -99,7 +99,7 @@ static void test_parse_integer()
     START_OF_TEST("parse_integer");
     char *test_string = "13";
     uint64_t result = parse1_wrapper(test_string);
-    check(result == 13 << 4, "value");
+    check(result == LispInt(13), "value");
 }
 
 static void test_parse_large_integer()
@@ -107,7 +107,7 @@ static void test_parse_large_integer()
     START_OF_TEST("parse_large_integer");
     char *test_string = "1152921504606846975";
     uint64_t result = parse1_wrapper(test_string);
-    check(result == 1152921504606846975 << 4, "value");
+    check(result == LispInt(1152921504606846975), "value");
     check(integerp((lisp_object_t)result) != NIL, "integerp");
 }
 
@@ -116,7 +116,7 @@ static void test_parse_negative_integer()
     START_OF_TEST("parse_negative_integer");
     char *test_string = "-498";
     uint64_t result = parse1_wrapper(test_string);
-    check(result == -498 * 16, "value");
+    check(result == -498 * LispInt(1), "value");
 }
 
 static void test_parse_large_negative_integer()
@@ -124,7 +124,7 @@ static void test_parse_large_negative_integer()
     START_OF_TEST("parse_large_negative_integer");
     char *test_string = "-1152921504606846976";
     uint64_t result = parse1_wrapper(test_string);
-    check(result == ((uint64_t)-1152921504606846976 * 16), "value");
+    check(result == ((uint64_t)-1152921504606846976 * LispInt(1)), "value");
     check(integerp((lisp_object_t)result) != NIL, "integerp");
 }
 
@@ -156,7 +156,7 @@ static void test_parse_single_integer_list()
     check(consp(result), "consp");
     result_car = car(result);
     check(integerp(result_car), "car is int");
-    check(result_car == 14 << 4, "car value");
+    check(result_car == LispInt(14), "car value");
     result_cdr = cdr(result);
     check(NIL == result_cdr, "cdr is null");
     free_interpreter();
@@ -175,13 +175,13 @@ static void test_parse_integer_list()
     check(consp(result), "consp");
     result_car = car(result);
     check(integerp(result_car), "car is int");
-    check(result_car == 23 << 4, "car value");
+    check(result_car == LispInt(23), "car value");
     result_cdr = cdr(result);
     check(NIL != result_cdr, "cdr is not null");
     check(consp(result_cdr), "cdr is a pair");
     cadr = car(result_cdr);
     check(integerp(cadr), "cadr is int");
-    check(cadr == 71 << 4, "cadr value");
+    check(cadr == LispInt(71), "cadr value");
     free_interpreter();
 }
 
@@ -195,8 +195,8 @@ static void test_parse_dotted_pair_of_integers()
     check(consp(result), "consp");
     check(integerp(car(result)), "car is int");
     check(integerp(cdr(result)), "cdr is int");
-    check(car(result) == 45 << 4, "car value");
-    check(cdr(result) == 123 << 4, "cdr value");
+    check(car(result) == LispInt(45), "car value");
+    check(cdr(result) == LispInt(123), "cdr value");
     free_interpreter();
 }
 
@@ -583,7 +583,7 @@ static void test_vector_initialization()
     /* Initialize unused stack space allocated due to 16-byte stack alignment: */
     lisp_object_t dummy = NIL;
     init_interpreter_for_tests();
-    v = allocate_vector(3 << 4);
+    v = allocate_vector(LispInt(3));
     check(eq(svref(v, 0), NIL) != NIL, "first element nil");
     check(eq(svref(v, 1), NIL) != NIL, "second element nil");
     check(eq(svref(v, 2), NIL) != NIL, "third element nil");
@@ -599,15 +599,15 @@ static void test_vector_svref()
     lisp_object_t v = NIL;
     lisp_object_t list = NIL;
     sym = parse1_wrapper(symbol_text);
-    v = allocate_vector(3 << 4);
+    v = allocate_vector(LispInt(3));
     char *list_text = "(a b c)";
     list = parse1_wrapper(list_text);
     svref_set(v, 0, 14);
-    svref_set(v, 1 << 4, sym);
-    svref_set(v, 2 << 4, list);
+    svref_set(v, LispInt(1), sym);
+    svref_set(v, LispInt(2), list);
     check(eq(svref(v, 0), 14) != NIL, "first element");
-    check(eq(svref(v, 1 << 4), sym) != NIL, "second element");
-    check(eq(svref(v, 2 << 4), list) != NIL, "third element");
+    check(eq(svref(v, LispInt(1)), sym) != NIL, "second element");
+    check(eq(svref(v, LispInt(2)), list) != NIL, "third element");
     free_interpreter();
 }
 
@@ -627,10 +627,10 @@ static void test_parse_vector()
     check(eq(sym_a, svref(result, 0)) == T, "first element");
     char *b_text = "b";
     sym_b = parse1_wrapper(b_text);
-    check(eq(sym_b, svref(result, 1 << 4)) == T, "second element");
+    check(eq(sym_b, svref(result, LispInt(1))) == T, "second element");
     char *c_text = "c";
     sym_c = parse1_wrapper(c_text);
-    check(eq(sym_c, svref(result, 2 << 4)) == T, "third element");
+    check(eq(sym_c, svref(result, LispInt(2))) == T, "third element");
     free_interpreter();
 }
 
@@ -1018,7 +1018,7 @@ static void test_defmacro()
     define_defmacro();
     test_eval_string_helper("(defmacro if2 (test then else) `(if ,test ,then ,else))");
     lisp_object_t result = test_eval_string_helper("(if2 (eq (car (cons 3 4)) 3) (two-arg-plus 9 9) 'bof)");
-    check(result == 18 << 4, "test1");
+    check(result == LispInt(18), "test1");
     result = test_eval_string_helper("(if2 (eq (car (cons 3 4)) 4) (two-arg-plus 9 9) 'bof)");
     check(eq(result, sym("bof")) != NIL, "test2");
     free_interpreter();
@@ -1081,7 +1081,7 @@ static void test_tagbody_bug()
     START_OF_TEST("tagbody_bug");
     init_interpreter_for_tests();
     lisp_object_t result = test_eval_string_helper("(let ((x 2)) (progn (tagbody (set 'x 14)) x))");
-    check(result == 14 << 4, "ok");
+    check(result == LispInt(14), "ok");
     free_interpreter();
 }
 
@@ -1716,7 +1716,7 @@ static void test_vm_inst_call_lambda()
     /* Set up the stack */
     vm_inst_push(&interp->vm, sym("foo"));
     vm_inst_push(&interp->vm, sym("bar"));
-    vm_inst_push(&interp->vm, 2 << 4);
+    vm_inst_push(&interp->vm, LispInt(2));
     vm_inst_push(&interp->vm, symbol);
     /* Call */
     vm_inst_call(&interp->vm);
@@ -1740,23 +1740,23 @@ static void test_vm_inst_get_set()
 
     vm_inst_push(&interp->vm, sym("foo"));
     vm_inst_push(&interp->vm, sym("bar"));
-    vm_inst_push(&interp->vm, 2 << 4);
+    vm_inst_push(&interp->vm, LispInt(2));
     vm_inst_push(&interp->vm, symbol);
     vm_inst_call(&interp->vm);
 
-    vm_inst_get(&interp->vm, 0, 1 << 4);
+    vm_inst_get(&interp->vm, 0, LispInt(1));
     check(vm_pop(&interp->vm) == sym("foo"), "get");
-    vm_inst_get(&interp->vm, 1 << 4, 2 << 4);
+    vm_inst_get(&interp->vm, LispInt(1), LispInt(2));
     check(vm_pop(&interp->vm) == sym("xyz"), "get closure env");
 
     vm_inst_push(&interp->vm, sym("baz"));
-    vm_inst_set(&interp->vm, 0, 1 << 4);
-    vm_inst_get(&interp->vm, 0, 1 << 4);
+    vm_inst_set(&interp->vm, 0, LispInt(1));
+    vm_inst_get(&interp->vm, 0, LispInt(1));
     check(vm_pop(&interp->vm) == sym("baz"), "set");
 
     vm_inst_push(&interp->vm, sym("boo"));
-    vm_inst_set(&interp->vm, 1 << 4, 2 << 4);
-    vm_inst_get(&interp->vm, 1 << 4, 2 << 4);
+    vm_inst_set(&interp->vm, LispInt(1), LispInt(2));
+    vm_inst_get(&interp->vm, LispInt(1), LispInt(2));
     check(vm_pop(&interp->vm) == sym("boo"), "set closure env");
 
     free_interpreter();
@@ -1779,7 +1779,7 @@ static void test_vm_function()
 
     /* Some code to call the function */
     lisp_object_t calling_code = parse1_wrapper("#(push world push 1 push placeholder call)");
-    svref_set(calling_code, 5 << 4, fn);
+    svref_set(calling_code, LispInt(5), fn);
 
     /* Run the code */
     interp->vm.registers.code_vector = calling_code;
@@ -1863,7 +1863,7 @@ static void test_vm_inst_set_tag()
     START_OF_TEST("vm_inst_set_tag");
     init_interpreter_for_tests();
     // lisp_object_t code = parse1_wrapper("#(set-tag bof 5 tag-push foo push bar)");
-    vm_inst_set_tag(&interp->vm, sym("bof"), 4 << 4);
+    vm_inst_set_tag(&interp->vm, sym("bof"), LispInt(4));
     char *str = print_object(interp->vm.registers.tags);
     check(strcmp("(#(bof 4 0))", str) == 0, "ok");
     free(str);
@@ -1891,10 +1891,10 @@ static void test_vm_inst_tag_jmp()
     vm->registers.instruction_pointer = 0;
     vm->registers.environment = NIL;
     vm->registers.tags = NIL;
-    vm_inst_set_tag(vm, sym("bof"), 4 << 4);
+    vm_inst_set_tag(vm, sym("bof"), LispInt(4));
 
     lisp_object_t expected_code_vector = vm->registers.code_vector;
-    lisp_object_t expected_instruction_pointer = 4 << 4;
+    lisp_object_t expected_instruction_pointer = LispInt(4);
 
     /* As if a function call happened */
     *vm->call_stack_pointer = vm->registers;
@@ -1920,9 +1920,9 @@ static void test_vm_inst_raise()
     vm->registers.instruction_pointer = 0;
     vm->registers.environment = NIL;
     vm->registers.tags = NIL;
-    vm_inst_set_tag(vm, sym("bof"), 4 << 4);
+    vm_inst_set_tag(vm, sym("bof"), LispInt(4));
     lisp_object_t expected_code_vector = vm->registers.code_vector;
-    lisp_object_t expected_instruction_pointer = 4 << 4;
+    lisp_object_t expected_instruction_pointer = LispInt(4);
 
     /* As if a function call happened */
     *vm->call_stack_pointer = vm->registers;
@@ -1935,7 +1935,7 @@ static void test_vm_inst_raise()
     /* raise is invoked like a function call */
     vm_inst_push(vm, sym("bof")); /* tag */
     vm_inst_push(vm, sym("return-value")); /* return value */
-    vm_inst_push(vm, 2 << 4); /* argcount */
+    vm_inst_push(vm, LispInt(2)); /* argcount */
 
     vm_inst_raise(vm);
 

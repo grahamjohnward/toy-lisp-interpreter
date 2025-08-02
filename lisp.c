@@ -164,7 +164,7 @@ static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, lisp
 
 lisp_object_t svref_c(lisp_object_t vector, size_t index)
 {
-    return svref(vector, index << 4);
+    return svref(vector, LispInt(index));
 }
 
 lisp_object_t svref(lisp_object_t vector, lisp_object_t index)
@@ -190,7 +190,7 @@ lisp_object_t allocate_vector(lisp_object_t size)
     struct vector *v = (struct vector *)interp->heap.freeptr;
     interp->heap.freeptr += bytes_to_allocate;
     v->header = VECTOR_TYPE;
-    v->len = size << 4;
+    v->len = LispInt(size);
     v->size_bytes = bytes_to_allocate;
     lisp_object_t *storage = (lisp_object_t *)(((char *)v) + sizeof(struct vector));
     lisp_object_t result = (lisp_object_t)v | VECTOR_TYPE;
@@ -206,7 +206,7 @@ static void define_built_in_function(char *symbol_name, void (*function_pointer)
     lisp_object_t fn = allocate_function();
     struct lisp_function *fnptr = LispFunctionPtr(fn);
     fnptr->kind = interp->syms.built_in_function;
-    fnptr->actual_function = cons(interp->syms.built_in_function, cons(fp, cons(((uint64_t)arity) << 4, NIL)));
+    fnptr->actual_function = cons(interp->syms.built_in_function, cons(fp, cons(LispInt(arity), NIL)));
     symptr->function = fn;
 }
 
@@ -932,7 +932,7 @@ lisp_object_t gensym()
     if (value == NIL)
         symptr->value = 0;
     else if (integerp(value) != NIL)
-        symptr->value += 1 << 4;
+        symptr->value += LispInt(1);
     int n = symptr->value >> 4;
     char *name = alloca(16);
     sprintf(name, "g%d", n);
@@ -1060,7 +1060,7 @@ int length_c(lisp_object_t seq)
 
 lisp_object_t length(lisp_object_t seq)
 {
-    return length_c(seq) << 4;
+    return LispInt(length_c(seq));
 }
 
 lisp_object_t parse_vector(struct text_stream *ts)
@@ -1075,12 +1075,12 @@ lisp_object_t parse_vector(struct text_stream *ts)
     }
     lisp_object_t list = parse_cons(ts);
     int len = length_c(list);
-    lisp_object_t vector = allocate_vector(len << 4);
+    lisp_object_t vector = allocate_vector(LispInt(len));
     /* Copy the list into a vector */
     int i;
     lisp_object_t c;
     for (i = 0, c = list; i < len; i++, c = cdr(c))
-        svref_set(vector, i << 4, car(c));
+        svref_set(vector, LispInt(i), car(c));
     return vector;
 }
 
@@ -1144,7 +1144,7 @@ lisp_object_t parse1(struct text_stream *ts)
         uint64_t val = strtoll(token, &endptr, base);
         lisp_object_t result = NIL;
         if (*endptr == '\0')
-            result = base == 16 ? ((val << 4) | FUNCTION_POINTER_TYPE) : (val << 4);
+            result = base == 16 ? ((val << 4) | FUNCTION_POINTER_TYPE) : LispInt(val);
         else
             result = parse_symbol(token);
         free(token);
@@ -1257,11 +1257,11 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
         int len = length_c(obj);
         string_buffer_append(sb, "#(");
         for (int i = 0; i < len - 1; i++) {
-            print_object_to_buffer(svref(obj, i << 4), sb);
+            print_object_to_buffer(svref(obj, LispInt(i)), sb);
             string_buffer_append(sb, " ");
         }
         if (len > 0)
-            print_object_to_buffer(svref(obj, (len - 1) << 4), sb);
+            print_object_to_buffer(svref(obj, LispInt(len - 1)), sb);
         string_buffer_append(sb, ")");
     } else if (function_pointer_p(obj) != NIL) {
         char *buf = alloca(32);
@@ -1549,15 +1549,15 @@ static lisp_object_t apply_built_in_function(lisp_object_t fn, lisp_object_t x, 
     int arity = ((int64_t)caddr(fn)) >> 4;
     switch (arity) {
     case 0:
-        return ((lisp_object_t(*)())fp)();
+        return ((lisp_object_t (*)())fp)();
     case 1:
-        return ((lisp_object_t(*)(lisp_object_t))fp)(car(x));
+        return ((lisp_object_t (*)(lisp_object_t))fp)(car(x));
     case 2:
-        return ((lisp_object_t(*)(lisp_object_t, lisp_object_t))fp)(car(x), cadr(x));
+        return ((lisp_object_t (*)(lisp_object_t, lisp_object_t))fp)(car(x), cadr(x));
     case 3:
-        return ((lisp_object_t(*)(lisp_object_t, lisp_object_t, lisp_object_t))fp)(car(x), cadr(x), caddr(x));
+        return ((lisp_object_t (*)(lisp_object_t, lisp_object_t, lisp_object_t))fp)(car(x), cadr(x), caddr(x));
     case FUNCALL_ARITY:
-        return ((lisp_object_t(*)(lisp_object_t, lisp_object_t, lisp_object_t))fp)(car(x), cdr(x), a);
+        return ((lisp_object_t (*)(lisp_object_t, lisp_object_t, lisp_object_t))fp)(car(x), cdr(x), a);
     default:
         abort();
     }
@@ -1713,7 +1713,7 @@ lisp_object_t evaltagbody(lisp_object_t e, lisp_object_t a)
             ctxt->tagbody_forms[ctxt->tagbody_forms_len++] = car(x);
         else
             /* add symbol -> table index mapping to alist */
-            alist = cons(cons(car(x), ctxt->tagbody_forms_len << 4), alist);
+            alist = cons(cons(car(x), LispInt(ctxt->tagbody_forms_len)), alist);
     }
     interp->return_stack->return_value = alist;
     for (int i = 0; i < n; i++) {
@@ -2144,7 +2144,7 @@ lisp_object_t times(lisp_object_t x, lisp_object_t y)
     check_integer(y);
     int64_t xint = x >> 4;
     int64_t yint = y >> 4;
-    lisp_object_t result = (xint * yint) << 4;
+    lisp_object_t result = LispInt(xint * yint);
     check_integer(result);
     return result;
 }
@@ -2155,7 +2155,7 @@ lisp_object_t divide(lisp_object_t x, lisp_object_t y)
     check_integer(y);
     int64_t xint = x;
     int64_t yint = y;
-    lisp_object_t result = (xint / yint) << 4;
+    lisp_object_t result = LispInt(xint / yint);
     check_integer(result);
     return result;
 }

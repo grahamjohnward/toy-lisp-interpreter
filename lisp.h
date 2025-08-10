@@ -43,29 +43,42 @@ void load_str(char *str);
 lisp_object_t load(lisp_object_t filename);
 
 // clang-format off
-#define NIL                   0x7ffffffffffffff2
-#define T                     0xfffffffffffffff2
-#define VARARGS_LIST_SENTINEL 0x3ffffffffffffff2
-#define TYPE_MASK             0x000000000000000f
-#define PTR_MASK              0xfffffffffffffff0
-#define SYMBOL_TYPE           0x0000000000000002
-#define CONS_TYPE             0x0000000000000004
-#define STRING_TYPE           0x0000000000000006
-#define VECTOR_TYPE           0x0000000000000008
-#define FUNCTION_POINTER_TYPE 0x000000000000000A
-#define FUNCTION_TYPE         0x000000000000000C
-#define FORWARDING_POINTER    0x0000000000000001
+#define LISP_HEAP_BASE        0x0000400000000000
+
+#define IMMEDIATE_TYPE_MASK   0x0000000000000007
+#define IMMEDIATE_VALUE_MASK  0xfffffffffffffff8
+
+/* Special symbols */
+#define NIL                   0x0100000000000001
+#define T                     0x0100fffffffffff1
+#define VARARGS_LIST_SENTINEL 0x0100f00000000001
+
+/* Immediate types */
+#define OBJECT_TYPE           0x0000000000000001
+#define FUNCTION_POINTER_TYPE 0x0000000000000002
+#define NATIVE_POINTER_TYPE   0x0000000000000003
+
+#define TYPE_MASK             0xff00000000000007
+#define PTR_MASK              0x0000fffffffffff8
+
+#define SYMBOL_TYPE           0x0100000000000001
+#define CONS_TYPE             0x0200000000000001
+#define STRING_TYPE           0x0300000000000001
+#define VECTOR_TYPE           0x0400000000000001
+#define FUNCTION_TYPE         0x0500000000000001
+
+#define FORWARDING_POINTER    0x0001000000000000
 // clang-format on
 
 #define ConsPtr(obj) ((struct cons *)((obj) & PTR_MASK))
 #define SymbolPtr(obj) ((struct symbol *)((obj) & PTR_MASK))
 #define StringPtr(obj) ((struct string_header *)((obj) & PTR_MASK))
 #define VectorPtr(obj) ((struct vector *)((obj) & PTR_MASK))
-#define FunctionPtr(obj) ((void (*)())((((obj) & PTR_MASK) >> 4)))
+#define FunctionPtr(obj) ((void (*)())((obj) & IMMEDIATE_VALUE_MASK))
 #define LispFunctionPtr(obj) ((struct lisp_function *)((obj) & PTR_MASK))
 
-#define LispInt(x) (((uint64_t)(x)) << 4)
-#define Int(x) (((int64_t)(x)) >> 4)
+#define LispInt(x) (((uint64_t)(x)) << 3)
+#define Int(x) (((int64_t)(x)) >> 3)
 
 void check_vector(lisp_object_t obj);
 
@@ -142,7 +155,6 @@ struct cons {
     object_header_t header;
     lisp_object_t car;
     lisp_object_t cdr;
-    uint64_t padding;
 };
 
 /* String storage is one of these immediately followed by the
@@ -151,14 +163,12 @@ struct string_header {
     object_header_t header;
     size_t allocated_length;
     size_t string_length;
-    uint64_t padding;
 };
 
 struct lisp_function {
     object_header_t header;
     lisp_object_t kind;
     lisp_object_t actual_function;
-    uint64_t padding;
 };
 
 struct symbol {
@@ -167,10 +177,7 @@ struct symbol {
     lisp_object_t value;
     lisp_object_t function;
     lisp_object_t plist;
-    uint64_t padding;
 };
-
-#define LISP_HEAP_BASE 0x400000000000
 
 struct lisp_heap {
     size_t size_bytes;

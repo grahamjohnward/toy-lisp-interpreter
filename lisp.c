@@ -24,45 +24,36 @@ struct vector {
     object_header_t header;
     size_t len;
     size_t size_bytes;
-    uint64_t padding;
 };
-
-lisp_object_t istype(lisp_object_t obj, uint64_t type);
-
-static void check_type(lisp_object_t obj, uint64_t type)
-{
-    static char *type_names[6] = { "unused", "symbol", "cons", "string", "vector", "function pointer" };
-    if (istype(obj, type) == NIL) {
-        static char buf[1024];
-        char *obj_string = print_object(obj);
-        int len = snprintf(buf, 1024, "Not a %s: %s", type_names[type >> 1], obj_string);
-        raise(sym("type-error"), allocate_string(len + 1, buf));
-    }
-}
 
 static void check_cons(lisp_object_t obj)
 {
-    check_type(obj, CONS_TYPE);
+    if (consp(obj) == NIL)
+        raise(sym("type-error"), cons(sym("cons"), obj));
 }
 
 static void check_string(lisp_object_t obj)
 {
-    check_type(obj, STRING_TYPE);
+    if (stringp(obj) == NIL)
+        raise(sym("type-error"), cons(sym("string"), obj));
 }
 
 static void check_symbol(lisp_object_t obj)
 {
-    check_type(obj, SYMBOL_TYPE);
+    if (symbolp(obj) == NIL)
+        raise(sym("type-error"), cons(sym("symbol"), obj));
 }
 
 void check_vector(lisp_object_t obj)
 {
-    check_type(obj, VECTOR_TYPE);
+    if (vectorp(obj) == NIL)
+        raise(sym("type-error"), cons(sym("vector"), obj));
 }
 
 static void check_function_pointer(lisp_object_t obj)
 {
-    check_type(obj, FUNCTION_POINTER_TYPE);
+    if (function_pointer_p(obj) == NIL)
+        raise(sym("type-error"), cons(sym("function-pointer"), obj));
 }
 
 lisp_object_t car(lisp_object_t obj)
@@ -102,9 +93,11 @@ lisp_object_t eq(lisp_object_t o1, lisp_object_t o2)
     return o1 == o2 ? T : NIL;
 }
 
-lisp_object_t istype(lisp_object_t obj, uint64_t type)
+static lisp_object_t istype(lisp_object_t obj, uint64_t type)
 {
-    return (obj & TYPE_MASK) == type ? T : NIL;
+    uint64_t bof1 = obj & IMMEDIATE_TYPE_MASK;
+    uint64_t bof2 = obj & TYPE_MASK;
+    return (obj & IMMEDIATE_TYPE_MASK) == OBJECT_TYPE && (obj & TYPE_MASK) == type ? T : NIL;
 }
 
 lisp_object_t stringp(lisp_object_t obj)
@@ -124,14 +117,14 @@ lisp_object_t functionp(lisp_object_t obj)
 
 void check_integer(int64_t obj)
 {
-    if (obj % 16)
+    if (obj % 8)
         abort();
 }
 
 lisp_object_t integerp(lisp_object_t obj)
 {
-    uint64_t x = obj & TYPE_MASK;
-    return x == 0 || x == TYPE_MASK ? T : NIL;
+    uint64_t x = obj & IMMEDIATE_TYPE_MASK;
+    return x == 0 ? T : NIL;
 }
 
 lisp_object_t consp(lisp_object_t obj)
@@ -146,7 +139,8 @@ lisp_object_t vectorp(lisp_object_t obj)
 
 lisp_object_t function_pointer_p(lisp_object_t obj)
 {
-    return istype(obj, FUNCTION_POINTER_TYPE);
+    uint64_t bof = obj & IMMEDIATE_TYPE_MASK;
+    return ((obj & IMMEDIATE_TYPE_MASK) == FUNCTION_POINTER_TYPE) ? T : NIL;
 }
 
 static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, lisp_object_t index)
@@ -184,7 +178,7 @@ static void gc_if_needed(size_t);
 
 lisp_object_t allocate_vector(lisp_object_t size)
 {
-    size >>= 4;
+    size = Int(size);
     size_t bytes_to_allocate = sizeof(struct vector) + (size + size % 2) * sizeof(lisp_object_t);
     gc_if_needed(bytes_to_allocate);
     struct vector *v = (struct vector *)interp->heap.freeptr;
@@ -202,7 +196,7 @@ lisp_object_t allocate_vector(lisp_object_t size)
 static void define_built_in_function(char *symbol_name, void (*function_pointer)(void), int arity)
 {
     struct symbol *symptr = SymbolPtr(sym(symbol_name));
-    lisp_object_t fp = (((uint64_t)function_pointer) << 4) | FUNCTION_POINTER_TYPE;
+    lisp_object_t fp = ((uint64_t)function_pointer) | FUNCTION_POINTER_TYPE;
     lisp_object_t fn = allocate_function();
     struct lisp_function *fnptr = LispFunctionPtr(fn);
     fnptr->kind = interp->syms.built_in_function;
@@ -597,6 +591,8 @@ static int object_is_in_to_space(struct lisp_heap *heap, lisp_object_t obj)
     return type > 0 && p >= heap->to_space && p < heap->to_space + heap->size_bytes / 2;
 }
 
+#define IS_FORWARDING_POINTER(obj) ((((obj) & IMMEDIATE_TYPE_MASK) == OBJECT_TYPE) && ((obj) & FORWARDING_POINTER))
+
 /* heap is passed for the unit tests */
 void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
 {
@@ -607,31 +603,31 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
         return;
     if (symbolp(*p) != NIL) {
         struct symbol *symptr = SymbolPtr(*p);
-        if (symptr->name & FORWARDING_POINTER) {
+        if (IS_FORWARDING_POINTER(symptr->name)) {
             *p = symptr->name & ~FORWARDING_POINTER;
             return;
         }
     } else if (consp(*p) != NIL) {
         struct cons *consptr = ConsPtr(*p);
-        if (consptr->car & FORWARDING_POINTER) {
+        if (IS_FORWARDING_POINTER(consptr->car)) {
             *p = consptr->car & ~FORWARDING_POINTER;
             return;
         }
     } else if (stringp(*p) != NIL) {
         struct string_header *string = StringPtr(*p);
-        if (string->allocated_length & FORWARDING_POINTER) {
+        if (IS_FORWARDING_POINTER(string->allocated_length)) {
             *p = string->allocated_length & ~FORWARDING_POINTER;
             return;
         }
     } else if (vectorp(*p) != NIL) {
         struct vector *vector = VectorPtr(*p);
-        if (vector->len & FORWARDING_POINTER) {
+        if (IS_FORWARDING_POINTER(vector->len)) {
             *p = vector->len & ~FORWARDING_POINTER;
             return;
         }
     } else if (functionp(*p) != NIL) {
         struct lisp_function *fnptr = LispFunctionPtr(*p);
-        if (fnptr->kind & FORWARDING_POINTER) {
+        if (IS_FORWARDING_POINTER(fnptr->kind)) {
             *p = fnptr->kind & ~FORWARDING_POINTER;
             return;
         }
@@ -661,6 +657,8 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
     *p = moved_obj;
     assert(object_is_in_to_space(heap, *p));
 }
+
+#undef IS_FORWARDING_POINTER
 
 static void gc_check_copied_object(lisp_object_t obj)
 {
@@ -858,7 +856,7 @@ lisp_object_t allocate_string(size_t len, char *str)
     /* I want to make this a multiple of 16
      * but not sure that is actually needed
      */
-    size_t bytes_to_allocate_for_actual_string = ((len / 16) + 1) * 16;
+    size_t bytes_to_allocate_for_actual_string = ((len / 8) + 1) * 8;
     size_t total_bytes_to_allocate = sizeof(struct string_header) + bytes_to_allocate_for_actual_string;
     gc_if_needed(total_bytes_to_allocate);
     struct string_header *new_string = (struct string_header *)interp->heap.freeptr;
@@ -1144,7 +1142,7 @@ lisp_object_t parse1(struct text_stream *ts)
         uint64_t val = strtoll(token, &endptr, base);
         lisp_object_t result = NIL;
         if (*endptr == '\0')
-            result = base == 16 ? ((val << 4) | FUNCTION_POINTER_TYPE) : LispInt(val);
+            result = base == 16 ? (val | FUNCTION_POINTER_TYPE) : LispInt(val);
         else
             result = parse_symbol(token);
         free(token);
@@ -1212,7 +1210,7 @@ static void print_string_to_buffer(lisp_object_t string, struct string_buffer *s
 void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
 {
     if (integerp(obj) != NIL) {
-        int64_t value = ((int64_t)obj) / 16;
+        int64_t value = ((int64_t)obj) / 8;
         int length = snprintf(NULL, 0, "%ld", value);
         char *str = alloca(length + 1);
         snprintf(str, length + 1, "%ld", value);
@@ -1396,7 +1394,9 @@ lisp_object_t cddr(lisp_object_t obj)
 
 lisp_object_t caddr(lisp_object_t obj)
 {
-    return car(cdr(cdr(obj)));
+    lisp_object_t cdr1 = cdr(obj);
+    lisp_object_t cdr2 = cdr(cdr1);
+    return car(cdr2);
 }
 
 lisp_object_t cadar(lisp_object_t obj)
@@ -1544,6 +1544,9 @@ static lisp_object_t apply_lambda(lisp_object_t fn, lisp_object_t x, lisp_object
 
 static lisp_object_t apply_built_in_function(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
 {
+    lisp_object_t arg1 = NIL;
+    lisp_object_t arg2 = NIL;
+    lisp_object_t arg3 = NIL;
     check_function_pointer(cadr(fn));
     void (*fp)() = FunctionPtr(cadr(fn));
     int arity = Int(caddr(fn));
@@ -1551,13 +1554,21 @@ static lisp_object_t apply_built_in_function(lisp_object_t fn, lisp_object_t x, 
     case 0:
         return ((lisp_object_t (*)())fp)();
     case 1:
-        return ((lisp_object_t (*)(lisp_object_t))fp)(car(x));
+        arg1 = car(x);
+        return ((lisp_object_t (*)(lisp_object_t))fp)(arg1);
     case 2:
-        return ((lisp_object_t (*)(lisp_object_t, lisp_object_t))fp)(car(x), cadr(x));
+        arg1 = car(x);
+        arg2 = cadr(x);
+        return ((lisp_object_t (*)(lisp_object_t, lisp_object_t))fp)(arg1, arg2);
     case 3:
-        return ((lisp_object_t (*)(lisp_object_t, lisp_object_t, lisp_object_t))fp)(car(x), cadr(x), caddr(x));
+        arg1 = car(x);
+        arg2 = cadr(x);
+        arg3 = caddr(x);
+        return ((lisp_object_t (*)(lisp_object_t, lisp_object_t, lisp_object_t))fp)(arg1, arg2, arg3);
     case FUNCALL_ARITY:
-        return ((lisp_object_t (*)(lisp_object_t, lisp_object_t, lisp_object_t))fp)(car(x), cdr(x), a);
+        arg1 = car(x);
+        arg2 = cdr(x);
+        return ((lisp_object_t (*)(lisp_object_t, lisp_object_t, lisp_object_t))fp)(arg1, arg2, a);
     default:
         abort();
     }
@@ -1913,34 +1924,55 @@ lisp_object_t macroexpand_all_quasiquote(lisp_object_t e, int depth)
     } else if (vectorp(e) != NIL) {
         lisp_object_t vector_length = length(e);
         lisp_object_t new_vector = allocate_vector(vector_length);
-        for (lisp_object_t i = 0; i < vector_length; i += 0x4)
+        for (lisp_object_t i = 0; i < vector_length; i += LispInt(1))
             svref_set(new_vector, i, macroexpand_all_quasiquote(svref(e, i), depth));
         return new_vector;
     }
     return e;
 }
 
+static lisp_object_t macroexpand_all_if(lisp_object_t e)
+{
+    lisp_object_t test_form = cadr(e);
+    lisp_object_t then_form = caddr(e);
+    lisp_object_t else_form = cadr(cddr(e));
+    return List(interp->syms.if_, macroexpand_all(test_form), macroexpand_all(then_form), macroexpand_all(else_form));
+}
+
+static lisp_object_t macroexpand_all_condition_case(lisp_object_t e)
+{
+    lisp_object_t exc = cadr(e);
+    lisp_object_t body = caddr(e);
+    lisp_object_t clauses = cdr(cddr(e));
+    lisp_object_t tmp0 = macroexpand_all(body);
+    lisp_object_t tmp1 = macroexpand_all_let(clauses);
+    lisp_object_t tmp2 = cons(tmp0, tmp1);
+    lisp_object_t tmp3 = cons(exc, tmp2);
+    return cons(car(e), tmp3);
+}
+
 lisp_object_t macroexpand_all(lisp_object_t e)
 {
+    lisp_object_t tmp0 = NIL;
+    lisp_object_t tmp1 = NIL;
+    lisp_object_t tmp2 = NIL;
+    lisp_object_t tmp3 = NIL;
+    lisp_object_t s = NIL;
     e = macroexpand(e, NIL);
     if (consp(e) == NIL) {
         return e;
     } else if (symbolp(car(e)) != NIL) {
-        lisp_object_t s = car(e);
+        s = car(e);
         if (s == interp->syms.if_) {
-            lisp_object_t test_form = cadr(e);
-            lisp_object_t then_form = caddr(e);
-            lisp_object_t else_form = cadr(cddr(e));
-            return List(interp->syms.if_, macroexpand_all(test_form), macroexpand_all(then_form), macroexpand_all(else_form));
+            return macroexpand_all_if(e);
         } else if (s == interp->syms.tagbody) {
-            return cons(s, macroexpand_all_tagbody(cdr(e)));
+            tmp0 = macroexpand_all_tagbody(cdr(e));
+            return cons(s, tmp0);
         } else if (s == interp->syms.progn) {
-            return cons(s, macroexpand_all_list(cdr(e)));
+            tmp0 = macroexpand_all_list(cdr(e));
+            return cons(s, tmp0);
         } else if (s == interp->syms.condition_case) {
-            lisp_object_t exc = cadr(e);
-            lisp_object_t body = caddr(e);
-            lisp_object_t clauses = cdr(cddr(e));
-            return cons(s, cons(exc, cons(macroexpand_all(body), macroexpand_all_let(clauses))));
+            return macroexpand_all_condition_case(e);
         } else if (s == interp->syms.let) {
             lisp_object_t body = cddr(e);
             return cons(s, cons(macroexpand_all_let(cadr(e)), macroexpand_all_list(body)));
@@ -2162,20 +2194,26 @@ lisp_object_t divide(lisp_object_t x, lisp_object_t y)
 
 lisp_object_t type_of(lisp_object_t obj)
 {
-    switch (obj & TYPE_MASK) {
-    case SYMBOL_TYPE:
-        return interp->syms.symbol;
-    case CONS_TYPE:
-        return interp->syms.cons;
-    case STRING_TYPE:
-        return interp->syms.string;
-    case VECTOR_TYPE:
-        return interp->syms.vector;
+    switch (obj & IMMEDIATE_TYPE_MASK) {
+    case OBJECT_TYPE:
+        switch (obj & TYPE_MASK) {
+        case SYMBOL_TYPE:
+            return interp->syms.symbol;
+        case CONS_TYPE:
+            return interp->syms.cons;
+        case STRING_TYPE:
+            return interp->syms.string;
+        case VECTOR_TYPE:
+            return interp->syms.vector;
+        case FUNCTION_TYPE:
+            return interp->syms.function;
+        }
+    case FUNCTION_POINTER_TYPE:
+        return sym("function-pointer");
+    case 0:
+        return interp->syms.integer;
     default:
-        if (integerp(obj))
-            return interp->syms.integer;
-        else
-            abort();
+        abort();
     }
 }
 

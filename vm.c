@@ -34,7 +34,7 @@ void vm_free(struct vm *vm)
 
 static void define_vm_instruction(lisp_object_t symbol, void (*function_pointer)(void), int arity)
 {
-    putprop(symbol, interp->syms.vm_ins_fp, (((lisp_object_t)function_pointer) << 4) | FUNCTION_POINTER_TYPE);
+    putprop(symbol, interp->syms.vm_ins_fp, ((lisp_object_t)function_pointer) | FUNCTION_POINTER_TYPE);
     putprop(symbol, interp->syms.vm_ins_arity, LispInt(arity));
 }
 
@@ -110,16 +110,16 @@ void vm_run_one_instruction(struct vm *vm)
         abort();
     void (*fp)() = FunctionPtr(lisp_function_pointer);
     if (arity == 0) {
-        vm->registers.instruction_pointer += 16;
+        vm->registers.instruction_pointer += LispInt(1);
         ((void (*)(struct vm *))fp)(vm);
     } else if (arity == LispInt(1)) {
-        lisp_object_t arg = svref(vm->registers.code_vector, vm->registers.instruction_pointer + 16);
-        vm->registers.instruction_pointer += 32;
+        lisp_object_t arg = svref(vm->registers.code_vector, vm->registers.instruction_pointer + LispInt(1));
+        vm->registers.instruction_pointer += LispInt(2);
         ((void (*)(struct vm *, lisp_object_t))fp)(vm, arg);
     } else if (arity == LispInt(2)) {
-        lisp_object_t arg1 = svref(vm->registers.code_vector, vm->registers.instruction_pointer + 16);
-        lisp_object_t arg2 = svref(vm->registers.code_vector, vm->registers.instruction_pointer + 32);
-        vm->registers.instruction_pointer += 48;
+        lisp_object_t arg1 = svref(vm->registers.code_vector, vm->registers.instruction_pointer + LispInt(1));
+        lisp_object_t arg2 = svref(vm->registers.code_vector, vm->registers.instruction_pointer + LispInt(2));
+        vm->registers.instruction_pointer += LispInt(3);
         ((void (*)(struct vm *, lisp_object_t, lisp_object_t))fp)(vm, arg1, arg2);
     } else {
         abort();

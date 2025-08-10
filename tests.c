@@ -933,18 +933,18 @@ static void test_numeric_equals()
 static void test_parse_function_pointer()
 {
     START_OF_TEST("parse_function_pointer");
-    char *teststr = "0x1234";
+    char *teststr = "0x2468";
     lisp_object_t result = parse1_wrapper(teststr);
     check(function_pointer_p(result) != NIL, "function_pointer_p");
-    check(FunctionPtr(result) == (void (*)())0x1234, "value");
+    check(FunctionPtr(result) == (void (*)())0x2468, "value");
 }
 
 static void test_print_function_pointer()
 {
     START_OF_TEST("print_function_pointer");
-    lisp_object_t fp = FUNCTION_POINTER_TYPE | (0x1234 << 4);
+    lisp_object_t fp = FUNCTION_POINTER_TYPE | 0x2468;
     char *str = print_object(fp);
-    check(strcmp("0x1234", str) == 0, "0x123400");
+    check(strcmp("0x2468", str) == 0, "0x2468");
     free(str);
 }
 
@@ -1014,10 +1014,11 @@ static void define_defmacro()
 static void test_defmacro()
 {
     START_OF_TEST("defmacro");
+    lisp_object_t result = NIL;
     init_interpreter_for_tests();
     define_defmacro();
     test_eval_string_helper("(defmacro if2 (test then else) `(if ,test ,then ,else))");
-    lisp_object_t result = test_eval_string_helper("(if2 (eq (car (cons 3 4)) 3) (two-arg-plus 9 9) 'bof)");
+    result = test_eval_string_helper("(if2 (eq (car (cons 3 4)) 3) (two-arg-plus 9 9) 'bof)");
     check(result == LispInt(18), "test1");
     result = test_eval_string_helper("(if2 (eq (car (cons 3 4)) 4) (two-arg-plus 9 9) 'bof)");
     check(eq(result, sym("bof")) != NIL, "test2");
@@ -1163,7 +1164,7 @@ static void test_macro_inside_quasiquote()
     parsed = parse1_wrapper("(,(prog1- (cons 1 2) 'foo) ,(prog1- (cons 3 4) 'bar) #(,(prog1- 'a 'b) 14 15))");
     result = macroexpand_all_quasiquote(parsed, 1);
     str = print_object(result);
-    check(strcmp("(,(progn (let ((g0 (cons 1 2))) 'foo g0)) ,(progn (let ((g1 (cons 3 4))) 'bar g1)) #(,(progn (let ((g5 'a)) 'b g5)) 14 15))", str) == 0, "ok");
+    check(strcmp("(,(progn (let ((g0 (cons 1 2))) 'foo g0)) ,(progn (let ((g1 (cons 3 4))) 'bar g1)) #(,(progn (let ((g2 'a)) 'b g2)) 14 15))", str) == 0, "ok");
     free_interpreter();
 }
 
@@ -1493,7 +1494,7 @@ static void test_varargs_list()
     char *str = print_object(mylist);
     check(strcmp("(lambda hello)", str) == 0, "function");
     free(str);
-    mylist = List(interp->syms.lambda, 32);
+    mylist = List(interp->syms.lambda, LispInt(2));
     str = print_object(mylist);
     check(strcmp("(lambda 2)", str) == 0, "macro");
     free(str);

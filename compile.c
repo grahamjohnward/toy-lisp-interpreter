@@ -159,6 +159,8 @@ static lisp_object_t compile_condition_case(lisp_object_t expr, struct lexical_c
 
 static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
 {
+    lisp_object_t tmp0 = NIL;
+    lisp_object_t tmp1 = NIL;
     if (atom(expr) != NIL) {
         return expr;
     } else if (symbolp(car(expr)) != NIL) {
@@ -168,14 +170,19 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
         } else if (symbol == interp->syms.return_from) {
             lisp_object_t block_name = cadr(expr);
             lisp_object_t x = assoc(block_name, ctxt->block_alist);
-            if (x == NIL)
+            if (x == NIL) {
                 return raise(sym("return-for-unknown-block"), block_name);
-            else
-                return List(sym("raise"), cdr(x), compile(caddr(expr), ctxt));
+            } else {
+                tmp0 = compile(caddr(expr), ctxt);
+                tmp1 = cdr(x);
+                return List(sym("raise"), tmp1, tmp0);
+            }
         } else if (symbol == interp->syms.quote) {
             return expr;
         } else if (symbol == interp->syms.quasiquote) {
-            return List(interp->syms.quasiquote, compile_quasiquote(cadr(expr), ctxt, 0));
+            tmp0 = cadr(expr);
+            tmp1 = compile_quasiquote(tmp0, ctxt, 0);
+            return List(interp->syms.quasiquote, tmp1);
         } else if (symbol == interp->syms.unquote) {
             return raise(sym("runtime-error"), sym("comma-not-inside-backquote"));
         } else if (symbol == interp->syms.if_) {
@@ -185,9 +192,13 @@ static lisp_object_t compile(lisp_object_t expr, struct lexical_context *ctxt)
         } else if (symbol == interp->syms.set) {
             return List(interp->syms.set, cadr(expr), compile(car(cddr(expr)), ctxt));
         } else if (symbol == interp->syms.progn) {
-            return cons(interp->syms.progn, compile_list(cdr(expr), ctxt));
+            tmp0 = cdr(expr);
+            tmp1 = compile_list(tmp0, ctxt);
+            return cons(interp->syms.progn, tmp1);
         } else if (symbol == interp->syms.tagbody) {
-            return cons(interp->syms.tagbody, compile_tagbody(cdr(expr), ctxt));
+            tmp0 = cdr(expr);
+            tmp1 = compile_tagbody(tmp0, ctxt);
+            return cons(interp->syms.tagbody, tmp1);
         } else if (symbol == interp->syms.go) {
             // Nothing to do here
             return expr;

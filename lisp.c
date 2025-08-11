@@ -427,6 +427,7 @@ void init_interpreter2(size_t heap_size, int use_vm)
     interp->return_stack = NULL;
     interp->top_of_stack = get_rbp(2);
     interp->use_vm = use_vm;
+    text_stream_init_fd(&interp->ts_stdin, 0);
     lisp_heap_init(&interp->heap, heap_size);
     // Should get this stack size from somewhere
     vm_init(&interp->vm, 1024 * 1024);
@@ -449,6 +450,7 @@ void lisp_heap_init(struct lisp_heap *heap, size_t bytes)
     heap->size_bytes = bytes;
     heap->from_space = heap->heap;
     heap->to_space = heap->heap + bytes / 2;
+    text_stream_init_fd(&interp->ts_stdin, 0);
 }
 
 static void assert_heap_invariants(struct lisp_heap *heap)
@@ -2120,10 +2122,7 @@ void load_str(char *str)
 
 lisp_object_t lisp_read()
 {
-    struct text_stream ts;
-    text_stream_init_fd(&ts, 0);
-    lisp_object_t result = parse1(&ts);
-    text_stream_free(&ts);
+    lisp_object_t result = parse1(&interp->ts_stdin);
     return result;
 }
 

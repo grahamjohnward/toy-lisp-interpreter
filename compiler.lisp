@@ -219,9 +219,17 @@
 	  (label ,label2)
 	  nop))))
 
+
+(defun standardize-let-bindings (bindings)
+  (mapcar #'(lambda (binding)
+	      (if (consp binding)
+		  binding
+		  (list binding nil)))
+	  bindings))
+
 (defun transform-let (let-form)
   (assert (eq (car let-form) 'let))
-  (let ((bindings (cadr let-form))
+  (let ((bindings (standardize-let-bindings (cadr let-form)))
 	(body (cddr let-form)))
     (let ((arglist (mapcar #'car bindings))
 	  (values (mapcar #'cadr bindings)))

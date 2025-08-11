@@ -2018,7 +2018,7 @@ lisp_object_t eval_function_call(lisp_object_t e, lisp_object_t a)
 
 lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 {
-    if (e == NIL || e == T || integerp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL || functionp(e) != NIL)
+    if (e == NIL || e == T || integerp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL || functionp(e) != NIL || function_pointer_p(e) != NIL)
         return e;
     if (atom(e) != NIL) {
         lisp_object_t x = assoc(e, a);

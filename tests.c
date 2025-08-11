@@ -1947,6 +1947,17 @@ static void test_vm_inst_raise()
     free_interpreter();
 }
 
+void test_eval_function_pointer()
+{
+    START_OF_TEST("eval_function_pointer");
+    init_interpreter_for_tests();
+    lisp_object_t result = test_eval_string_helper("0x123400");
+    char *str = print_object(result);
+    check(strcmp("0x123400", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -2089,6 +2100,7 @@ int main(int argc, char **argv)
     test_vm_inst_tag_jmp();
     test_unquote_splice_nil();
     test_vm_inst_raise();
+    test_eval_function_pointer();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

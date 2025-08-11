@@ -73,7 +73,7 @@
 
 (defun / (first &rest args)
   (when (eq args nil)
-    (return first))
+    (return-from / first))
   (two-arg-divide first (apply #'* args)))
 
 (defun not (x)

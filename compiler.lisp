@@ -219,7 +219,6 @@
 	  (label ,label2)
 	  nop))))
 
-
 (defun standardize-let-bindings (bindings)
   (mapcar #'(lambda (binding)
 	      (if (consp binding)
@@ -307,22 +306,54 @@
 	     push 2
 	     raise))))
 
-(defun compile-condition-case (expr ctxt)
+(defun compile4-condition-case-handler (expr+tag mapcar-context)
+  (let ((expr (car expr+tag))
+	(tag (cdr expr+tag))
+	(ctxt (first mapcar-context))
+	(jmp-target (second mapcar-context))
+	(varname (third mapcar-context)))
+    `((label ,tag)
+      push 1
+      ,@(compile4-lambda `(lambda (,varname) (progn ,@expr)) ctxt)
+      call
+      jmp (target ,jmp-target))))
+
+(defun zip (list1 list2)
+  (assert (= (length list1) (length list2)))
+  (%zip list1 list2))
+
+(defun %zip (list1 list2)
+  (if (null list1)
+      nil
+      (cons (cons (car list1) (car list2)) (%zip (cdr list1) (cdr list2)))))
+
+(defun compile4-condition-case (expr ctxt)
   (assert (eq (car expr) 'condition-case))
   (let ((e (cadr expr))
 	(body (caddr expr))
-	(handlers (cddr expr)))
-    (let ((tag-alist
-	   (mapcar #'(lambda (handler)
-		       (cons (car handler) (gensym)))
-		   handlers)))
-      ;; 1.  Set tags
-      ;; 2.  Body (skip over handlers)
-      ;; 3.  Handlers
-      ;; Each handler looks like:
-      ;; ????
-
-    )))
+	(handlers (cadr (cddr expr))))
+    (let ((tag-alist (mapcar #'(lambda (handler)
+				 (cons (car handler) (gensym)))
+			     handlers)))
+      (let ((set-tags (apply #'append
+			     (mapcar #'(lambda (pair)
+					 `(set-tag ,(car pair)
+						   (target ,(cdr pair))))
+				     tag-alist)))
+	    (just-the-tags (mapcar #'cdr tag-alist))
+	    (jmp-target (gensym))
+	    (compiled-body (compile4 body ctxt)))
+	(let ((compiled-handlers
+	       (apply #'append
+	       (mapcar-with-context #'compile4-condition-case-handler
+				    (zip (mapcar #'cdr handlers) just-the-tags)
+				    (list ctxt jmp-target e)))))
+	  `(,@set-tags
+	    ,@compiled-body
+	    jmp (target ,jmp-target)
+	    ,@compiled-handlers
+	    (label ,jmp-target)
+	    nop))))))
 
 (defun compile4 (expr ctxt)
   (cond ((atom expr) 

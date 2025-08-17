@@ -129,7 +129,7 @@
       (setq bindings (cdr bindings))
       (setq m 1)
       (incf n)))
-  (print (list "OHNO" symbol)))
+  nil)
 
 (defun convert-quasiquote1 (expr)
   (cond ((symbolp expr) `(quote ,expr))
@@ -283,7 +283,10 @@
   (assert (eq (car expr) 'set))
   (let ((var (cadr (cadr expr)))
 	(val (caddr expr)))
-    `(,@(compile4 val ctxt) set ,@(lexical-context-lookup ctxt var))))
+    (let ((lookup-result (lexical-context-lookup ctxt var)))
+      (if lookup-result
+	  `(,@(compile4 val ctxt) set ,@lookup-result)
+	  `(push ,var ,@(compile4 val ctxt) push 2 push set-symbol-value call)))))
 
 (defun compile4-block (expr ctxt)
   (assert (eq (car expr) 'block))
@@ -357,9 +360,14 @@
 
 (defun compile4 (expr ctxt)
   (cond ((atom expr) 
-	 (if (or (stringp expr) (integerp expr) (eq t expr) (eq nil expr))
-	     `(push ,expr)
-	     `(get ,@(lexical-context-lookup ctxt expr))))
+	 (cond ((or (stringp expr) (integerp expr) (eq t expr) (eq nil expr))
+		`(push ,expr))
+	       ((symbolp expr)
+		(let ((lookup-result (lexical-context-lookup ctxt expr)))
+		  (if lookup-result
+		      `(get ,@lookup-result)
+		      `(push ,expr push 1 push symbol-value call))))
+	       (t (assert nil))))
 	((symbolp (car expr))
 	 (let ((sym (car expr)))
 	   (cond ((eq sym 'function)

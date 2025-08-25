@@ -140,7 +140,7 @@
 	       ((and (consp (cdr expr)) (consp (cadr expr))
 		     (eq (caadr expr) 'unquote-splice))
 		`(cons ,(convert-quasiquote1 (car expr))
-		       ,(cadr (cadr expr))))
+		       ,(convert-quasiquote1 (cadr (cadr expr)))))
 	       (t 
 		`(cons ,(convert-quasiquote1 (car expr))
 		       ,(convert-quasiquote1 (cdr expr))))))

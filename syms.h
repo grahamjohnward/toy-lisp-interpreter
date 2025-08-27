@@ -30,12 +30,9 @@ struct syms {
     lisp_object_t if_;
     lisp_object_t pop;
     lisp_object_t push;
-    lisp_object_t copy;
-    lisp_object_t swap_pop;
     lisp_object_t swap;
     lisp_object_t call;
     lisp_object_t ret;
-    lisp_object_t copy2;
     lisp_object_t vm_ins_arity;
     lisp_object_t vm_ins_fp;
     lisp_object_t vm_make_function;

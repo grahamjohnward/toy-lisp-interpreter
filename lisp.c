@@ -248,12 +248,9 @@ static void init_symbols()
     interp->syms.if_ = sym("if");
     interp->syms.pop = sym("pop");
     interp->syms.push = sym("push");
-    interp->syms.copy = sym("copy");
-    interp->syms.swap_pop = sym("swap-pop");
     interp->syms.swap = sym("swap");
     interp->syms.call = sym("call");
     interp->syms.ret = sym("ret");
-    interp->syms.copy2 = sym("copy2");
     interp->syms.vm_ins_arity = sym("%vm-ins-arity");
     interp->syms.vm_ins_fp = sym("%vm-ins-fp");
     interp->syms.vm_make_function = sym("%vm-make-function");
@@ -744,12 +741,9 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(if_);
     GC_COPY_SYMBOL(pop);
     GC_COPY_SYMBOL(push);
-    GC_COPY_SYMBOL(copy);
-    GC_COPY_SYMBOL(swap_pop);
     GC_COPY_SYMBOL(swap);
     GC_COPY_SYMBOL(call);
     GC_COPY_SYMBOL(ret);
-    GC_COPY_SYMBOL(copy2);
     GC_COPY_SYMBOL(vm_ins_arity);
     GC_COPY_SYMBOL(vm_ins_fp);
     GC_COPY_SYMBOL(vm_make_function);

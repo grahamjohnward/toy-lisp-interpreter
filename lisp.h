@@ -75,6 +75,7 @@ lisp_object_t load(lisp_object_t filename);
 #define StringPtr(obj) ((struct string_header *)((obj) & PTR_MASK))
 #define VectorPtr(obj) ((struct vector *)((obj) & PTR_MASK))
 #define FunctionPtr(obj) ((void (*)())((obj) & IMMEDIATE_VALUE_MASK))
+#define NativePtr(obj) ((void *)((obj) & IMMEDIATE_VALUE_MASK))
 #define LispFunctionPtr(obj) ((struct lisp_function *)((obj) & PTR_MASK))
 
 #define LispInt(x) (((uint64_t)(x)) << 3)

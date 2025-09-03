@@ -139,8 +139,12 @@ lisp_object_t vectorp(lisp_object_t obj)
 
 lisp_object_t function_pointer_p(lisp_object_t obj)
 {
-    uint64_t bof = obj & IMMEDIATE_TYPE_MASK;
     return ((obj & IMMEDIATE_TYPE_MASK) == FUNCTION_POINTER_TYPE) ? T : NIL;
+}
+
+lisp_object_t native_pointer_p(lisp_object_t obj)
+{
+    return ((obj & IMMEDIATE_TYPE_MASK) == NATIVE_POINTER_TYPE) ? T : NIL;
 }
 
 static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, lisp_object_t index)
@@ -1078,6 +1082,24 @@ lisp_object_t parse_vector(struct text_stream *ts)
     return vector;
 }
 
+static lisp_object_t make_native_pointer(void *ptr)
+{
+    if (((uint64_t)ptr) % 8)
+        abort();
+    return ((uint64_t)ptr) | NATIVE_POINTER_TYPE;
+}
+
+static lisp_object_t parse_native_pointer(struct text_stream *ts)
+{
+    char *token = read_token(ts);
+    char *endptr = NULL;
+    uint64_t result = strtoll(token, &endptr, 16);
+    if (endptr == token)
+        abort();
+    free(token);
+    return make_native_pointer((void *)result);
+}
+
 lisp_object_t parse_dispatch(struct text_stream *ts)
 {
     assert(tspeek(ts) == '#');
@@ -1090,6 +1112,9 @@ lisp_object_t parse_dispatch(struct text_stream *ts)
     case '\'':
         text_stream_advance(ts);
         return cons(interp->syms.function, cons(parse1(ts), NIL));
+    case 'p':
+        text_stream_advance(ts);
+        return parse_native_pointer(ts);
     default:
         abort();
     }
@@ -1260,6 +1285,10 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
     } else if (function_pointer_p(obj) != NIL) {
         char *buf = alloca(32);
         sprintf(buf, "%p", (FunctionPtr(obj)));
+        string_buffer_append(sb, buf);
+    } else if (native_pointer_p(obj) != NIL) {
+        char *buf = alloca(32);
+        sprintf(buf, "#p%p", NativePtr(obj));
         string_buffer_append(sb, buf);
     } else if (functionp(obj) != NIL) {
         struct lisp_function *fnptr = LispFunctionPtr(obj);
@@ -2014,7 +2043,7 @@ lisp_object_t eval_function_call(lisp_object_t e, lisp_object_t a)
 
 lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 {
-    if (e == NIL || e == T || integerp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL || functionp(e) != NIL || function_pointer_p(e) != NIL)
+    if (e == NIL || e == T || integerp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL || functionp(e) != NIL || function_pointer_p(e) != NIL | native_pointer_p(e) != NIL)
         return e;
     if (atom(e) != NIL) {
         lisp_object_t x = assoc(e, a);

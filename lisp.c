@@ -5,6 +5,7 @@
 
 #include <alloca.h>
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <setjmp.h>
 #include <stdarg.h>
@@ -325,6 +326,12 @@ lisp_object_t vm_eval(lisp_object_t code_vector);
 
 lisp_object_t basic_eval(lisp_object_t e);
 
+lisp_object_t do_open(lisp_object_t filename);
+
+lisp_object_t do_close(lisp_object_t stream);
+
+lisp_object_t lisp_read1(lisp_object_t stream);
+
 static lisp_object_t get_vm_stack()
 {
     return vm_get_stack(&interp->vm);
@@ -342,6 +349,7 @@ static void init_builtins()
     DEFBUILTIN("eq", eq, 2);
     DEFBUILTIN("load", load, 1);
     DEFBUILTIN("read", lisp_read, 0);
+    DEFBUILTIN("read1", lisp_read1, 1);
     DEFBUILTIN("print", print, 1);
     DEFBUILTIN("princ", princ, 1);
     DEFBUILTIN("eval", eval_toplevel, 1);
@@ -385,6 +393,8 @@ static void init_builtins()
     DEFBUILTIN("vm-eval", vm_eval, 1);
     DEFBUILTIN("vm-get-stack", get_vm_stack, 0);
     DEFBUILTIN("%vm-make-function", vm_make_function, 2);
+    DEFBUILTIN("open", do_open, 1);
+    DEFBUILTIN("close", do_close, 1);
 #undef DEFBUILTIN
 }
 
@@ -2143,6 +2153,11 @@ void load_str(char *str)
     }
 }
 
+lisp_object_t lisp_read1(lisp_object_t stream)
+{
+    return parse1(NativePtr(svref_c(stream, 2)));
+}
+
 lisp_object_t lisp_read()
 {
     lisp_object_t result = parse1(&interp->ts_stdin);
@@ -2269,6 +2284,53 @@ lisp_object_t save_image(lisp_object_t name)
     do_write(fd, interp->heap.heap, interp->heap.size_bytes);
     close(fd);
     exit(0);
+}
+
+#define DEFINE_ERRNO_SYM(E) \
+    case E:                 \
+        return sym(#E);
+
+lisp_object_t errno_sym()
+{
+    switch (errno) {
+        DEFINE_ERRNO_SYM(EACCES);
+        DEFINE_ERRNO_SYM(ENOENT);
+        DEFINE_ERRNO_SYM(EPERM);
+    default:
+        return sym("unknown-errno");
+    }
+}
+#undef DEFINE_ERRNO_SYM
+
+lisp_object_t do_open(lisp_object_t filename)
+{
+    char *str;
+    size_t len;
+    get_string_parts(filename, &len, &str);
+    int fd = open(str, O_RDONLY);
+    if (fd < 0)
+        raise(errno_sym(), filename);
+    struct text_stream *ts = malloc(sizeof(struct text_stream));
+    text_stream_init_fd(ts, fd);
+    lisp_object_t stream = allocate_vector(LispInt(4));
+    svref_set(stream, LispInt(0), sym("stream"));
+    svref_set(stream, LispInt(1), LispInt(fd));
+    svref_set(stream, LispInt(2), make_native_pointer(ts));
+    svref_set(stream, LispInt(3), sym(":open"));
+    return stream;
+}
+
+lisp_object_t do_close(lisp_object_t stream)
+{
+    if (!(vectorp(stream) != NIL && length_c(stream) == 4 && svref_c(stream, 0) == sym("stream")))
+        raise(sym("bad-stream"), stream);
+    int rc = close(Int(svref_c(stream, 1)));
+    if (rc < 0)
+        raise(errno_sym(), stream);
+    struct text_stream *ts = (struct text_stream *)NativePtr(svref_c(stream, 2));
+    free(ts);
+    svref_set(stream, LispInt(3), sym(":closed"));
+    return stream;
 }
 
 // Seems like this may be dodgy in some GC-related way, but can't put my

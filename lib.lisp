@@ -327,3 +327,15 @@
     (if foundp
 	list
 	(cons item list))))
+
+(defmacro push (obj place)
+  `(setq ,place (cons obj ,place)))
+
+(defun vector (&rest objects)
+  (let ((len (length objects)))
+    (let ((result (make-vector len)))
+      (let ((i 0))
+	(dolist (obj objects)
+	  (set-svref result i obj)
+	  (incf i)))
+      result)))

@@ -42,7 +42,8 @@
         "string_buffer.h": "c",
         "concepts": "c",
         "unordered_map": "c",
-        "strings.h": "c"
+        "strings.h": "c",
+        "stdio.h": "c"
     },
     "makefile.configureOnOpen": false
 }

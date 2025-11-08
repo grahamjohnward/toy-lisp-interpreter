@@ -25,6 +25,6 @@
   (do-test (equalp #(1 2 3) #(1 2 3 4)) nil)
   (do-test (funcall (function (lambda (x) (prog (y) (setq y 12) bof (setq x 36) boo (return (cons x y))))) 14) '(36 . 12))
   (do-test (funcall (lambda (x) (+ x 1)) 14) 15)
-  (do-test (condition-case e (test-function 1) (bad-args 'ok)) 'ok)
-  (do-test (condition-case e (test-function 1 2 3) (bad-args 'ok)) 'ok)
+  (do-test (condition-case e (test-function 1) (bad-args2 'ok)) 'ok)
+  (do-test (condition-case e (test-function 1 2 3) (bad-args1 'ok)) 'ok)
   (do-test (let (x y) (let ((z (prog1 (+ 3 3) (setq x 14) (setq y 12)))) (list x y z))) '(14 12 6)))

@@ -140,11 +140,13 @@
       `(let ((,var nil))
 	 (tagbody
 	    (setq ,var 0)
-	  iterate
+	    iterate
+	    (when (= ,var ,max)
+	      (go done))
 	    ,@thing
 	    (setq ,var (+ 1 ,var))
-	    (when (< ,var ,max)
-	      (go iterate))))))
+	    (go iterate)
+	    done))))
 
 (defmacro dolist (args &body body)
   (let ((var (car args))

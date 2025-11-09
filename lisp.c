@@ -259,6 +259,7 @@ static void init_symbols()
     interp->syms.vm_ins_arity = sym("%vm-ins-arity");
     interp->syms.vm_ins_fp = sym("%vm-ins-fp");
     interp->syms.vm_make_function = sym("%vm-make-function");
+    interp->syms.vm_make_simple_function = sym("%vm-make-simple-function");
     interp->syms.provided_arg_count = sym("%provided-arg-count");
     interp->syms.abort = sym("abort");
     interp->syms.jmp = sym("jmp");
@@ -322,15 +323,29 @@ lisp_object_t eval2(lisp_object_t e);
 
 lisp_object_t vm_make_function(lisp_object_t arg_info, lisp_object_t code_vector);
 
+lisp_object_t vm_make_simple_function(lisp_object_t arg_info, lisp_object_t code_vector);
+
 lisp_object_t vm_eval(lisp_object_t code_vector);
+
+lisp_object_t vm_apply(lisp_object_t function, lisp_object_t arg, lisp_object_t rest);
 
 lisp_object_t basic_eval(lisp_object_t e);
 
-lisp_object_t do_open(lisp_object_t filename);
+lisp_object_t do_open(lisp_object_t filename, lisp_object_t direction);
 
 lisp_object_t do_close(lisp_object_t stream);
 
 lisp_object_t lisp_read1(lisp_object_t stream);
+
+lisp_object_t lisp_write(lisp_object_t object, lisp_object_t stream);
+
+static lisp_object_t make_symbol(lisp_object_t string)
+{
+    size_t len;
+    char *str;
+    get_string_parts(string, &len, &str);
+    return sym(str);
+}
 
 static lisp_object_t get_vm_stack()
 {
@@ -347,13 +362,10 @@ static void init_builtins()
     DEFBUILTIN("cons", cons, 2);
     DEFBUILTIN("atom", atom, 1);
     DEFBUILTIN("eq", eq, 2);
-    DEFBUILTIN("load", load, 1);
     DEFBUILTIN("read", lisp_read, 0);
     DEFBUILTIN("read1", lisp_read1, 1);
     DEFBUILTIN("print", print, 1);
     DEFBUILTIN("princ", princ, 1);
-    DEFBUILTIN("eval", eval_toplevel, 1);
-    DEFBUILTIN("basic-eval", basic_eval, 1);
     DEFBUILTIN("rplaca", rplaca, 2);
     DEFBUILTIN("rplacd", rplacd, 2);
     DEFBUILTIN("two-arg-plus", plus, 2);
@@ -361,7 +373,6 @@ static void init_builtins()
     DEFBUILTIN("two-arg-times", times, 2);
     DEFBUILTIN("two-arg-divide", divide, 2);
     DEFBUILTIN("=", eq, 2);
-    DEFBUILTIN("raise", raise, 2);
     DEFBUILTIN("exit", exit, 1);
     DEFBUILTIN("get", getprop, 2);
     DEFBUILTIN("putprop", putprop, 3);
@@ -380,21 +391,38 @@ static void init_builtins()
     DEFBUILTIN("length", length, 1);
     DEFBUILTIN("two-arg-greater-than", greater_than, 2);
     DEFBUILTIN("two-arg-less-than", less_than, 2);
-    DEFBUILTIN("apply", do_apply, 2);
     DEFBUILTIN("quit", quit, 0);
-    DEFBUILTIN("funcall", funcall, FUNCALL_ARITY);
     DEFBUILTIN("gc", gc, 0);
     DEFBUILTIN("gensym", gensym, 0);
     DEFBUILTIN("set-symbol-function", set_symbol_function, 2);
     DEFBUILTIN("set-symbol-value", set_symbol_value, 2);
     DEFBUILTIN("symbol-value", symbol_value, 1);
-    DEFBUILTIN("compile", compile_toplevel, 1);
+    DEFBUILTIN("make-symbol", make_symbol, 1);
     DEFBUILTIN("nthcdr", nthcdr, 2);
     DEFBUILTIN("vm-eval", vm_eval, 1);
     DEFBUILTIN("vm-get-stack", get_vm_stack, 0);
     DEFBUILTIN("%vm-make-function", vm_make_function, 2);
-    DEFBUILTIN("open", do_open, 1);
+    DEFBUILTIN("%vm-make-simple-function", vm_make_simple_function, 2);
+    DEFBUILTIN("open", do_open, 2);
     DEFBUILTIN("close", do_close, 1);
+    DEFBUILTIN("write", lisp_write, 2);
+    if (interp->use_vm) {
+        DEFBUILTIN("apply", vm_apply, 2);
+    } else {
+        /* In VM, LOAD comes from boot code */
+        DEFBUILTIN("load", load, 1);
+        /* In VM, this is a compiler instrinsic */
+        // XXX is it funcallable?
+        DEFBUILTIN("raise", raise, 2);
+        /* In VM, this is a special case in the `call` instruction */
+        DEFBUILTIN("funcall", funcall, FUNCALL_ARITY);
+        /* This is a regular function in the VM */
+        DEFBUILTIN("compile", compile_toplevel, 1);
+        /* Actually need to implement these in the VM somehow */
+        DEFBUILTIN("apply", do_apply, 2);
+        DEFBUILTIN("eval", eval_toplevel, 1);
+        DEFBUILTIN("basic-eval", basic_eval, 1);
+    }
 #undef DEFBUILTIN
 }
 
@@ -761,6 +789,7 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(vm_ins_arity);
     GC_COPY_SYMBOL(vm_ins_fp);
     GC_COPY_SYMBOL(vm_make_function);
+    GC_COPY_SYMBOL(vm_make_simple_function);
     GC_COPY_SYMBOL(provided_arg_count);
     GC_COPY_SYMBOL(abort);
     GC_COPY_SYMBOL(closure);
@@ -1537,8 +1566,16 @@ lisp_object_t pop_return_context()
     return retval;
 }
 
+// Can't use this in the VM, but we do still need a raise() function we can call
 lisp_object_t raise(lisp_object_t sym, lisp_object_t value)
 {
+    if (interp->use_vm) {
+        vm_inst_push(&interp->vm, sym);
+        vm_inst_push(&interp->vm, value);
+        vm_inst_push(&interp->vm, LispInt(2));
+        longjmp(interp->vm.jmp_buf, 1);
+        return NIL;
+    }
     while (interp->return_stack && interp->return_stack->type != sym)
         pop_return_context();
     if (!interp->return_stack) {
@@ -1549,7 +1586,6 @@ lisp_object_t raise(lisp_object_t sym, lisp_object_t value)
     }
     interp->return_stack->return_value = value;
     longjmp(interp->return_stack->buf, 1);
-    // Should also reset stack frame in lexical scope world
     return NIL; /* we never actually return */
 }
 
@@ -1766,7 +1802,8 @@ lisp_object_t evaltagbody(lisp_object_t e, lisp_object_t a)
         int v = setjmp(interp->return_stack->buf);
         if (v != 0)
             i = v - 1;
-        eval(ctxt->tagbody_forms[i], a);
+        if (i < ctxt->tagbody_forms_len)
+            eval(ctxt->tagbody_forms[i], a);
     }
     pop_return_context();
     return NIL;
@@ -2155,7 +2192,7 @@ void load_str(char *str)
 
 lisp_object_t lisp_read1(lisp_object_t stream)
 {
-    return parse1(NativePtr(svref_c(stream, 2)));
+    return parse1(NativePtr(svref_c(stream, 3)));
 }
 
 lisp_object_t lisp_read()
@@ -2293,16 +2330,19 @@ lisp_object_t save_image(lisp_object_t name)
 lisp_object_t errno_sym()
 {
     switch (errno) {
+        // Better to arrange these in numerical order and get all of them from errno-base.h
         DEFINE_ERRNO_SYM(EACCES);
+        DEFINE_ERRNO_SYM(EBADF);
         DEFINE_ERRNO_SYM(ENOENT);
         DEFINE_ERRNO_SYM(EPERM);
     default:
+        printf("errno = %d", errno);
         return sym("unknown-errno");
     }
 }
 #undef DEFINE_ERRNO_SYM
 
-lisp_object_t do_open(lisp_object_t filename)
+lisp_object_t do_open_for_reading(lisp_object_t filename)
 {
     char *str;
     size_t len;
@@ -2312,12 +2352,40 @@ lisp_object_t do_open(lisp_object_t filename)
         raise(errno_sym(), filename);
     struct text_stream *ts = malloc(sizeof(struct text_stream));
     text_stream_init_fd(ts, fd);
-    lisp_object_t stream = allocate_vector(LispInt(4));
+    lisp_object_t stream = allocate_vector(LispInt(5));
     svref_set(stream, LispInt(0), sym("stream"));
     svref_set(stream, LispInt(1), LispInt(fd));
-    svref_set(stream, LispInt(2), make_native_pointer(ts));
-    svref_set(stream, LispInt(3), sym(":open"));
+    svref_set(stream, LispInt(2), sym(":write"));
+    svref_set(stream, LispInt(3), make_native_pointer(ts));
+    svref_set(stream, LispInt(4), sym(":open"));
     return stream;
+}
+
+lisp_object_t do_open_for_writing(lisp_object_t filename)
+{
+    char *str;
+    size_t len;
+    get_string_parts(filename, &len, &str);
+    int fd = open(str, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
+    if (fd < 0)
+        raise(errno_sym(), filename);
+    lisp_object_t stream = allocate_vector(LispInt(5));
+    svref_set(stream, LispInt(0), sym("stream"));
+    svref_set(stream, LispInt(1), LispInt(fd));
+    svref_set(stream, LispInt(2), sym(":write"));
+    svref_set(stream, LispInt(3), NIL);
+    svref_set(stream, LispInt(4), sym(":open"));
+    return stream;
+}
+
+lisp_object_t do_open(lisp_object_t filename, lisp_object_t direction)
+{
+    if (direction == sym(":read"))
+        return do_open_for_reading(filename);
+    else if (direction == sym(":write"))
+        return do_open_for_writing(filename);
+    else
+        abort();
 }
 
 lisp_object_t do_close(lisp_object_t stream)
@@ -2325,12 +2393,33 @@ lisp_object_t do_close(lisp_object_t stream)
     if (!(vectorp(stream) != NIL && length_c(stream) == 4 && svref_c(stream, 0) == sym("stream")))
         raise(sym("bad-stream"), stream);
     int rc = close(Int(svref_c(stream, 1)));
+    if (rc < 0) {
+        lisp_object_t s = errno_sym();
+        printf("OHNO!!!!\n");
+        TRACE(s);
+        raise(s, stream);
+    }
+    if (svref_c(stream, 3) != NIL) {
+        struct text_stream *ts = (struct text_stream *)NativePtr(svref_c(stream, 2));
+        free(ts);
+    }
+    svref_set(stream, LispInt(4), sym(":closed"));
+    return stream;
+}
+
+lisp_object_t lisp_write(lisp_object_t obj, lisp_object_t stream)
+{
+    struct string_buffer sb;
+    string_buffer_init(&sb);
+    int fd = Int(svref_c(stream, 1));
+    print_object_to_buffer(obj, &sb);
+    char *str = string_buffer_to_string(&sb);
+    string_buffer_free_links(&sb);
+    int rc = write(fd, str, strlen(str));
+    free(str);
     if (rc < 0)
         raise(errno_sym(), stream);
-    struct text_stream *ts = (struct text_stream *)NativePtr(svref_c(stream, 2));
-    free(ts);
-    svref_set(stream, LispInt(3), sym(":closed"));
-    return stream;
+    return T;
 }
 
 // Seems like this may be dodgy in some GC-related way, but can't put my

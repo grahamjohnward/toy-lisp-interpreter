@@ -1104,6 +1104,17 @@ static void test_tagbody_condition_case()
     free_interpreter();
 }
 
+static void test_tagbody_tag_as_last_form()
+{
+    START_OF_TEST("tagbody_tag_as_last_form");
+    init_interpreter_for_tests();
+    lisp_object_t result = test_eval_string_helper("(let ((x 14)) (tagbody foo (set 'x (two-arg-plus x 1)) (go frob) (set 'x (two-arg-plus x 1)) frob) x)");
+    char *str = print_object(result);
+    check(strcmp("15", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
 static void test_let()
 {
     START_OF_TEST("let");
@@ -1960,13 +1971,22 @@ void test_eval_function_pointer()
 
 void test_native_pointer()
 {
-    START_OF_TEST("test_native_pointer");
+    START_OF_TEST("native_pointer");
     init_interpreter_for_tests();
     lisp_object_t result = test_eval_string_helper("#p0x12340");
     check(result = 0x12340 | NATIVE_POINTER_TYPE, "tag");
     char *str = print_object(result);
     check(strcmp("#p0x12340", str) == 0, "print");
     free(str);
+    free_interpreter();
+}
+
+void test_make_symbol()
+{
+    START_OF_TEST("make_symbol");
+    init_interpreter_for_tests();
+    lisp_object_t s = test_eval_string_helper("(make-symbol \"foo\")");
+    check(s == sym("foo"), "ok");
     free_interpreter();
 }
 
@@ -2053,6 +2073,7 @@ int main(int argc, char **argv)
     test_tagbody_bug();
     test_tagbody_returns_nil();
     test_tagbody_condition_case();
+    test_tagbody_tag_as_last_form();
     test_let();
     test_macroexpand1();
     test_macroexpand();
@@ -2114,6 +2135,7 @@ int main(int argc, char **argv)
     test_vm_inst_raise();
     test_eval_function_pointer();
     test_native_pointer();
+    test_make_symbol();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

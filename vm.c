@@ -2,6 +2,7 @@
 #include "interp.h"
 
 #include <assert.h>
+#include <setjmp.h>
 #include <stdio.h>
 
 static void initialize_data_stack(struct vm *vm)
@@ -23,6 +24,7 @@ void vm_init(struct vm *vm, size_t data_stack_size)
     vm->registers.instruction_pointer = 0;
     vm->registers.environment = NIL;
     vm->registers.tags = NIL;
+    vm->vm_trace = 0;
     initialize_data_stack(vm);
 }
 
@@ -95,36 +97,61 @@ lisp_object_t vm_peek(struct vm *vm)
     return vm->top_of_data_stack[-1];
 }
 
+#define VM_TRACE(format, ...)        \
+    if (interp->vm.vm_trace) {       \
+        printf(format, __VA_ARGS__); \
+    }
+
 void vm_run_one_instruction(struct vm *vm)
 {
     // vm_print_stack(vm);
     //    TRACE(vm->registers.instruction_pointer);
     //    TRACE(vm->registers.code_vector);
+    if (vm->registers.instruction_pointer == 0 && vm->vm_trace)
+        TRACE(vm->registers.code_vector);
     lisp_object_t instruction = svref(vm->registers.code_vector, vm->registers.instruction_pointer);
     lisp_object_t arity = getprop(instruction, interp->syms.vm_ins_arity);
-    // TRACE(instruction);
+
     if (arity == NIL)
         abort();
     lisp_object_t lisp_function_pointer = getprop(instruction, interp->syms.vm_ins_fp);
     if (lisp_function_pointer == NIL)
         abort();
     void (*fp)() = FunctionPtr(lisp_function_pointer);
+    char *str0 = print_object(vm->registers.instruction_pointer);
+    char *str1 = print_object(instruction);
+    char *str2 = NULL;
+    char *str3 = NULL;
     if (arity == 0) {
         vm->registers.instruction_pointer += LispInt(1);
+        VM_TRACE("; %p %s\t%s\n", (void *)vm->registers.code_vector, str0, str1);
         ((void (*)(struct vm *))fp)(vm);
     } else if (arity == LispInt(1)) {
         lisp_object_t arg = svref(vm->registers.code_vector, vm->registers.instruction_pointer + LispInt(1));
         vm->registers.instruction_pointer += LispInt(2);
+        str2 = print_object(arg);
+        VM_TRACE("; %p %s\t%s %s\n", (void *)vm->registers.code_vector, str0, str1, str2);
         ((void (*)(struct vm *, lisp_object_t))fp)(vm, arg);
     } else if (arity == LispInt(2)) {
         lisp_object_t arg1 = svref(vm->registers.code_vector, vm->registers.instruction_pointer + LispInt(1));
         lisp_object_t arg2 = svref(vm->registers.code_vector, vm->registers.instruction_pointer + LispInt(2));
         vm->registers.instruction_pointer += LispInt(3);
+        str2 = print_object(arg1);
+        str3 = print_object(arg2);
+        VM_TRACE("; %p %s\t%s %s %s\n", (void *)vm->registers.code_vector, str0, str1, str2, str3);
         ((void (*)(struct vm *, lisp_object_t, lisp_object_t))fp)(vm, arg1, arg2);
     } else {
         abort();
     }
+    free(str0);
+    free(str1);
+    if (str2)
+        free(str2);
+    if (str3)
+        free(str3);
 }
+
+#undef VM_TRACE
 
 void vm_run(struct vm *vm)
 {
@@ -136,8 +163,62 @@ lisp_object_t vm_eval(lisp_object_t code_vector)
 {
     interp->vm.registers.code_vector = code_vector;
     interp->vm.registers.instruction_pointer = 0;
+    interp->use_vm = 1;
     vm_run(&interp->vm);
+    //    interp->use_vm = 0;
     return vm_pop(&interp->vm);
+}
+
+// Ultimately this should be VM code, not a built-in function.  As it stands
+// we are calling from Lisp -> C -> Lisp, which will make exceptions tricky
+lisp_object_t vm_apply(lisp_object_t function, lisp_object_t args)
+{
+    int argcount = 0;
+    for (; args != NIL; args = cdr(args)) {
+        vm_inst_push(&interp->vm, car(args));
+        argcount++;
+    }
+    vm_inst_push(&interp->vm, LispInt(argcount));
+    vm_inst_push(&interp->vm, function);
+    vm_inst_call(&interp->vm);
+    return vm_pop(&interp->vm);
+}
+
+// This is CL-style APPLY, but the interpreter's APPLY works differently
+lisp_object_t vm_apply_CL(lisp_object_t function, lisp_object_t arg, lisp_object_t rest)
+{
+    // this should invoke vm_inst_call so that special-cases there can be apply'ed
+    // stack needs to look like
+    // function
+    // arg count
+    // argN
+    // argN-1
+    // ...
+    // arg
+    int argcount = 0;
+    vm_inst_push(&interp->vm, arg);
+    // We stop when rest looks like this:
+    // (foo . nil)
+    // (foo . (bar . (baz . nil))
+
+    if (rest != NIL) {
+        for (; cdr(rest) != NIL; rest = cdr(rest)) {
+            vm_inst_push(&interp->vm, car(rest));
+            argcount++;
+        }
+        lisp_object_t last_arg = car(rest);
+        if (consp(last_arg) == NIL)
+            abort(); // should really be a normal exception
+
+        for (; last_arg != NIL; last_arg = cdr(last_arg)) {
+            vm_inst_push(&interp->vm, car(last_arg));
+            argcount++;
+        }
+    }
+    vm_inst_push(&interp->vm, LispInt(argcount));
+    vm_inst_push(&interp->vm, function);
+    vm_inst_call(&interp->vm);
+    return NIL;
 }
 
 /** Instructions **/
@@ -195,8 +276,24 @@ static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
     lisp_object_t provided_arity = vm_pop(vm);
     lisp_object_t arity = (int64_t)caddr(actual_function);
     if (provided_arity != arity)
-        abort();
-    int arity_c = Int(arity);
+        abort(); // Should use new exception-raising mechanism
+    int v = setjmp(vm->jmp_buf);
+    if (v != 0) {
+        // do some stuff
+        // Somehow we need to pass a symbol and a lisp object back from raise()
+        // Maybe a new register for this?
+        // So raise() needs to do
+        // longjmp(env);
+        // So it needs to get that env from somewhere
+        // Ultimately we are going to call vm_inst_raise
+
+        // Maybe our new raise() implementation could do these steps?
+        // printf("OHNO %d\n", v);
+        // Why is vm getting bashed here?
+        vm_inst_raise(vm);
+        return;
+    }
+    int arity_c = Int((int)arity);
     switch (arity_c) {
     case 0:
         result = ((lisp_object_t (*)())fp)();
@@ -217,6 +314,7 @@ static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
         result = ((lisp_object_t (*)(lisp_object_t, lisp_object_t, lisp_object_t))fp)(arg1, arg2, arg3);
         break;
     default:
+        printf("Bad arity: %d\n", arity_c);
         abort();
     }
     vm_inst_push(vm, result);
@@ -246,16 +344,14 @@ static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
     if (rest_args != NIL) {
         /* arity does not include the rest args */
         int rest_arg_count = n_args_int - arity_int;
-        for (int i = 0; i < rest_arg_count; i++) {
+        for (int i = 0; i < rest_arg_count; i++)
             actual_rest_args = cons(vm_pop(vm), actual_rest_args);
-            TRACE(actual_rest_args);
-        }
     }
     for (int i = Int(arity); i > 0; i--) {
         svref_set(env, LispInt(i), vm_pop(vm));
     }
     if (rest_args != NIL)
-        svref_set(env, arity + 0x10, actual_rest_args);
+        svref_set(env, arity + LispInt(1), actual_rest_args);
     svref_set(env, 0, car(fnptr->actual_function));
     *vm->call_stack_pointer = vm->registers;
     vm->call_stack_pointer++;
@@ -272,6 +368,7 @@ void vm_inst_call(struct vm *vm)
 start:
     fn = vm_pop(vm);
     if (fn == sym("funcall")) {
+        // XXX does #'funcall work??  I think it does!
         vm_setup_funcall(vm);
         goto start;
     }
@@ -285,6 +382,9 @@ start:
     } else if (fnptr->kind == interp->syms.lambda) {
         vm_call_lambda(vm, fnptr);
     } else {
+        char *str = print_object(fn);
+        printf("Bad function: %s\n", str);
+        free(str);
         abort();
     }
 }
@@ -340,13 +440,23 @@ void vm_inst_jmp_if_nil(struct vm *vm, lisp_object_t dest)
         vm->registers.instruction_pointer = dest;
 }
 
-lisp_object_t vm_make_function(lisp_object_t arg_info, lisp_object_t code)
+lisp_object_t vm_make_function2(lisp_object_t arg_info, lisp_object_t code, lisp_object_t env)
 {
     lisp_object_t fn = allocate_function();
     struct lisp_function *fnptr = LispFunctionPtr(fn);
-    fnptr->actual_function = List(interp->vm.registers.environment, arg_info, code);
+    fnptr->actual_function = List(env, arg_info, code);
     fnptr->kind = interp->syms.lambda;
     return fn;
+}
+
+lisp_object_t vm_make_function(lisp_object_t arg_info, lisp_object_t code)
+{
+    return vm_make_function2(arg_info, code, interp->vm.registers.environment);
+}
+
+lisp_object_t vm_make_simple_function(lisp_object_t arg_info, lisp_object_t code)
+{
+    return vm_make_function2(arg_info, code, NIL);
 }
 
 static lisp_object_t frame_has_tag(struct vm_call_stack_frame *frame, lisp_object_t tag)
@@ -390,6 +500,7 @@ void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
             return;
         }
     }
+    TRACE(tag);
     abort();
 }
 

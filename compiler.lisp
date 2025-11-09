@@ -32,9 +32,16 @@
 	  (i 0))
       (dolist (obj list)
 	(if (consp obj)
-	    (when (eq (car obj) 'target)
-	      (set-svref vector i (cdr (assoc (cadr obj) label-alist)))
-	      (incf i))
+	    ;; XXX bug here
+	    (let ((foo (car obj)))
+	      (cond ((eq foo 'target)
+		     (progn
+		       (set-svref vector i (cdr (assoc (cadr obj) label-alist)))
+		       (incf i)))
+		    ((eq foo 'literally)
+		     (progn
+		       (set-svref vector i (cadr obj))
+		       (incf i)))))
 	    (progn
 	      (set-svref vector i obj)
 	      (incf i))))
@@ -131,33 +138,89 @@
       (incf n)))
   nil)
 
-(defun convert-quasiquote1 (expr)
-  (cond ((symbolp expr) `(quote ,expr))
-	((integerp expr) expr)
-	((consp expr)
-	 (cond ((and (symbolp (car expr)) (eq (car expr) 'unquote))
-		(convert-quasiquote (cadr expr)))
-	       ((and (consp (cdr expr)) (consp (cadr expr))
-		     (eq (caadr expr) 'unquote-splice))
-		`(cons ,(convert-quasiquote1 (car expr))
-		       ,(convert-quasiquote1 (cadr (cadr expr)))))
-	       (t 
-		`(cons ,(convert-quasiquote1 (car expr))
-		       ,(convert-quasiquote1 (cdr expr))))))
-	(t (raise 'unhandled-quasiquote-case expr))))
+;; Having these three symbols in the code wreaks havoc with quasiquote
+;; expansion:
+(defparameter _quasiquote (make-symbol "quasiquote"))
+(defparameter _unquote (make-symbol "unquote"))
+(defparameter _unquote-splice (make-symbol "unquote-splice"))
 
-(defun convert-quasiquote (expr)
-  (cond ((and (consp expr) (eq (car expr) 'quasiquote))
-	 (convert-quasiquote1 (cadr expr)))
-	((consp expr)
-	 (cons (convert-quasiquote (car expr))
-	       (convert-quasiquote (cdr expr))))
-	((vectorp expr)
-	 (let ((result (make-vector (length expr))))
-	   (dotimes (i (length expr))
-	     (set-svref result i (convert-quasiquote (svref expr i))))
-	   result))
-	(t expr)))
+(defparameter *depth* 0)
+
+(defparameter *indent-offset* 2)
+
+(defmacro trace1 (v &optional message)
+  `(let ((value ,v))
+     (%trace1 ',v value ,message)))
+
+(defun %trace1 (v value &optional message)
+  (dotimes (i *depth*)
+    (princ " "))
+  (if message
+      (print (list :trace message v value))
+      (print (list :trace v value))))
+
+(defun convert-quasiquote (expr depth)
+;  (trace1 expr)
+  (setq *depth* (+ *depth* *indent-offset*))
+  (let ((result (%convert-quasiquote expr depth)))
+    (setq *depth* (- *depth* *indent-offset*))
+;    (trace1 result)
+    result))
+
+(defun %convert-quasiquote (expr depth)
+  (cond ((= depth 0)
+	 ;;Regular, non-quasiquoted code
+	 (cond ((vectorp expr)
+		(let ((new-vector (make-vector (length expr))))
+		  (dotimes (i (length expr))
+		    (set-svref new-vector i
+			       (convert-quasiquote (svref expr i) depth)))
+		  new-vector))
+	       ((consp expr)
+		(cond ((eq (car expr) _unquote)
+		       (progn
+			 (print (list :bad expr))
+			 (assert (eq :bog :boo))))	;error
+		      ((eq (car expr) _quasiquote)
+		       (convert-quasiquote (cadr expr) (+ 1 depth)))
+		      (t (cons (convert-quasiquote (car expr) depth)
+			       (convert-quasiquote (cdr expr) depth)))))
+	       ((symbolp expr)
+		expr)
+	       (t expr)))
+	((and (consp expr)
+	      (consp (car expr))
+	      (eq (caar expr) 'unquote-splice))
+	 ;; ((unquote-splice <unquoted>) <rest>)
+	 (cond ((= depth 1)
+		(let ((unquoted (car (cdar expr)))
+		      (rest (cdr expr)))
+		  (let ((var (gensym)))
+		    `(let ((,var ,(convert-quasiquote unquoted 0)))
+		       (append ,var ,(convert-quasiquote rest depth))))))
+	       (t
+		`((,_unquote-splice
+		   ,(convert-quasiquote (cdar expr) (- depth 1)))))))
+	((> depth 0)
+	 (cond ((vectorp expr)
+		`(apply #'vector ,@(convert-quasiquote (cdr expr) depth)))
+	       ((consp expr)
+		(cond ((eq (car expr) _unquote)
+		       (convert-quasiquote (cadr expr) (- depth 1)))
+		      ((eq (car expr) 'unquote-splice)
+		       (progn
+			 (trace expr)
+			 (convert-quasiquote (cadr expr) (- depth 1))))
+		      ((eq (car expr) 'quasiquote)
+		       `(cons _quasiquote
+			      ,(convert-quasiquote (cdr expr) (+ depth 1))))
+		      (t
+		       `(cons ,(convert-quasiquote (car expr) depth)
+			      ,(convert-quasiquote (cdr expr) depth)))))
+	       ((symbolp expr)
+		`(quote ,expr))
+	       (t expr)))
+	(t (assert nil))))
 
 (defun compile4-list (forms ctxt)
   (if (null forms)
@@ -370,16 +433,34 @@
       (setq result (append (append result pass-arg-count) more-stuff))
       result)))
 
+(defparameter *depth* 0)
+
+(defparameter *trace-compile* nil)
+
 (defun compile4 (expr ctxt)
+  (when *trace-compile*
+    (dotimes (i *depth*)
+      (princ " "))
+    (print expr)
+    (incf *depth*))
+  (let ((result (%compile4 expr ctxt)))
+    (when *trace-compile*
+      (print result)
+      (incf *depth* -1))
+    result))
+
+(defun %compile4 (expr ctxt)
   (cond ((atom expr) 
 	 (cond ((or (stringp expr) (integerp expr) (eq t expr) (eq nil expr))
 		`(push ,expr))
 	       ((symbolp expr)
 		(let ((lookup-result (lexical-context-lookup ctxt expr)))
 		  (if lookup-result
-		      `(get ,@lookup-result)
+		      (progn
+;;			(print (list expr lookup-result))
+			`(get ,@lookup-result))
 		      `(push ,expr push 1 push symbol-value call))))
-	       (t (assert nil))))
+	       (t `(push ,expr))))
 	((symbolp (car expr))
 	 (let ((sym (car expr)))
 	   (cond ((eq sym 'function)
@@ -390,7 +471,7 @@
 		 ((eq sym 'progn)
 		  (compile4-progn expr ctxt))
 		 ((eq sym 'quote)
-		  `(push ,(cadr expr)))
+		  `(push (literally ,(cadr expr))))
 		 ((eq sym 'if)
 		  (compile4-if expr ctxt))
 		 ((eq sym 'let)
@@ -476,10 +557,10 @@
   (cond ((consp form)
 	 (if (symbolp (car form))
 	     (let ((symbol (car form)))
-	       (cond ((eq symbol 'quasiquote)
+	       (cond ((eq symbol _quasiquote)
 		      `(,symbol (macroexpand_all_quasiquote form (+ depth 1))))
-		     ((or (eq symbol 'unquote)
-			  (eq symbol 'unquote-splice))
+		     ((or (eq symbol _unquote)
+			  (eq symbol _unquote-splice))
 		      (if (= depth 1)
 			  `(,symbol ,(macroexpand-all (cadr form)))
 			  `(,symbol ,(macroexpand-all-quasiquote (cadr form)
@@ -522,7 +603,7 @@
 	   (let ((clauses (second form))
 		 (body (cdr (cdr form))))
 	     `(let ,(macroexpand-all-let clauses)
-		,@(macroexpand-all-list body))))
+		,@(macroexpand-all-list body)))) ;not working?
 	  ((eq sym 'quote) form)
 	  ((eq sym 'quasiquote)
 	   `(,sym ,@(macroexpand-all-quasiquote (cdr form) 1)))
@@ -533,4 +614,6 @@
 ;; Ultimately this should simply be called `compile`
 (defun compile4-toplevel (expr)
   (let ((ctxt (make-lexical-context)))
-    (assemble (compile4 (convert-quasiquote (macroexpand-all expr)) ctxt))))
+    (condition-case e
+	(assemble (compile4 (convert-quasiquote (macroexpand-all expr) 0) ctxt))
+      (assertion-failed (print expr)))))

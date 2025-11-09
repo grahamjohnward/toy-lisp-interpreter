@@ -2,6 +2,8 @@
 #define VM_H
 #include "lisp.h"
 
+#include <setjmp.h>
+
 #define LISP_VM_STACK_SIZE 1024
 
 struct vm_call_stack_frame {
@@ -21,6 +23,9 @@ struct vm {
     struct vm_call_stack_frame *call_stack_pointer;
     /* Registers */
     struct vm_call_stack_frame registers;
+    /* For throwing exceptions from built-in functions */
+    jmp_buf jmp_buf;
+    int vm_trace;
 };
 
 void vm_init(struct vm *vm, size_t size);

@@ -1,21 +1,26 @@
+#include "interp.h"
 #include "lisp.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 struct interpreter_settings {
     size_t heap_size;
     char *image;
     int use_vm;
+    char *vmboot;
 };
 
 static struct option options[] = {
     { "heap-size", optional_argument, 0, 1 },
     { "image", optional_argument, 0, 2 },
     { "use-vm", no_argument, 0, 3 },
+    { "vmboot", optional_argument, 0, 4 },
     { 0, 0, 0, 0 }
 };
 
@@ -78,6 +83,10 @@ static int parse_args(int argc, char **argv, struct interpreter_settings *settin
         case 3:
             settings->use_vm = 1;
             break;
+        case 4:
+            settings->vmboot = malloc(strlen(optarg));
+            strcpy(settings->vmboot, optarg);
+            break;
         default:
             abort();
         }
@@ -93,10 +102,33 @@ int main(int argc, char **argv)
         init_interpeter_from_image(settings.image);
     else
         init_interpreter2(settings.heap_size, settings.use_vm);
-    for (; i < argc; i++)
-        load_str(argv[i]);
+    if (settings.use_vm) {
+        int fd = open(settings.vmboot, O_RDONLY);
+        if (fd < 0) {
+            perror(settings.vmboot);
+            abort();
+        }
+        struct text_stream ts;
+        text_stream_init_fd(&ts, fd);
+        lisp_object_t bootcode = parse1(&ts);
+        close(fd);
+        text_stream_free(&ts);
+        interp->vm.registers.code_vector = bootcode;
+        lisp_object_t arglist = allocate_vector(LispInt(argc - i));
+        for (int argidx = 0; i < argc; i++, argidx++) {
+            lisp_object_t string = allocate_string(strlen(argv[i]) + 1, argv[i]);
+            svref_set(arglist, LispInt(argidx), string);
+        }
+        vm_inst_push(&interp->vm, arglist);
+        vm_run(&interp->vm);
+    } else {
+        for (; i < argc; i++)
+            load_str(argv[i]);
+    }
     free_interpreter();
     if (settings.image)
         free(settings.image);
+    if (settings.vmboot)
+        free(settings.vmboot);
     return 0;
 }

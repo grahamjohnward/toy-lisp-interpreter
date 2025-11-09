@@ -36,6 +36,7 @@ struct syms {
     lisp_object_t vm_ins_arity;
     lisp_object_t vm_ins_fp;
     lisp_object_t vm_make_function;
+    lisp_object_t vm_make_simple_function;
     lisp_object_t provided_arg_count;
     lisp_object_t abort;
     lisp_object_t jmp;

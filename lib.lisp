@@ -136,17 +136,17 @@
 
 (defmacro dotimes (var-and-max &body thing)
   (let ((var (car var-and-max))
-	  (max (car (cdr var-and-max))))
-      `(let ((,var nil))
-	 (tagbody
-	    (setq ,var 0)
-	    iterate
-	    (when (= ,var ,max)
-	      (go done))
-	    ,@thing
-	    (setq ,var (+ 1 ,var))
-	    (go iterate)
-	    done))))
+	(max (car (cdr var-and-max))))
+    `(let ((,var nil))
+       (tagbody
+	  (setq ,var 0)
+	iterate
+	  (when (= ,var ,max)
+	    (go done))
+	  ,@thing
+	  (setq ,var (+ 1 ,var))
+	  (go iterate)
+	done))))
 
 (defmacro dolist (args &body body)
   (let ((var (car args))

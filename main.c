@@ -84,7 +84,7 @@ static int parse_args(int argc, char **argv, struct interpreter_settings *settin
             settings->use_vm = 1;
             break;
         case 4:
-            settings->vmboot = malloc(strlen(optarg));
+            settings->vmboot = malloc(strlen(optarg) + 1);
             strcpy(settings->vmboot, optarg);
             break;
         default:

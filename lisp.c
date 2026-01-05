@@ -94,24 +94,21 @@ lisp_object_t eq(lisp_object_t o1, lisp_object_t o2)
     return o1 == o2 ? T : NIL;
 }
 
-static lisp_object_t istype(lisp_object_t obj, uint64_t type)
-{
-    return (obj & TYPE_MASK) == type ? T : NIL;
-}
+#define ISTYPE(obj, type) ((((obj) & TYPE_MASK) == (type)) ? T : NIL)
 
 lisp_object_t stringp(lisp_object_t obj)
 {
-    return istype(obj, STRING_TYPE);
+    return ISTYPE(obj, STRING_TYPE);
 }
 
 lisp_object_t symbolp(lisp_object_t obj)
 {
-    return istype(obj, SYMBOL_TYPE);
+    return ISTYPE(obj, SYMBOL_TYPE);
 }
 
 lisp_object_t functionp(lisp_object_t obj)
 {
-    return istype(obj, FUNCTION_TYPE);
+    return ISTYPE(obj, FUNCTION_TYPE);
 }
 
 void check_integer(int64_t obj)
@@ -128,13 +125,15 @@ lisp_object_t integerp(lisp_object_t obj)
 
 lisp_object_t consp(lisp_object_t obj)
 {
-    return istype(obj, CONS_TYPE);
+    return ISTYPE(obj, CONS_TYPE);
 }
 
 lisp_object_t vectorp(lisp_object_t obj)
 {
-    return istype(obj, VECTOR_TYPE);
+    return ISTYPE(obj, VECTOR_TYPE);
 }
+
+#undef ISTYPE
 
 lisp_object_t function_pointer_p(lisp_object_t obj)
 {

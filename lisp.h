@@ -169,6 +169,7 @@ struct string_header {
 struct lisp_function {
     object_header_t header;
     lisp_object_t kind;
+    lisp_object_t name;
     lisp_object_t actual_function;
 };
 

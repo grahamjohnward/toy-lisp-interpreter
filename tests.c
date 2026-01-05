@@ -49,7 +49,7 @@ static void parse_wrapper(char *str, void (*callback)(void *, lisp_object_t), vo
 
 static void init_interpreter_for_tests()
 {
-    init_interpreter(65536);
+    init_interpreter(131072);
 }
 
 static int should_do_test(char *name)
@@ -982,7 +982,7 @@ static void test_print_function()
 {
     START_OF_TEST("print_function");
     test_eval_helper("(function (lambda (x) (cons x x)))", "#<function>");
-    test_eval_helper("(function cons)", "#<function>");
+    test_eval_helper("(function cons)", "#<function cons>");
 }
 
 static void test_unbound_variable()
@@ -1806,6 +1806,38 @@ static void test_vm_function()
     free_interpreter();
 }
 
+static void test_vm_function_return_from()
+{
+    START_OF_TEST("vm_function_return_from");
+    init_interpreter(1024 * 1024 * 4);
+    /* (defun foo (x) (return-from foo (cons x :bog))) */
+    lisp_object_t lambda_code = parse1_wrapper("#(set-tag g19 23 push g19 get 0 1 push :bog push 1 push symbol-value call push 2 push cons call push 2 raise nop ret)");
+    lisp_object_t fn = allocate_function();
+    struct lisp_function *fnptr = LispFunctionPtr(fn);
+    fnptr->kind = interp->syms.lambda;
+    lisp_object_t arg_info = parse1_wrapper("#(nil 1)");
+    fnptr->actual_function = List(NIL, arg_info, lambda_code);
+    struct symbol *symptr = SymbolPtr(sym("foo"));
+    symptr->function = fn;
+
+    /* Some code to call the function */
+    lisp_object_t calling_code = parse1_wrapper("#(push boo push 1 push foo call)");
+
+    /* Run the code */
+    interp->vm.registers.code_vector = calling_code;
+    vm_run(&interp->vm);
+
+    /* Check the result */
+    lisp_object_t result = vm_peek(&interp->vm);
+    char *str = print_object(result);
+    printf("%s\n", str);
+    check(strcmp("(boo . :bog)", str) == 0, "ok");
+    free(str);
+    vm_print_stack(&interp->vm);
+
+    free_interpreter();
+}
+
 static void test_vm_inst_jmp()
 {
     START_OF_TEST("vm_inst_jmp");
@@ -2125,6 +2157,7 @@ int main(int argc, char **argv)
     test_vm_inst_call_lambda();
     test_vm_inst_get_set();
     test_vm_function();
+    test_vm_function_return_from();
     test_vm_inst_jmp();
     test_vm_inst_jmp_if_nil1();
     test_vm_inst_jmp_if_nil2();

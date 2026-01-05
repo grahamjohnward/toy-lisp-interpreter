@@ -69,7 +69,7 @@ static int parse_args(int argc, char **argv, struct interpreter_settings *settin
     int c;
     while (1) {
         int option_index;
-        c = getopt_long_only(argc, argv, "", options, &option_index);
+        c = getopt_long_only(argc, argv, "+", options, &option_index);
         if (c == -1)
             break;
         switch (c) {

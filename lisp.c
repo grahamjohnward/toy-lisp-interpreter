@@ -155,7 +155,8 @@ static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, lisp
     if (index >= v->len) {
         // This should be an exception
         printf("Index %zu out of bounds for vector (len=%lu)\n", (uint64_t)Int(index), (uint64_t)Int(v->len));
-        abort();
+        raise(sym("vector-bounds"), cons(index, vector));
+        // abort();
     }
     lisp_object_t *storage = (lisp_object_t *)(((char *)v) + sizeof(struct vector));
     return storage;
@@ -200,11 +201,13 @@ lisp_object_t allocate_vector(lisp_object_t size)
 
 static void define_built_in_function(char *symbol_name, void (*function_pointer)(void), int arity)
 {
-    struct symbol *symptr = SymbolPtr(sym(symbol_name));
+    lisp_object_t name = sym(symbol_name);
+    struct symbol *symptr = SymbolPtr(name);
     lisp_object_t fp = ((uint64_t)function_pointer) | FUNCTION_POINTER_TYPE;
     lisp_object_t fn = allocate_function();
     struct lisp_function *fnptr = LispFunctionPtr(fn);
     fnptr->kind = interp->syms.built_in_function;
+    fnptr->name = name;
     fnptr->actual_function = cons(interp->syms.built_in_function, cons(fp, cons(LispInt(arity), NIL)));
     symptr->function = fn;
 }
@@ -271,6 +274,7 @@ static void init_symbols()
     interp->syms.tag_jmp = sym("tag-jmp");
     interp->syms.nop = sym("nop");
     interp->syms.raise = sym("raise");
+    interp->syms.funcall = sym("funcall");
 }
 
 lisp_object_t length(lisp_object_t seq);
@@ -587,6 +591,7 @@ lisp_object_t allocate_function()
     heap->freeptr += sizeof(struct lisp_function);
     fn->header = FUNCTION_TYPE;
     fn->kind = NIL;
+    fn->name = NIL;
     fn->actual_function = NIL;
     return (uint64_t)fn | FUNCTION_TYPE;
 }
@@ -799,6 +804,7 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(tag_jmp);
     GC_COPY_SYMBOL(nop);
     GC_COPY_SYMBOL(raise);
+    GC_COPY_SYMBOL(funcall);
 #undef GC_COPY_SYMBOL
     /* Update pointers inside to-space objects */
     char *scanptr;
@@ -828,6 +834,7 @@ lisp_object_t gc()
         } else if (*headerptr == FUNCTION_TYPE) {
             struct lisp_function *fnptr = (struct lisp_function *)scanptr;
             gc_copy(heap, &fnptr->kind);
+            gc_copy(heap, &fnptr->name);
             gc_copy(heap, &fnptr->actual_function);
             scanptr += sizeof(struct lisp_function);
         } else {
@@ -1331,10 +1338,16 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
         string_buffer_append(sb, buf);
     } else if (functionp(obj) != NIL) {
         struct lisp_function *fnptr = LispFunctionPtr(obj);
-        if (fnptr->kind == interp->syms.closure)
-            string_buffer_append(sb, "#<closure>");
-        else
-            string_buffer_append(sb, "#<function>");
+        if (fnptr->name != NIL) {
+            string_buffer_append(sb, "#<function ");
+            print_object_to_buffer(fnptr->name, sb);
+            string_buffer_append(sb, ">");
+        } else {
+            if (fnptr->kind == interp->syms.closure)
+                string_buffer_append(sb, "#<closure>");
+            else
+                string_buffer_append(sb, "#<function>");
+        }
     }
 }
 
@@ -1570,9 +1583,25 @@ lisp_object_t pop_return_context()
 lisp_object_t raise(lisp_object_t sym, lisp_object_t value)
 {
     if (interp->use_vm) {
+        // So what do we want to do here?
+        // 1.  Restore ALL registers; this is like setjmp/longjmp
+        // 2.  Uh ... that's it?
+        // I suspect this will all be easier if condition-case is inside a lambda:
+        // (condition-case e
+        //    (do-stuff)
+        //   (some-error (do-something-else)))
+        // =>
+        //   (condition-case e
+        //      (funcall #'(lambda ()
+        //        (do-stuff))
+        //     (some-error (do-something-else)))
+        // Then we are always handling the error a step up the stack from where it is thrown
+
         vm_inst_push(&interp->vm, sym);
         vm_inst_push(&interp->vm, value);
         vm_inst_push(&interp->vm, LispInt(2));
+        // The split between what happens in here and what happens after the longjmp
+        // is interesting (?)
         longjmp(interp->vm.jmp_buf, 1);
         return NIL;
     }
@@ -1728,7 +1757,9 @@ lisp_object_t symbol_value(lisp_object_t symbol)
 lisp_object_t set_symbol_function(lisp_object_t symbol, lisp_object_t function)
 {
     struct symbol *sym = SymbolPtr(symbol);
+    struct lisp_function *fnptr = LispFunctionPtr(function);
     sym->function = function;
+    fnptr->name = symbol;
     return symbol;
 }
 

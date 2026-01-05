@@ -11,6 +11,7 @@ struct vm_call_stack_frame {
     lisp_object_t instruction_pointer;
     lisp_object_t environment;
     lisp_object_t tags;
+    lisp_object_t data_stack_offset;
 };
 
 struct vm {

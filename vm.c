@@ -77,6 +77,29 @@ void vm_print_stack(struct vm *vm)
     printf("<- STACK\n");
 }
 
+static void vm_print_call_stack_frame(struct vm_call_stack_frame *p)
+{
+    lisp_object_t vector = allocate_vector(LispInt(5));
+    svref_set(vector, LispInt(0), p->code_vector);
+    svref_set(vector, LispInt(1), p->data_stack_offset);
+    svref_set(vector, LispInt(2), p->environment);
+    svref_set(vector, LispInt(3), p->instruction_pointer);
+    svref_set(vector, LispInt(4), p->tags);
+    char *str = print_object(vector);
+    printf("%s\n", str);
+    free(str);
+}
+
+void vm_print_call_stack(struct vm *vm, char *message)
+{
+    printf("CALL STACK %s ->\n", message);
+    vm_print_call_stack_frame(&vm->registers);
+    for (struct vm_call_stack_frame *p = vm->call_stack_pointer - 1; p >= vm->call_stack; p--) {
+        vm_print_call_stack_frame(p);
+    }
+    printf("<- CALL STACK\n");
+}
+
 lisp_object_t vm_get_stack(struct vm *vm)
 {
     lisp_object_t result = NIL;
@@ -104,7 +127,6 @@ lisp_object_t vm_peek(struct vm *vm)
 
 void vm_run_one_instruction(struct vm *vm)
 {
-    // vm_print_stack(vm);
     //    TRACE(vm->registers.instruction_pointer);
     //    TRACE(vm->registers.code_vector);
     if (vm->registers.instruction_pointer == 0 && vm->vm_trace)
@@ -118,10 +140,16 @@ void vm_run_one_instruction(struct vm *vm)
     if (lisp_function_pointer == NIL)
         abort();
     void (*fp)() = FunctionPtr(lisp_function_pointer);
-    char *str0 = print_object(vm->registers.instruction_pointer);
-    char *str1 = print_object(instruction);
+
+    char *str0 = NULL;
+    char *str1 = NULL;
     char *str2 = NULL;
     char *str3 = NULL;
+    if (vm->vm_trace) {
+        str0 = print_object(vm->registers.instruction_pointer);
+        str1 = print_object(instruction);
+    }
+
     if (arity == 0) {
         vm->registers.instruction_pointer += LispInt(1);
         VM_TRACE("; %p %s\t%s\n", (void *)vm->registers.code_vector, str0, str1);
@@ -129,26 +157,32 @@ void vm_run_one_instruction(struct vm *vm)
     } else if (arity == LispInt(1)) {
         lisp_object_t arg = svref(vm->registers.code_vector, vm->registers.instruction_pointer + LispInt(1));
         vm->registers.instruction_pointer += LispInt(2);
-        str2 = print_object(arg);
+        if (vm->vm_trace)
+            str2 = print_object(arg);
         VM_TRACE("; %p %s\t%s %s\n", (void *)vm->registers.code_vector, str0, str1, str2);
         ((void (*)(struct vm *, lisp_object_t))fp)(vm, arg);
     } else if (arity == LispInt(2)) {
         lisp_object_t arg1 = svref(vm->registers.code_vector, vm->registers.instruction_pointer + LispInt(1));
         lisp_object_t arg2 = svref(vm->registers.code_vector, vm->registers.instruction_pointer + LispInt(2));
         vm->registers.instruction_pointer += LispInt(3);
-        str2 = print_object(arg1);
-        str3 = print_object(arg2);
+        if (vm->vm_trace) {
+            str2 = print_object(arg1);
+            str3 = print_object(arg2);
+        }
         VM_TRACE("; %p %s\t%s %s %s\n", (void *)vm->registers.code_vector, str0, str1, str2, str3);
         ((void (*)(struct vm *, lisp_object_t, lisp_object_t))fp)(vm, arg1, arg2);
     } else {
         abort();
     }
-    free(str0);
-    free(str1);
+    if (str0)
+        free(str0);
+    if (str2)
+        free(str1);
     if (str2)
         free(str2);
     if (str3)
         free(str3);
+    // vm_print_stack(vm);
 }
 
 #undef VM_TRACE
@@ -173,14 +207,21 @@ lisp_object_t vm_eval(lisp_object_t code_vector)
 // we are calling from Lisp -> C -> Lisp, which will make exceptions tricky
 lisp_object_t vm_apply(lisp_object_t function, lisp_object_t args)
 {
+    // TRACE(function);
+    // TRACE(args);
     int argcount = 0;
     for (; args != NIL; args = cdr(args)) {
         vm_inst_push(&interp->vm, car(args));
         argcount++;
     }
+    // Remember function can be a symbol
     vm_inst_push(&interp->vm, LispInt(argcount));
     vm_inst_push(&interp->vm, function);
+    // vm_print_stack(&interp->vm);
     vm_inst_call(&interp->vm);
+    // vm_print_stack(&interp->vm);
+
+    // TRACE(vm_peek(&interp->vm));
     return vm_pop(&interp->vm);
 }
 
@@ -236,6 +277,7 @@ void vm_inst_pop(struct vm *vm)
 
 static void vm_setup_funcall(struct vm *vm)
 {
+
     // Stack for (funcall foo a b c) looks like:
     //   4
     //   c
@@ -290,6 +332,12 @@ static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
         // Maybe our new raise() implementation could do these steps?
         // printf("OHNO %d\n", v);
         // Why is vm getting bashed here?
+
+        // This is just tag-jmp with a value pushed onto the stack afterwards
+        // We want tag-jmp with a value pushed AND ALSO unwinding the stack
+        // I think the stack unwinding could be done in raise()
+        // printf("OMG 2 %p\n", interp->vm.top_of_data_stack);
+        // vm_print_call_stack(vm, "AFTER LONGJMP");
         vm_inst_raise(vm);
         return;
     }
@@ -325,9 +373,9 @@ static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
 
 static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
 {
-    lisp_object_t n_args = vm_pop(vm);
-    assert(integerp(n_args) != NIL);
-    int n_args_int = Int(n_args);
+    lisp_object_t actual_arg_count = vm_pop(vm);
+    assert(integerp(actual_arg_count) != NIL);
+    int actual_arg_count_int = Int(actual_arg_count);
 
     lisp_object_t actual_function = fnptr->actual_function;
     lisp_object_t arg_info = cadr(actual_function);
@@ -335,19 +383,22 @@ static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
     lisp_object_t rest_args = svref_c(arg_info, 0);
     lisp_object_t arity = svref_c(arg_info, 1);
     int arity_int = Int(arity);
-    lisp_object_t env_size = arity + 0x10;
+    lisp_object_t env_size = arity + LispInt(1);
     if (rest_args != NIL)
         /* Add a slot for the rest args */
-        env_size += 0x10;
+        env_size += LispInt(1);
     lisp_object_t env = allocate_vector(env_size);
     lisp_object_t actual_rest_args = NIL;
+    int args_left = actual_arg_count_int;
     if (rest_args != NIL) {
         /* arity does not include the rest args */
-        int rest_arg_count = n_args_int - arity_int;
-        for (int i = 0; i < rest_arg_count; i++)
+        int rest_arg_count = actual_arg_count_int - arity_int;
+        for (int i = 0; i < rest_arg_count; i++) {
             actual_rest_args = cons(vm_pop(vm), actual_rest_args);
+            args_left--;
+        }
     }
-    for (int i = Int(arity); i > 0; i--) {
+    for (int i = args_left; i > 0; i--) {
         svref_set(env, LispInt(i), vm_pop(vm));
     }
     if (rest_args != NIL)
@@ -360,23 +411,36 @@ static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
     vm->registers.instruction_pointer = 0;
     vm->registers.environment = env;
     vm->registers.tags = NIL;
+    vm->registers.data_stack_offset = LispInt(vm->top_of_data_stack - vm->data_stack);
 }
 
 void vm_inst_call(struct vm *vm)
 {
+    // vm_print_call_stack(vm, "call");
     lisp_object_t fn = NIL;
+    int funcall_count = 0;
 start:
     fn = vm_pop(vm);
-    if (fn == sym("funcall")) {
+    if (fn == interp->syms.funcall) {
         // XXX does #'funcall work??  I think it does!
         vm_setup_funcall(vm);
+        funcall_count++;
         goto start;
     }
     /* For now at least, you can call a symbol.  This makes it easier
        to write VM code by hand. */
-    if (symbolp(fn) != NIL)
+    if (symbolp(fn) != NIL) {
         fn = (SymbolPtr(fn))->function;
+        //	TRACE(type_of(fn));
+    }
+    if (functionp(fn) == NIL) {
+        TRACE(fn);
+        printf("NOT A FUNCTION!!\n");
+        TRACE(type_of(fn));
+        printf("funcall_count = %d\n", funcall_count);
+    }
     struct lisp_function *fnptr = LispFunctionPtr(fn);
+
     if (fnptr->kind == interp->syms.built_in_function) {
         vm_call_builtin_function(vm, fnptr);
     } else if (fnptr->kind == interp->syms.lambda) {
@@ -385,15 +449,33 @@ start:
         char *str = print_object(fn);
         printf("Bad function: %s\n", str);
         free(str);
-        abort();
+        str = print_object(fnptr->kind);
+        printf("Bad kind: %s\n", str);
+        vm_print_stack(vm);
+        free(str);
+        vm_inst_push(vm, sym("bad-function"));
+        vm_inst_push(vm, fn);
+        vm_inst_push(vm, LispInt(2));
+        vm_inst_raise(vm);
     }
 }
 
 void vm_inst_ret(struct vm *vm)
 {
     assert(vm->call_stack_pointer > vm->call_stack);
+    lisp_object_t o1 = vm->registers.data_stack_offset;
     struct vm_call_stack_frame *call_stack_frame = --vm->call_stack_pointer;
+
     vm->registers = *call_stack_frame;
+    vm->registers.data_stack_offset = o1;
+    lisp_object_t o2 = vm->registers.data_stack_offset;
+
+    if (o1 != o2) {
+        TRACE(cons(o1, o2));
+        TRACE(LispInt(Int(o1) - Int(o2)));
+        vm_print_stack(vm);
+        // abort();
+    }
 }
 
 static lisp_object_t findenv(lisp_object_t env, int offset)
@@ -425,6 +507,8 @@ void vm_inst_set(struct vm *vm, lisp_object_t n, lisp_object_t m)
 
 void vm_inst_abort(struct vm *vm)
 {
+    vm_print_stack(vm);
+    vm_print_call_stack(vm, "aborted");
     abort();
 }
 
@@ -446,6 +530,7 @@ lisp_object_t vm_make_function2(lisp_object_t arg_info, lisp_object_t code, lisp
     struct lisp_function *fnptr = LispFunctionPtr(fn);
     fnptr->actual_function = List(env, arg_info, code);
     fnptr->kind = interp->syms.lambda;
+    fnptr->name = code;
     return fn;
 }
 
@@ -484,16 +569,24 @@ void vm_inst_set_tag(struct vm *vm, lisp_object_t tag, lisp_object_t dest)
 void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
 {
     lisp_object_t tag_info = frame_has_tag(&vm->registers, tag);
+    // These seem like two different behaviours according to whether the tag
+    // lives in the current call stack frame or not.  The ONLY uses of tag-jmp
+    // are:
+    // 1.  Implementation of `(go ...)` in `tagbody`
+    // 2.  Native exceptions i.e. `raise()` called in native code.
     if (tag_info != NIL) {
         vm_inst_jmp(vm, svref_c(tag_info, 1));
         return;
     }
+    // Is restoring data stack etc. actually the right behaviour when this is
+    // happening from (go ...) inside a tagbody?  Maybe it is actually.  Needs a
+    // test case.  For now, let's assume this is OK for the tagbody use-case
     for (struct vm_call_stack_frame *frame = vm->call_stack_pointer - 1; frame >= vm->call_stack; frame--) {
         lisp_object_t tag_info = frame_has_tag(frame, tag);
         if (tag_info != NIL) {
             lisp_object_t dest = svref_c(tag_info, 1);
             lisp_object_t stack_offset = svref_c(tag_info, 2);
-            vm->call_stack_pointer = frame + 1;
+            vm->call_stack_pointer = frame;
             vm->registers = *frame;
             vm->top_of_data_stack = vm->data_stack + Int(stack_offset);
             vm_inst_jmp(vm, dest);
@@ -501,7 +594,7 @@ void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
         }
     }
     TRACE(tag);
-    abort();
+    vm_inst_abort(vm);
 }
 
 void vm_inst_raise(struct vm *vm)

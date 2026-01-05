@@ -1,9 +1,11 @@
 (let ((important-files '(("lib.lisp" . "lib.compiled")
+                         ("batch-compile.lisp" . "batch-compile.compiled")
+                         ("repl.lisp" . "repl.compiled")
 			 ("compiler.lisp" . "compiler.compiled")
-;			 ("apply.lisp" . "apply.compiled")
-			 ("test-script.lisp" . "test-script.compiled")
-;			 ("vm-test-apply.lisp" . "vm-test-apply.compiled")
-			 ("vmboot.lisp" . "vmboot.compiled"))))
+			 ("vmboot.lisp" . "vmboot.compiled")
+                         ("eval.lisp" . "eval.compiled")
+			 ("compile-important-files.lisp" . "compile-important-files.compiled")
+			 )))
   (tagbody
    next-file
      (if (eq important-files nil)

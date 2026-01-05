@@ -96,8 +96,6 @@ lisp_object_t eq(lisp_object_t o1, lisp_object_t o2)
 
 static lisp_object_t istype(lisp_object_t obj, uint64_t type)
 {
-    uint64_t bof1 = obj & IMMEDIATE_TYPE_MASK;
-    uint64_t bof2 = obj & TYPE_MASK;
     return (obj & IMMEDIATE_TYPE_MASK) == OBJECT_TYPE && (obj & TYPE_MASK) == type ? T : NIL;
 }
 

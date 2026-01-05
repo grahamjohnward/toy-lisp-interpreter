@@ -14,7 +14,10 @@
 	       (print result))
 	   (runtime-error (print e))
 	   (unbound-variable (print e))
-	   (type-error (print e)))
+	   (type-error
+            (progn
+              (princ "Type error: ")
+              (print e))))
 	 (setq +++ ++)
 	 (setq ++ +)
 	 (setq + input)

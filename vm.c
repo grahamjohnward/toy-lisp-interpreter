@@ -57,7 +57,6 @@ void init_vm_instruction_definitions()
     DEFINE_VM_INSTRUCTION(tag_jmp,    vm_inst_tag_jmp,    1);
     DEFINE_VM_INSTRUCTION(nop,        vm_inst_nop,        0);
     DEFINE_VM_INSTRUCTION(raise,      vm_inst_raise,      0);
-
     // clang-format on
 #undef DEFINE_VM_INSTRUCTION
 }
@@ -127,13 +126,11 @@ lisp_object_t vm_peek(struct vm *vm)
 
 void vm_run_one_instruction(struct vm *vm)
 {
-    //    TRACE(vm->registers.instruction_pointer);
-    //    TRACE(vm->registers.code_vector);
     if (vm->registers.instruction_pointer == 0 && vm->vm_trace)
         TRACE(vm->registers.code_vector);
+
     lisp_object_t instruction = svref(vm->registers.code_vector, vm->registers.instruction_pointer);
     lisp_object_t arity = getprop(instruction, interp->syms.vm_ins_arity);
-
     if (arity == NIL)
         abort();
     lisp_object_t lisp_function_pointer = getprop(instruction, interp->syms.vm_ins_fp);
@@ -182,7 +179,6 @@ void vm_run_one_instruction(struct vm *vm)
         free(str2);
     if (str3)
         free(str3);
-    // vm_print_stack(vm);
 }
 
 #undef VM_TRACE
@@ -199,7 +195,6 @@ lisp_object_t vm_eval(lisp_object_t code_vector)
     interp->vm.registers.instruction_pointer = 0;
     interp->use_vm = 1;
     vm_run(&interp->vm);
-    //    interp->use_vm = 0;
     return vm_pop(&interp->vm);
 }
 
@@ -218,7 +213,6 @@ void vm_inst_pop(struct vm *vm)
 
 static void vm_setup_funcall(struct vm *vm)
 {
-
     // Stack for (funcall foo a b c) looks like:
     //   4
     //   c
@@ -309,9 +303,6 @@ static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
     vm_inst_push(vm, result);
 }
 
-#define max(a, b) ((a) > (b) ? (a) : (b))
-#define min(a, b) ((a) < (b) ? (a) : (b))
-
 static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
 {
     lisp_object_t actual_arg_count = vm_pop(vm);
@@ -357,7 +348,6 @@ static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
 
 void vm_inst_call(struct vm *vm)
 {
-    // vm_print_call_stack(vm, "call");
     lisp_object_t fn = NIL;
     int funcall_count = 0;
 start:

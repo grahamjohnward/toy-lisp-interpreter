@@ -328,8 +328,6 @@ lisp_object_t vm_make_simple_function(lisp_object_t arg_info, lisp_object_t code
 
 lisp_object_t vm_eval(lisp_object_t code_vector);
 
-lisp_object_t vm_apply(lisp_object_t function, lisp_object_t arg, lisp_object_t rest);
-
 lisp_object_t basic_eval(lisp_object_t e);
 
 lisp_object_t do_open(lisp_object_t filename, lisp_object_t direction);
@@ -407,9 +405,7 @@ static void init_builtins()
     DEFBUILTIN("open", do_open, 2);
     DEFBUILTIN("close", do_close, 1);
     DEFBUILTIN("write", lisp_write, 2);
-    if (interp->use_vm) {
-        DEFBUILTIN("apply", vm_apply, 2);
-    } else {
+    if (!interp->use_vm) {
         /* In VM, LOAD comes from boot code */
         DEFBUILTIN("load", load, 1);
         /* In VM, this is a compiler instrinsic */

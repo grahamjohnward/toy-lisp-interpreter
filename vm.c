@@ -203,65 +203,6 @@ lisp_object_t vm_eval(lisp_object_t code_vector)
     return vm_pop(&interp->vm);
 }
 
-// Ultimately this should be VM code, not a built-in function.  As it stands
-// we are calling from Lisp -> C -> Lisp, which will make exceptions tricky
-lisp_object_t vm_apply(lisp_object_t function, lisp_object_t args)
-{
-    // TRACE(function);
-    // TRACE(args);
-    int argcount = 0;
-    for (; args != NIL; args = cdr(args)) {
-        vm_inst_push(&interp->vm, car(args));
-        argcount++;
-    }
-    // Remember function can be a symbol
-    vm_inst_push(&interp->vm, LispInt(argcount));
-    vm_inst_push(&interp->vm, function);
-    // vm_print_stack(&interp->vm);
-    vm_inst_call(&interp->vm);
-    // vm_print_stack(&interp->vm);
-
-    // TRACE(vm_peek(&interp->vm));
-    return vm_pop(&interp->vm);
-}
-
-// This is CL-style APPLY, but the interpreter's APPLY works differently
-lisp_object_t vm_apply_CL(lisp_object_t function, lisp_object_t arg, lisp_object_t rest)
-{
-    // this should invoke vm_inst_call so that special-cases there can be apply'ed
-    // stack needs to look like
-    // function
-    // arg count
-    // argN
-    // argN-1
-    // ...
-    // arg
-    int argcount = 0;
-    vm_inst_push(&interp->vm, arg);
-    // We stop when rest looks like this:
-    // (foo . nil)
-    // (foo . (bar . (baz . nil))
-
-    if (rest != NIL) {
-        for (; cdr(rest) != NIL; rest = cdr(rest)) {
-            vm_inst_push(&interp->vm, car(rest));
-            argcount++;
-        }
-        lisp_object_t last_arg = car(rest);
-        if (consp(last_arg) == NIL)
-            abort(); // should really be a normal exception
-
-        for (; last_arg != NIL; last_arg = cdr(last_arg)) {
-            vm_inst_push(&interp->vm, car(last_arg));
-            argcount++;
-        }
-    }
-    vm_inst_push(&interp->vm, LispInt(argcount));
-    vm_inst_push(&interp->vm, function);
-    vm_inst_call(&interp->vm);
-    return NIL;
-}
-
 /** Instructions **/
 
 void vm_inst_push(struct vm *vm, lisp_object_t obj)

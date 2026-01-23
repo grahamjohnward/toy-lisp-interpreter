@@ -285,23 +285,6 @@ static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
         abort(); // Should use new exception-raising mechanism
     int v = setjmp(vm->jmp_buf);
     if (v != 0) {
-        // do some stuff
-        // Somehow we need to pass a symbol and a lisp object back from raise()
-        // Maybe a new register for this?
-        // So raise() needs to do
-        // longjmp(env);
-        // So it needs to get that env from somewhere
-        // Ultimately we are going to call vm_inst_raise
-
-        // Maybe our new raise() implementation could do these steps?
-        // printf("OHNO %d\n", v);
-        // Why is vm getting bashed here?
-
-        // This is just tag-jmp with a value pushed onto the stack afterwards
-        // We want tag-jmp with a value pushed AND ALSO unwinding the stack
-        // I think the stack unwinding could be done in raise()
-        // printf("OMG 2 %p\n", interp->vm.top_of_data_stack);
-        // vm_print_call_stack(vm, "AFTER LONGJMP");
         vm_inst_raise(vm);
         return;
     }

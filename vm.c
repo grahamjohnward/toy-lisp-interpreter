@@ -60,7 +60,7 @@ void gc_copy_vm(struct lisp_heap *heap, struct vm *vm)
     gc_copy_vm_data_stack(heap, vm);
     gc_copy_vm_call_stack(heap, vm);
     gc_copy_vm_call_stack_frame(heap, &vm->registers);
-    /* jmp_buf */
+    gc_copy_jmp_buf(heap, vm->jmp_buf);
 }
 
 static void define_vm_instruction(lisp_object_t symbol, void (*function_pointer)(void), int arity)

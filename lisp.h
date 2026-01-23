@@ -1,6 +1,7 @@
 #ifndef LISP_H
 #define LISP_H
 
+#include <setjmp.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -195,6 +196,8 @@ void *get_rbp(int n);
 void lisp_heap_init(struct lisp_heap *heap, size_t bytes);
 void lisp_heap_free(struct lisp_heap *heap);
 void gc_copy(struct lisp_heap *heap, lisp_object_t *p);
+
+void gc_copy_jmp_buf(struct lisp_heap *heap, jmp_buf buf);
 
 lisp_object_t list(lisp_object_t first, ...);
 

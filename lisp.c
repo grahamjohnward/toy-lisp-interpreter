@@ -718,6 +718,22 @@ static void *ptr_demangle(void *ptr)
 
 static int jmp_buf_entry_is_pointer[] = { 0, 1, 0, 0, 0, 0, 1, 1 };
 
+void gc_copy_jmp_buf(struct lisp_heap *heap, jmp_buf buf)
+{
+    for (int i = 0; i < 8; i++)
+        if (jmp_buf_entry_is_pointer[i]) {
+#ifdef __GLIBC__
+            void *jmpbuf_entry = (void *)(buf->__jmpbuf[i]);
+            lisp_object_t *p = ptr_demangle(jmpbuf_entry);
+#else
+            /* musl libc, which does not define a preprocessor symbol */
+            lisp_object_t *p = (lisp_object_t *)(ctxt->buf->__jb[i]);
+#endif
+            if (object_is_in_from_space(heap, *p))
+                gc_copy(&interp->heap, p);
+        }
+}
+
 lisp_object_t gc()
 {
     size_t bytes_in_use_before_gc = interp->heap.freeptr - interp->heap.from_space;
@@ -736,19 +752,7 @@ lisp_object_t gc()
         gc_copy(heap, &ctxt->type);
         for (int i = 0; i < ctxt->tagbody_forms_len; i++)
             gc_copy(heap, &ctxt->tagbody_forms[i]);
-        for (int i = 0; i < 8; i++) {
-            if (jmp_buf_entry_is_pointer[i]) {
-#ifdef __GLIBC__
-                void *jmpbuf_entry = (void *)(ctxt->buf->__jmpbuf[i]);
-                lisp_object_t *p = ptr_demangle(jmpbuf_entry);
-#else
-                /* musl libc, which does not define a preprocessor symbol */
-                lisp_object_t *p = (lisp_object_t *)(ctxt->buf->__jb[i]);
-#endif
-                if (object_is_in_from_space(heap, *p))
-                    gc_copy(&interp->heap, p);
-            }
-        }
+        gc_copy_jmp_buf(heap, ctxt->buf);
     }
     /* Roots - symbol table */
     gc_copy(heap, &interp->symbol_table);

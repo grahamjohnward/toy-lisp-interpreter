@@ -701,7 +701,7 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
 
 static void gc_check_copied_object(lisp_object_t obj)
 {
-    if (integerp(obj) != NIL || stringp(obj) != NIL || vectorp(obj) != NIL || function_pointer_p(obj) != NIL || obj == T || obj == NIL)
+    if (integerp(obj) != NIL || stringp(obj) != NIL /* || vectorp(obj) != NIL */ || function_pointer_p(obj) != NIL || native_pointer_p(obj) != NIL || obj == T || obj == NIL)
         return;
     assert(!(obj & FORWARDING_POINTER));
     char *p = (char *)(obj & PTR_MASK);
@@ -799,6 +799,8 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(raise);
     GC_COPY_SYMBOL(funcall);
 #undef GC_COPY_SYMBOL
+    /* Roots - VM */
+    gc_copy_vm(&interp->heap, &interp->vm);
     /* Update pointers inside to-space objects */
     char *scanptr;
     for (scanptr = heap->to_space; scanptr < heap->freeptr;) {
@@ -864,12 +866,14 @@ lisp_object_t gc()
             gc_check_copied_object(fnptr->kind);
             gc_check_copied_object(fnptr->actual_function);
             p += sizeof(struct lisp_function);
-        } else {
+        } else if (*headerptr == VECTOR_TYPE) {
             struct vector *v = (struct vector *)p;
             lisp_object_t *storage = (lisp_object_t *)(p + sizeof(struct vector));
             for (int i = 0; i < Int(v->len); i++)
                 gc_check_copied_object(storage[i]);
             p += v->size_bytes;
+        } else {
+            abort();
         }
     }
     /* Say how much memory was freed */

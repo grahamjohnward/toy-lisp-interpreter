@@ -34,6 +34,35 @@ void vm_free(struct vm *vm)
     free(vm->call_stack);
 }
 
+static void gc_copy_vm_data_stack(struct lisp_heap *heap, struct vm *vm)
+{
+    for (lisp_object_t *p = vm->data_stack; p < vm->top_of_data_stack; p++)
+        gc_copy(heap, p);
+}
+
+static void gc_copy_vm_call_stack_frame(struct lisp_heap *heap, struct vm_call_stack_frame *frame)
+{
+    gc_copy(heap, &frame->code_vector);
+    gc_copy(heap, &frame->data_stack_offset);
+    gc_copy(heap, &frame->environment);
+    gc_copy(heap, &frame->instruction_pointer);
+    gc_copy(heap, &frame->tags);
+}
+
+static void gc_copy_vm_call_stack(struct lisp_heap *heap, struct vm *vm)
+{
+    for (struct vm_call_stack_frame *p = vm->call_stack; p < vm->call_stack_pointer; p++)
+        gc_copy_vm_call_stack_frame(heap, p);
+}
+
+void gc_copy_vm(struct lisp_heap *heap, struct vm *vm)
+{
+    gc_copy_vm_data_stack(heap, vm);
+    gc_copy_vm_call_stack(heap, vm);
+    gc_copy_vm_call_stack_frame(heap, &vm->registers);
+    /* jmp_buf */
+}
+
 static void define_vm_instruction(lisp_object_t symbol, void (*function_pointer)(void), int arity)
 {
     putprop(symbol, interp->syms.vm_ins_fp, ((lisp_object_t)function_pointer) | FUNCTION_POINTER_TYPE);

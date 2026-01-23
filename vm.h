@@ -45,6 +45,8 @@ lisp_object_t vm_peek(struct vm *vm);
 
 void vm_run(struct vm *);
 
+void gc_copy_vm(struct lisp_heap *heap, struct vm *vm);
+
 /** Instructions **/
 
 void vm_inst_push(struct vm *vm, lisp_object_t obj);

@@ -2022,6 +2022,19 @@ void test_make_symbol()
     free_interpreter();
 }
 
+void test_vm_inst_swap()
+{
+    START_OF_TEST("vm_inst_swap");
+    init_interpreter_for_tests();
+    struct vm *vm = &interp->vm;
+    vm_inst_push(vm, LispInt(1));
+    vm_inst_push(vm, LispInt(2));
+    vm_inst_swap(vm);
+    check(vm_pop(vm) == LispInt(1), "top");
+    check(vm_pop(vm) == LispInt(2), "second");
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -2169,6 +2182,7 @@ int main(int argc, char **argv)
     test_eval_function_pointer();
     test_native_pointer();
     test_make_symbol();
+    test_vm_inst_swap();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

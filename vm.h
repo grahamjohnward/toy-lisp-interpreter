@@ -76,4 +76,6 @@ void vm_inst_raise(struct vm *vm);
 
 void vm_inst_nop(struct vm *vm);
 
+void vm_inst_swap(struct vm *vm);
+
 #endif

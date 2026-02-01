@@ -88,6 +88,7 @@ void init_vm_instruction_definitions()
     DEFINE_VM_INSTRUCTION(tag_jmp,    vm_inst_tag_jmp,    1);
     DEFINE_VM_INSTRUCTION(nop,        vm_inst_nop,        0);
     DEFINE_VM_INSTRUCTION(raise,      vm_inst_raise,      0);
+    DEFINE_VM_INSTRUCTION(swap,       vm_inst_swap,       0);
     // clang-format on
 #undef DEFINE_VM_INSTRUCTION
 }
@@ -587,4 +588,12 @@ void vm_inst_raise(struct vm *vm)
 
 void vm_inst_nop(struct vm *vm)
 {
+}
+
+void vm_inst_swap(struct vm *vm)
+{
+    lisp_object_t top = vm_pop(vm);
+    lisp_object_t next = vm_pop(vm);
+    vm_inst_push(vm, top);
+    vm_inst_push(vm, next);
 }

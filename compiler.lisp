@@ -375,11 +375,17 @@
 
 (defun compile4-condition-case-handler (expr+tag mapcar-context)
   (let ((expr (car expr+tag))
-	(tag (cdr expr+tag))
+	(tag (cddr expr+tag))
+        (condition (cadr expr+tag))
 	(ctxt (first mapcar-context))
 	(jmp-target (second mapcar-context))
 	(varname (third mapcar-context)))
     `((label ,tag)
+      push ,condition
+      swap
+      push 2
+      push cons
+      call
       push 1
       ,@(compile4-lambda `(lambda (,varname) (progn ,@expr)) ctxt)
       call
@@ -408,13 +414,12 @@
 					 `(set-tag ,(car pair)
 						   (target ,(cdr pair))))
 				     tag-alist)))
-	    (just-the-tags (mapcar #'cdr tag-alist))
 	    (jmp-target (gensym))
 	    (compiled-body (compile4 body1 ctxt)))
 	(let ((compiled-handlers
 	       (apply #'append
 	       (mapcar-with-context #'compile4-condition-case-handler
-				    (zip (mapcar #'cdr handlers) just-the-tags)
+				    (zip (mapcar #'cdr handlers) tag-alist)
 				    (list ctxt jmp-target e)))))
 	  `(,@set-tags
 	    ,@compiled-body

@@ -408,8 +408,6 @@ static void init_builtins()
     if (!interp->use_vm) {
         /* In VM, LOAD comes from boot code */
         DEFBUILTIN("load", load, 1);
-        /* In VM, this is a compiler instrinsic */
-        // XXX is it funcallable?
         DEFBUILTIN("raise", raise, 2);
         /* In VM, this is a special case in the `call` instruction */
         DEFBUILTIN("funcall", funcall, FUNCALL_ARITY);

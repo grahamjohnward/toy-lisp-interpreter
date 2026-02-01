@@ -25,6 +25,7 @@ void vm_init(struct vm *vm, size_t data_stack_size)
     vm->registers.environment = NIL;
     vm->registers.tags = NIL;
     vm->vm_trace = 0;
+    vm->setjmp_activated = 0;
     initialize_data_stack(vm);
 }
 
@@ -60,7 +61,8 @@ void gc_copy_vm(struct lisp_heap *heap, struct vm *vm)
     gc_copy_vm_data_stack(heap, vm);
     gc_copy_vm_call_stack(heap, vm);
     gc_copy_vm_call_stack_frame(heap, &vm->registers);
-    gc_copy_jmp_buf(heap, vm->jmp_buf);
+    if (vm->setjmp_activated)
+        gc_copy_jmp_buf(heap, vm->jmp_buf);
 }
 
 static void define_vm_instruction(lisp_object_t symbol, void (*function_pointer)(void), int arity)
@@ -286,7 +288,10 @@ static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
     int v = setjmp(vm->jmp_buf);
     if (v != 0) {
         vm_inst_raise(vm);
+        vm->setjmp_activated = 0;
         return;
+    } else {
+        vm->setjmp_activated = 1;
     }
     int arity_c = Int((int)arity);
     switch (arity_c) {
@@ -312,6 +317,7 @@ static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
         printf("Bad arity: %d\n", arity_c);
         abort();
     }
+    vm->setjmp_activated = 0;
     vm_inst_push(vm, result);
 }
 

@@ -27,6 +27,7 @@ struct vm {
     /* For throwing exceptions from built-in functions */
     jmp_buf jmp_buf;
     int vm_trace;
+    int setjmp_activated;
 };
 
 void vm_init(struct vm *vm, size_t size);

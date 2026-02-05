@@ -34,8 +34,6 @@ void vm_init(struct vm *vm, size_t size);
 
 void vm_free(struct vm *vm);
 
-void init_vm_instruction_definitions();
-
 void vm_print_stack(struct vm *vm);
 
 lisp_object_t vm_get_stack(struct vm *vm);

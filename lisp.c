@@ -467,7 +467,6 @@ void init_interpreter2(size_t heap_size, int use_vm)
     vm_init(&interp->vm, 1024 * 1024);
     init_symbols();
     init_builtins();
-    init_vm_instruction_definitions(); /* Depends on init_symbols */
     interpreter_initialized = 1;
 }
 

@@ -65,34 +65,6 @@ void gc_copy_vm(struct lisp_heap *heap, struct vm *vm)
         gc_copy_jmp_buf(heap, vm->jmp_buf);
 }
 
-static void define_vm_instruction(lisp_object_t symbol, void (*function_pointer)(void), int arity)
-{
-    putprop(symbol, interp->syms.vm_ins_fp, ((lisp_object_t)function_pointer) | FUNCTION_POINTER_TYPE);
-    putprop(symbol, interp->syms.vm_ins_arity, LispInt(arity));
-}
-
-void init_vm_instruction_definitions()
-{
-#define DEFINE_VM_INSTRUCTION(S, F, A) define_vm_instruction(interp->syms.S, (void (*)(void))F, A)
-    // clang-format off
-    DEFINE_VM_INSTRUCTION(push,       vm_inst_push,       1);
-    DEFINE_VM_INSTRUCTION(pop,        vm_inst_pop,        0);
-    DEFINE_VM_INSTRUCTION(call,       vm_inst_call,       0);
-    DEFINE_VM_INSTRUCTION(ret,        vm_inst_ret,        0);
-    DEFINE_VM_INSTRUCTION(get,        vm_inst_get,        2);
-    DEFINE_VM_INSTRUCTION(set,        vm_inst_set,        2);
-    DEFINE_VM_INSTRUCTION(abort,      vm_inst_abort,      0);
-    DEFINE_VM_INSTRUCTION(jmp,        vm_inst_jmp,        1);
-    DEFINE_VM_INSTRUCTION(jmp_if_nil, vm_inst_jmp_if_nil, 1);
-    DEFINE_VM_INSTRUCTION(set_tag,    vm_inst_set_tag,    2);
-    DEFINE_VM_INSTRUCTION(tag_jmp,    vm_inst_tag_jmp,    1);
-    DEFINE_VM_INSTRUCTION(nop,        vm_inst_nop,        0);
-    DEFINE_VM_INSTRUCTION(raise,      vm_inst_raise,      0);
-    DEFINE_VM_INSTRUCTION(swap,       vm_inst_swap,       0);
-    // clang-format on
-#undef DEFINE_VM_INSTRUCTION
-}
-
 void vm_print_stack(struct vm *vm)
 {
     /* Visually speaking, stack grows up here: */
@@ -162,11 +134,34 @@ void vm_run_one_instruction(struct vm *vm)
         TRACE(vm->registers.code_vector);
 
     lisp_object_t instruction = svref(vm->registers.code_vector, vm->registers.instruction_pointer);
-    lisp_object_t arity = getprop(instruction, interp->syms.vm_ins_arity);
-    if (arity == NIL)
-        abort();
-    lisp_object_t lisp_function_pointer = getprop(instruction, interp->syms.vm_ins_fp);
+    lisp_object_t arity = NIL;
+    lisp_object_t lisp_function_pointer = NIL;
+
+#define CHECK_INSTRUCTION(sym, fn, the_arity)                                \
+    if (instruction == interp->syms.sym) {                                   \
+        arity = LispInt(the_arity);                                          \
+        lisp_function_pointer = ((lisp_object_t)fn) | FUNCTION_POINTER_TYPE; \
+    }
+    // clang-format off
+    CHECK_INSTRUCTION(push,       vm_inst_push,       1) else
+    CHECK_INSTRUCTION(pop,        vm_inst_pop,        0) else
+    CHECK_INSTRUCTION(call,       vm_inst_call,       0) else
+    CHECK_INSTRUCTION(ret,        vm_inst_ret,        0) else
+    CHECK_INSTRUCTION(get,        vm_inst_get,        2) else
+    CHECK_INSTRUCTION(set,        vm_inst_set,        2) else
+    CHECK_INSTRUCTION(abort,      vm_inst_abort,      0) else
+    CHECK_INSTRUCTION(jmp,        vm_inst_jmp,        1) else
+    CHECK_INSTRUCTION(jmp_if_nil, vm_inst_jmp_if_nil, 1) else
+    CHECK_INSTRUCTION(set_tag,    vm_inst_set_tag,    2) else
+    CHECK_INSTRUCTION(tag_jmp,    vm_inst_tag_jmp,    1) else
+    CHECK_INSTRUCTION(nop,        vm_inst_nop,        0) else
+    CHECK_INSTRUCTION(raise,      vm_inst_raise,      0) else
+    CHECK_INSTRUCTION(swap,       vm_inst_swap,       0);
+    // clang-format on
+#undef CHECK_INSTRUCTION
     if (lisp_function_pointer == NIL)
+        abort();
+    if (arity == NIL)
         abort();
     void (*fp)() = FunctionPtr(lisp_function_pointer);
 

@@ -791,6 +791,8 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(vm_make_simple_function);
     GC_COPY_SYMBOL(provided_arg_count);
     GC_COPY_SYMBOL(abort);
+    GC_COPY_SYMBOL(jmp);
+    GC_COPY_SYMBOL(jmp_if_nil);
     GC_COPY_SYMBOL(closure);
     GC_COPY_SYMBOL(make_env);
     GC_COPY_SYMBOL(get);

@@ -103,17 +103,20 @@ int main(int argc, char **argv)
     else
         init_interpreter2(settings.heap_size, settings.use_vm);
     if (settings.use_vm) {
-        int fd = open(settings.vmboot, O_RDONLY);
-        if (fd < 0) {
-            perror(settings.vmboot);
-            abort();
+        lisp_object_t vmboot_sym = sym("%vmboot");
+        if (settings.vmboot) {
+            int fd = open(settings.vmboot, O_RDONLY);
+            if (fd < 0) {
+                perror(settings.vmboot);
+                abort();
+            }
+            struct text_stream ts;
+            text_stream_init_fd(&ts, fd);
+            set_symbol_value(vmboot_sym, parse1(&ts));
+            close(fd);
+            text_stream_free(&ts);
         }
-        struct text_stream ts;
-        text_stream_init_fd(&ts, fd);
-        lisp_object_t bootcode = parse1(&ts);
-        close(fd);
-        text_stream_free(&ts);
-        interp->vm.registers.code_vector = bootcode;
+        interp->vm.registers.code_vector = symbol_value(vmboot_sym);
         lisp_object_t arglist = allocate_vector(LispInt(argc - i));
         for (int argidx = 0; i < argc; i++, argidx++) {
             lisp_object_t string = allocate_string(strlen(argv[i]) + 1, argv[i]);

@@ -148,6 +148,8 @@ lisp_object_t gensym();
 lisp_object_t compile_toplevel(lisp_object_t expr);
 lisp_object_t compile3_toplevel(lisp_object_t expr);
 lisp_object_t append(lisp_object_t list1, lisp_object_t list2);
+lisp_object_t symbol_value(lisp_object_t symbol);
+lisp_object_t set_symbol_value(lisp_object_t symbol, lisp_object_t value);
 
 lisp_object_t macroexpand_all_quasiquote(lisp_object_t expr, int depth);
 

@@ -314,10 +314,6 @@ lisp_object_t gc();
 
 lisp_object_t set_symbol_function(lisp_object_t symbol, lisp_object_t function);
 
-lisp_object_t set_symbol_value(lisp_object_t symbol, lisp_object_t value);
-
-lisp_object_t symbol_value(lisp_object_t symbol);
-
 lisp_object_t nthcdr(lisp_object_t n, lisp_object_t list);
 
 lisp_object_t eval2(lisp_object_t e);

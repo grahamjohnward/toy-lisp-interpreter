@@ -7,7 +7,7 @@
 
 static void initialize_data_stack(struct vm *vm)
 {
-    for (size_t x = 0; x < vm->size; x++) {
+    for (size_t x = 0; x < vm->data_stack_size; x++) {
         lisp_object_t *p = vm->top_of_data_stack + x;
         *p = (lisp_object_t)12345678;
     }
@@ -15,9 +15,10 @@ static void initialize_data_stack(struct vm *vm)
 
 void vm_init(struct vm *vm, size_t data_stack_size)
 {
-    vm->size = data_stack_size;
-    vm->data_stack = (lisp_object_t *)malloc(sizeof(lisp_object_t) * vm->size);
-    vm->call_stack = (struct vm_call_stack_frame *)malloc(sizeof(struct vm_call_stack_frame) * 1024);
+    vm->data_stack_size = data_stack_size;
+    vm->data_stack = (lisp_object_t *)malloc(sizeof(lisp_object_t) * vm->data_stack_size);
+    vm->call_stack_size = 1024;
+    vm->call_stack = (struct vm_call_stack_frame *)malloc(sizeof(struct vm_call_stack_frame) * vm->call_stack_size);
     vm->call_stack_pointer = vm->call_stack;
     vm->top_of_data_stack = vm->data_stack;
     vm->registers.code_vector = NIL;
@@ -229,7 +230,7 @@ lisp_object_t vm_eval(lisp_object_t code_vector)
 
 void vm_inst_push(struct vm *vm, lisp_object_t obj)
 {
-    assert(vm->top_of_data_stack - vm->data_stack < vm->size);
+    assert(vm->top_of_data_stack - vm->data_stack < vm->data_stack_size);
     *(vm->top_of_data_stack++) = obj;
 }
 

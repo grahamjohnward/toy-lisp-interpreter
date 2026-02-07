@@ -16,10 +16,11 @@ struct vm_call_stack_frame {
 
 struct vm {
     /* Data stack */
-    size_t size;
+    size_t data_stack_size;
     lisp_object_t *data_stack;
     lisp_object_t *top_of_data_stack;
     /* Call stack */
+    size_t call_stack_size;
     struct vm_call_stack_frame *call_stack;
     struct vm_call_stack_frame *call_stack_pointer;
     /* Registers */

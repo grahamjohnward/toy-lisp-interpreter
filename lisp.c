@@ -433,6 +433,7 @@ void init_interpeter_from_image(char *image)
     assert(sizeof(lisp_object_t) == sizeof(void *));
     interp->return_stack = NULL;
     interp->top_of_stack = get_rbp(2);
+    do_read(fd, (char *)&interp->use_vm, sizeof(int));
     do_read(fd, (char *)&interp->symbol_table, sizeof(lisp_object_t));
     do_read(fd, (char *)&interp->heap, sizeof(struct lisp_heap));
     void *rc = mmap(interp->heap.heap, interp->heap.size_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
@@ -442,6 +443,25 @@ void init_interpeter_from_image(char *image)
     }
     assert(rc == interp->heap.heap);
     do_read(fd, interp->heap.heap, interp->heap.size_bytes);
+    text_stream_init_fd(&interp->ts_stdin, 0);
+
+    struct vm *vm = &interp->vm;
+
+    /* Data stack */
+    do_read(fd, (char *)&vm->data_stack_size, sizeof(size_t));
+    size_t vm_data_stack_size_bytes = sizeof(lisp_object_t) * vm->data_stack_size;
+    vm->data_stack = (lisp_object_t *)malloc(vm_data_stack_size_bytes);
+    do_read(fd, (char *)vm->data_stack, vm_data_stack_size_bytes);
+
+    /* Call stack */
+    do_read(fd, (char *)&vm->call_stack_size, sizeof(size_t));
+    size_t vm_call_stack_size_bytes = sizeof(struct vm_call_stack_frame) * vm->call_stack_size;
+    vm->call_stack = (struct vm_call_stack_frame *)malloc(vm_call_stack_size_bytes);
+    do_read(fd, (char *)vm->call_stack, vm_call_stack_size_bytes);
+
+    /* We don't attempt to restore the stack as it was */
+    vm->call_stack_pointer = vm->call_stack;
+    vm->top_of_data_stack = vm->data_stack;
     init_symbols();
     init_builtins();
     interpreter_initialized = 1;
@@ -2347,9 +2367,14 @@ lisp_object_t save_image(lisp_object_t name)
         exit(1);
     }
     gc();
+    do_write(fd, (char *)&interp->use_vm, sizeof(int));
     do_write(fd, (char *)&interp->symbol_table, sizeof(lisp_object_t));
     do_write(fd, (char *)&interp->heap, sizeof(struct lisp_heap));
     do_write(fd, interp->heap.heap, interp->heap.size_bytes);
+    do_write(fd, (char *)&interp->vm.data_stack_size, sizeof(size_t));
+    do_write(fd, (char *)interp->vm.data_stack, sizeof(lisp_object_t) * interp->vm.data_stack_size);
+    do_write(fd, (char *)&interp->vm.call_stack_size, sizeof(size_t));
+    do_write(fd, (char *)interp->vm.call_stack, sizeof(struct vm_call_stack_frame) * interp->vm.call_stack_size);
     close(fd);
     exit(0);
 }

@@ -438,7 +438,7 @@ void init_interpeter_from_image(char *image)
         exit(1);
     }
     assert(rc == interp->heap.heap);
-    do_read(fd, interp->heap.heap, interp->heap.size_bytes);
+    do_read(fd, interp->heap.from_space, interp->heap.freeptr - interp->heap.from_space);
     text_stream_init_fd(&interp->ts_stdin, 0);
 
     struct vm *vm = &interp->vm;
@@ -2366,7 +2366,7 @@ lisp_object_t save_image(lisp_object_t name)
     do_write(fd, (char *)&interp->use_vm, sizeof(int));
     do_write(fd, (char *)&interp->symbol_table, sizeof(lisp_object_t));
     do_write(fd, (char *)&interp->heap, sizeof(struct lisp_heap));
-    do_write(fd, interp->heap.heap, interp->heap.size_bytes);
+    do_write(fd, interp->heap.from_space, interp->heap.freeptr - interp->heap.from_space);
     do_write(fd, (char *)&interp->vm.data_stack_size, sizeof(size_t));
     do_write(fd, (char *)interp->vm.data_stack, sizeof(lisp_object_t) * interp->vm.data_stack_size);
     do_write(fd, (char *)&interp->vm.call_stack_size, sizeof(size_t));

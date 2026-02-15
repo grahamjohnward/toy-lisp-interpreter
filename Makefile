@@ -1,5 +1,5 @@
 CC=clang-19
-CFLAGS=-gdwarf-4
+CFLAGS=-gdwarf-4 -falign-functions=8
 
 PROG1 := tests
 

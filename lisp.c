@@ -602,15 +602,24 @@ lisp_object_t allocate_function()
     return (uint64_t)fn | FUNCTION_TYPE;
 }
 
+#if defined(__x86_64__)
+#define GET_FRAME_POINTER "movq %%rbp, %0"
+#elif defined(__aarch64__)
+#define GET_FRAME_POINTER "mov %0, x29"
+#else
+#error "Unsupported architecture"
+#endif
+
 void *get_rbp(int offset)
 {
     uint64_t *rbp;
-    asm("movq %%rbp, %0"
-        : "=r"(rbp));
+    asm(GET_FRAME_POINTER : "=r"(rbp));
     for (int i = 0; i < offset; i++)
         rbp = *((uint64_t **)rbp);
     return rbp;
 }
+
+#undef GET_FRAME_POINTER
 
 static size_t objsize(lisp_object_t obj)
 {
@@ -723,9 +732,11 @@ static void gc_check_copied_object(lisp_object_t obj)
 
 static void *ptr_demangle(void *ptr)
 {
+#ifdef __x86_64__
     asm("ror $0x11, %rdi");
     asm("xor %fs:0x30, %rdi");
     asm("movq %rdi, -0x8(%rbp)");
+#endif
     return ptr;
 }
 

@@ -66,6 +66,7 @@ static int parse_args(int argc, char **argv, struct interpreter_settings *settin
     settings->heap_size = 1024 * 1024; /* default */
     settings->image = NULL;
     settings->use_vm = 0;
+    settings->vmboot = NULL;
     int c;
     while (1) {
         int option_index;

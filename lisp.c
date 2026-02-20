@@ -730,31 +730,36 @@ static void gc_check_copied_object(lisp_object_t obj)
     assert(p >= interp->heap.from_space && p < interp->heap.from_space + interp->heap.size_bytes / 2);
 }
 
-static void *ptr_demangle(void *ptr)
-{
-#ifdef __x86_64__
-    asm("ror $0x11, %rdi");
-    asm("xor %fs:0x30, %rdi");
-    asm("movq %rdi, -0x8(%rbp)");
-#endif
-    return ptr;
-}
+#if defined(__x86_64__)
+
+int jmp_buf_size = 8;
 
 static int jmp_buf_entry_is_pointer[] = { 0, 1, 0, 0, 0, 0, 1, 1 };
 
+#elif defined(__aarch64__)
+
+int jmp_buf_size = 11;
+
+static int jmp_buf_entry_is_pointer[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+#endif
+
 void gc_copy_jmp_buf(struct lisp_heap *heap, jmp_buf buf)
 {
-    for (int i = 0; i < 8; i++)
-        if (jmp_buf_entry_is_pointer[i]) {
-#ifdef __GLIBC__
-            void *jmpbuf_entry = (void *)(buf->__jmpbuf[i]);
-            lisp_object_t *p = ptr_demangle(jmpbuf_entry);
-#else
-            /* musl libc, which does not define a preprocessor symbol */
-            lisp_object_t *p = (lisp_object_t *)(ctxt->buf->__jb[i]);
-#endif
-            if (object_is_in_from_space(heap, *p))
-                gc_copy(&interp->heap, p);
+    for (int i = 0; i < jmp_buf_size; i++)
+        if (!jmp_buf_entry_is_pointer[i]) {
+            lisp_object_t o = (lisp_object_t)(buf->__jmpbuf[i]);
+            if (object_is_in_from_space(heap, o)) {
+                /* This is not actually expected, since on x86_64, the registers in the
+                   jmp_buf are either stack pointers (which we don't need to
+                   GC), or rbx and r12-r15 which don't seem to be used given how
+                   we are compiling this code.
+
+                   On AArch64, not so sure
+                */
+                abort();
+                gc_copy(heap, (lisp_object_t *)&buf->__jmpbuf[i]);
+            }
         }
 }
 

@@ -1666,13 +1666,6 @@ static void test_vm_initialization()
     free_interpreter();
 }
 
-static void test_compile3()
-{
-    START_OF_TEST("compile3");
-    init_interpreter_for_tests();
-    init_compiler();
-}
-
 static void test_vm_push_pop()
 {
     START_OF_TEST("vm_push_pop");

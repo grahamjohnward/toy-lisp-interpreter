@@ -428,7 +428,7 @@ void init_interpeter_from_image(char *image)
     interp = (struct lisp_interpreter *)malloc(sizeof(struct lisp_interpreter));
     assert(sizeof(lisp_object_t) == sizeof(void *));
     interp->return_stack = NULL;
-    interp->top_of_stack = get_rbp(2);
+    interp->top_of_stack = get_frame_pointer(2);
     do_read(fd, (char *)&interp->use_vm, sizeof(int));
     do_read(fd, (char *)&interp->symbol_table, sizeof(lisp_object_t));
     do_read(fd, (char *)&interp->heap, sizeof(struct lisp_heap));
@@ -475,7 +475,7 @@ void init_interpreter2(size_t heap_size, int use_vm)
     assert(sizeof(lisp_object_t) == sizeof(void *));
     interp->symbol_table = NIL;
     interp->return_stack = NULL;
-    interp->top_of_stack = get_rbp(2);
+    interp->top_of_stack = get_frame_pointer(2);
     interp->use_vm = use_vm;
     text_stream_init_fd(&interp->ts_stdin, 0);
     lisp_heap_init(&interp->heap, heap_size);
@@ -610,7 +610,7 @@ lisp_object_t allocate_function()
 #error "Unsupported architecture"
 #endif
 
-void *get_rbp(int offset)
+void *get_frame_pointer(int offset)
 {
     uint64_t *rbp;
     asm(GET_FRAME_POINTER : "=r"(rbp));
@@ -770,7 +770,7 @@ lisp_object_t gc()
     struct lisp_heap *heap = &interp->heap;
     heap->freeptr = heap->to_space;
     /* Roots - stack */
-    void *rbp = get_rbp(1);
+    void *rbp = get_frame_pointer(1);
     assert(interp->top_of_stack);
     for (lisp_object_t *p = interp->top_of_stack; p > (lisp_object_t *)rbp; p--)
         if (object_is_in_from_space(heap, *p))

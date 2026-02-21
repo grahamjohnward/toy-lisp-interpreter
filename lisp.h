@@ -193,7 +193,7 @@ struct lisp_heap {
     char *to_space;
 };
 
-void *get_rbp(int n);
+void *get_frame_pointer(int n);
 
 void lisp_heap_init(struct lisp_heap *heap, size_t bytes);
 void lisp_heap_free(struct lisp_heap *heap);

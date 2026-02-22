@@ -34,7 +34,6 @@
         (when (functionp obj)
           (%asm abort))
 	(if (consp obj)
-	    ;; XXX bug here
 	    (let ((foo (car obj)))
 	      (cond ((eq foo 'target)
 		     (progn
@@ -429,8 +428,6 @@
 ;	    push nil
             ))))))
 
-;; whoa bug!!!!!  interpreted compiler is getting `sym` from the
-;; dynamic environment!
 (defun compile4-function-call (expr ctxt)
   (assert (and (consp expr) (symbolp (car expr))))
   (let ((sym (car expr))

@@ -318,38 +318,46 @@ static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
     vm_inst_push(vm, result);
 }
 
-static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
+static void vm_handle_rest_args(struct vm *vm, lisp_object_t non_rest_arity)
 {
     lisp_object_t actual_arg_count = vm_pop(vm);
     assert(integerp(actual_arg_count) != NIL);
     int actual_arg_count_int = Int(actual_arg_count);
 
+    lisp_object_t actual_rest_args = NIL;
+    int args_left = actual_arg_count_int;
+
+    int rest_arg_count = actual_arg_count_int - Int(non_rest_arity);
+    for (int i = 0; i < rest_arg_count; i++) {
+        actual_rest_args = cons(vm_pop(vm), actual_rest_args);
+        args_left--;
+    }
+    vm_inst_push(vm, actual_rest_args);
+    vm_inst_push(vm, LispInt(args_left + 1));
+}
+
+static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
+{
     lisp_object_t actual_function = fnptr->actual_function;
     lisp_object_t arg_info = cadr(actual_function);
     assert(vectorp(arg_info) != NIL);
-    lisp_object_t rest_args = svref_c(arg_info, 0);
+    lisp_object_t has_rest_args = svref_c(arg_info, 0);
     lisp_object_t arity = svref_c(arg_info, 1);
-    int arity_int = Int(arity);
     lisp_object_t env_size = arity + LispInt(1);
-    if (rest_args != NIL)
+    if (has_rest_args != NIL)
         /* Add a slot for the rest args */
         env_size += LispInt(1);
     lisp_object_t env = allocate_vector(env_size);
-    lisp_object_t actual_rest_args = NIL;
-    int args_left = actual_arg_count_int;
-    if (rest_args != NIL) {
-        /* arity does not include the rest args */
-        int rest_arg_count = actual_arg_count_int - arity_int;
-        for (int i = 0; i < rest_arg_count; i++) {
-            actual_rest_args = cons(vm_pop(vm), actual_rest_args);
-            args_left--;
-        }
-    }
-    for (int i = args_left; i > 0; i--) {
+
+    if (has_rest_args != NIL)
+        vm_handle_rest_args(vm, arity);
+
+    lisp_object_t arg_count = vm_pop(vm);
+
+    for (int i = Int(arg_count); i > 0; i--) {
         svref_set(env, LispInt(i), vm_pop(vm));
     }
-    if (rest_args != NIL)
-        svref_set(env, arity + LispInt(1), actual_rest_args);
+
     svref_set(env, 0, car(fnptr->actual_function));
     *vm->call_stack_pointer = vm->registers;
     vm->call_stack_pointer++;

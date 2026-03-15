@@ -237,10 +237,10 @@
     (let ((i 0) has-rest)
       (tagbody
 	 (dolist (arg arglist)
+	   (incf i)
 	   (when (or (eq arg '&rest) (eq arg '&body))
 	     (setq has-rest t)
-	     (go done))
-	   (incf i))
+	     (go done)))
        done
 	 (set-svref result 0 has-rest)
 	 (set-svref result 1 i)

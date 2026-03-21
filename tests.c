@@ -1715,9 +1715,10 @@ static void test_vm_inst_call_lambda()
 {
     START_OF_TEST("vm_inst_call_lambda");
     init_interpreter(1024 * 1024 * 4);
+    interp->vm.vm_trace = 1;
     /* The function */
     lisp_object_t arg_info = parse1_wrapper("#(nil 2)");
-    lisp_object_t symbol = make_function(NIL, parse1_wrapper("#()"), arg_info);
+    lisp_object_t symbol = make_function(NIL, parse1_wrapper("#(make-env 2)"), arg_info);
     /* Set up the stack */
     vm_inst_push(&interp->vm, sym("foo"));
     vm_inst_push(&interp->vm, sym("bar"));
@@ -1725,6 +1726,7 @@ static void test_vm_inst_call_lambda()
     vm_inst_push(&interp->vm, symbol);
     /* Call */
     vm_inst_call(&interp->vm);
+    vm_run(&interp->vm);
     /* Check */
     lisp_object_t env = interp->vm.registers.environment;
     char *str = print_object(env);
@@ -1741,13 +1743,14 @@ static void test_vm_inst_get_set()
     START_OF_TEST("vm_inst_get_set");
     init_interpreter(1024 * 1024 * 4);
 
-    lisp_object_t symbol = make_function(parse1_wrapper("#(nil bof xyz)"), parse1_wrapper("#(get 0 1 ret)"), parse1_wrapper("#(nil 2)"));
+    lisp_object_t symbol = make_function(parse1_wrapper("#(nil bof xyz)"), parse1_wrapper("#(make-env 2)"), parse1_wrapper("#(nil 2)"));
 
     vm_inst_push(&interp->vm, sym("foo"));
     vm_inst_push(&interp->vm, sym("bar"));
     vm_inst_push(&interp->vm, LispInt(2));
     vm_inst_push(&interp->vm, symbol);
     vm_inst_call(&interp->vm);
+    vm_run(&interp->vm);
 
     vm_inst_get(&interp->vm, 0, LispInt(1));
     check(vm_pop(&interp->vm) == sym("foo"), "get");
@@ -1772,7 +1775,7 @@ static void test_vm_function()
     START_OF_TEST("vm_function");
     init_interpreter(1024 * 1024 * 4);
 
-    lisp_object_t lambda_code = parse1_wrapper("#(push hello get 0 1 push 2 push cons call ret)");
+    lisp_object_t lambda_code = parse1_wrapper("#(make-env 1 push hello get 0 1 push 2 push cons call ret)");
     /* Make the above code the function value of a symbol */
     lisp_object_t fn = allocate_function();
     struct lisp_function *fnptr = LispFunctionPtr(fn);
@@ -1804,7 +1807,7 @@ static void test_vm_function_return_from()
     START_OF_TEST("vm_function_return_from");
     init_interpreter(1024 * 1024 * 4);
     /* (defun foo (x) (return-from foo (cons x :bog))) */
-    lisp_object_t lambda_code = parse1_wrapper("#(set-tag g19 23 push g19 get 0 1 push :bog push 1 push symbol-value call push 2 push cons call push 2 raise nop ret)");
+    lisp_object_t lambda_code = parse1_wrapper("#(make-env 1 set-tag g19 25 push g19 get 0 1 push :bog push 1 push symbol-value call push 2 push cons call push 2 raise nop ret)");
     lisp_object_t fn = allocate_function();
     struct lisp_function *fnptr = LispFunctionPtr(fn);
     fnptr->kind = interp->syms.lambda;

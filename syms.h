@@ -49,6 +49,7 @@ struct syms {
     lisp_object_t nop;
     lisp_object_t raise;
     lisp_object_t funcall;
+    lisp_object_t rest_args;
 };
 
 #endif

@@ -272,6 +272,7 @@ static void init_symbols()
     interp->syms.nop = sym("nop");
     interp->syms.raise = sym("raise");
     interp->syms.funcall = sym("funcall");
+    interp->syms.rest_args = sym("rest-args");
 }
 
 lisp_object_t length(lisp_object_t seq);
@@ -833,6 +834,7 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(nop);
     GC_COPY_SYMBOL(raise);
     GC_COPY_SYMBOL(funcall);
+    GC_COPY_SYMBOL(rest_args);
 #undef GC_COPY_SYMBOL
     /* Roots - VM */
     gc_copy_vm(&interp->heap, &interp->vm);

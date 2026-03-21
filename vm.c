@@ -24,6 +24,7 @@ void vm_init(struct vm *vm, size_t data_stack_size)
     vm->registers.code_vector = NIL;
     vm->registers.instruction_pointer = 0;
     vm->registers.environment = NIL;
+    vm->registers.closure_env = NIL;
     vm->registers.tags = NIL;
     vm->vm_trace = 0;
     vm->setjmp_activated = 0;
@@ -48,6 +49,7 @@ static void gc_copy_vm_call_stack_frame(struct lisp_heap *heap, struct vm_call_s
     gc_copy(heap, &frame->data_stack_offset);
     gc_copy(heap, &frame->environment);
     gc_copy(heap, &frame->instruction_pointer);
+    gc_copy(heap, &frame->closure_env);
     gc_copy(heap, &frame->tags);
 }
 
@@ -157,6 +159,8 @@ void vm_run_one_instruction(struct vm *vm)
     CHECK_INSTRUCTION(tag_jmp,    vm_inst_tag_jmp,    1) else
     CHECK_INSTRUCTION(raise,      vm_inst_raise,      0) else
     CHECK_INSTRUCTION(swap,       vm_inst_swap,       0) else
+    CHECK_INSTRUCTION(rest_args,  vm_inst_rest_args,  1) else
+    CHECK_INSTRUCTION(make_env,   vm_inst_setup_env,  1) else
     CHECK_INSTRUCTION(abort,      vm_inst_abort,      0);
     // clang-format on
 #undef CHECK_INSTRUCTION
@@ -336,34 +340,33 @@ static void vm_handle_rest_args(struct vm *vm, lisp_object_t arity)
     vm_inst_push(vm, LispInt(args_left + 1));
 }
 
+void vm_inst_rest_args(struct vm *vm, lisp_object_t arity)
+{
+    vm_handle_rest_args(vm, arity);
+}
+
+void vm_inst_setup_env(struct vm *vm, lisp_object_t arity)
+{
+    lisp_object_t arg_count = vm_pop(vm);
+    vm->registers.environment = allocate_vector(arity + LispInt(1));
+    for (int i = Int(arg_count); i > 0; i--)
+        svref_set(vm->registers.environment, LispInt(i), vm_pop(vm));
+    svref_set(vm->registers.environment, 0, vm->registers.closure_env);
+    // XXX!
+    vm->registers.data_stack_offset = LispInt(vm->top_of_data_stack - vm->data_stack);
+}
+
 static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
 {
-    lisp_object_t env = NIL;
     lisp_object_t actual_function = fnptr->actual_function;
-    lisp_object_t arg_info = cadr(actual_function);
-    assert(vectorp(arg_info) != NIL);
-    lisp_object_t has_rest_args = svref_c(arg_info, 0);
-    lisp_object_t arity = svref_c(arg_info, 1);
-
-    if (has_rest_args != NIL)
-        vm_handle_rest_args(vm, arity);
-
-    lisp_object_t arg_count = vm_pop(vm);
-    env = allocate_vector(arity + LispInt(1));
-
-    for (int i = Int(arg_count); i > 0; i--) {
-        svref_set(env, LispInt(i), vm_pop(vm));
-    }
-
-    svref_set(env, 0, car(fnptr->actual_function));
     *vm->call_stack_pointer = vm->registers;
     vm->call_stack_pointer++;
-
     vm->registers.code_vector = caddr(actual_function);
     vm->registers.instruction_pointer = 0;
-    vm->registers.environment = env;
+    vm->registers.environment = NIL;
+    vm->registers.closure_env = car(fnptr->actual_function);
     vm->registers.tags = NIL;
-    vm->registers.data_stack_offset = LispInt(vm->top_of_data_stack - vm->data_stack);
+    // vm->registers.data_stack_offset = NIL;
 }
 
 void vm_inst_call(struct vm *vm)

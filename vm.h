@@ -10,6 +10,7 @@ struct vm_call_stack_frame {
     lisp_object_t code_vector;
     lisp_object_t instruction_pointer;
     lisp_object_t environment;
+    lisp_object_t closure_env;
     lisp_object_t tags;
     lisp_object_t data_stack_offset;
 };
@@ -56,6 +57,10 @@ void vm_inst_pop(struct vm *vm);
 void vm_inst_call(struct vm *vm);
 
 void vm_inst_ret(struct vm *vm);
+
+void vm_inst_setup_env(struct vm *vm, lisp_object_t arity);
+
+void vm_inst_rest_args(struct vm *vm, lisp_object_t arity);
 
 void vm_inst_get(struct vm *vm, lisp_object_t n, lisp_object_t m);
 

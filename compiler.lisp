@@ -262,6 +262,11 @@
       (lexical-context-leave-scope ctxt)
       (let ((argcount (length arglist))
 	    (arg-info (parse-arglist arglist)))
+        (let ((arity (svref arg-info 1))
+              (has-rest-args (svref arg-info 0)))
+          (if has-rest-args
+              (setq compiled-body `(rest-args ,arity make-env ,arity ,@compiled-body))
+              (setq compiled-body `(make-env ,arity ,@compiled-body))))
 	(let ((code (assemble compiled-body)))
 	  (let ((result `(push ,arg-info push ,code push 2 push %vm-make-function call)))
 	    result))))))

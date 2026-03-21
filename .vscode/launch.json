@@ -12,6 +12,22 @@
             "cwd": "${workspaceRoot}"
         },
         {
+            "name": "BOGGO",
+            "program": "${workspaceRoot}/build/main",
+            "type": "cppdbg",
+            "request": "launch",
+            "cwd": "${workspaceRoot}",
+            "args": [
+                "--heap-size=128m",
+                "--use-vm",
+                "--vmboot=vmboot.compiled2",
+                "lib.compiled2",
+                "compiler.compiled2",
+                "apply.compiled",
+                "bootstrap.compiled2"
+            ]
+        },
+        {
             "name": "GC bug 20250707",
             "program": "${workspaceRoot}/build/main",
             "type": "cppdbg",

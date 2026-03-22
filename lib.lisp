@@ -329,7 +329,7 @@
 	(cons item list))))
 
 (defmacro push (obj place)
-  `(setq ,place (cons obj ,place)))
+  `(setq ,place (cons ,obj ,place)))
 
 (defun vector (&rest objects)
   (let ((len (length objects)))

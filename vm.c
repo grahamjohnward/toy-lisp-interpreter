@@ -358,15 +358,13 @@ void vm_inst_setup_env(struct vm *vm, lisp_object_t arity)
 
 static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
 {
-    lisp_object_t actual_function = fnptr->actual_function;
     *vm->call_stack_pointer = vm->registers;
     vm->call_stack_pointer++;
-    vm->registers.code_vector = caddr(actual_function);
+    vm->registers.code_vector = caddr(fnptr->actual_function);
     vm->registers.instruction_pointer = 0;
     vm->registers.environment = NIL;
     vm->registers.closure_env = car(fnptr->actual_function);
     vm->registers.tags = NIL;
-    // vm->registers.data_stack_offset = NIL;
 }
 
 void vm_inst_call(struct vm *vm)

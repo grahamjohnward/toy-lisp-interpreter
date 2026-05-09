@@ -14,6 +14,7 @@ struct interpreter_settings {
     char *image;
     int use_vm;
     char *vmboot;
+    int vm_trace;
 };
 
 static struct option options[] = {
@@ -21,6 +22,7 @@ static struct option options[] = {
     { "image", optional_argument, 0, 2 },
     { "use-vm", no_argument, 0, 3 },
     { "vmboot", optional_argument, 0, 4 },
+    { "vm-trace", no_argument, 0, 5 },
     { 0, 0, 0, 0 }
 };
 
@@ -67,6 +69,7 @@ static int parse_args(int argc, char **argv, struct interpreter_settings *settin
     settings->image = NULL;
     settings->use_vm = 0;
     settings->vmboot = NULL;
+    settings->vm_trace = 0;
     int c;
     while (1) {
         int option_index;
@@ -88,6 +91,9 @@ static int parse_args(int argc, char **argv, struct interpreter_settings *settin
             settings->vmboot = malloc(strlen(optarg) + 1);
             strcpy(settings->vmboot, optarg);
             break;
+        case 5:
+            settings->vm_trace = 1;
+            break;
         default:
             abort();
         }
@@ -105,6 +111,7 @@ int main(int argc, char **argv)
         init_interpreter2(settings.heap_size, settings.use_vm);
     if (settings.use_vm) {
         lisp_object_t vmboot_sym = sym("%vmboot");
+        interp->vm.vm_trace = settings.vm_trace;
         if (settings.vmboot) {
             int fd = open(settings.vmboot, O_RDONLY);
             if (fd < 0) {

@@ -45,8 +45,12 @@ static void gc_copy_vm_data_stack(struct lisp_heap *heap, struct vm *vm)
 {
     for (lisp_object_t *p = vm->data_stack; p < vm->top_of_data_stack; p++)
         gc_copy(heap, p);
-    ////    for (lisp_object_t *p = vm->other_data_stack; p < vm->??? ; p++)
-    //  gc_copy(heap, p);
+}
+
+static void gc_copy_vm_other_stack(struct lisp_heap *heap, struct vm *vm)
+{
+    for (lisp_object_t *p = vm->other_data_stack; p < vm->registers.sp; p++)
+        gc_copy(heap, p);
 }
 
 static void gc_copy_vm_call_stack_frame(struct lisp_heap *heap, struct vm_call_stack_frame *frame)
@@ -68,6 +72,7 @@ static void gc_copy_vm_call_stack(struct lisp_heap *heap, struct vm *vm)
 void gc_copy_vm(struct lisp_heap *heap, struct vm *vm)
 {
     gc_copy_vm_data_stack(heap, vm);
+    gc_copy_vm_other_stack(heap, vm);
     gc_copy_vm_call_stack(heap, vm);
     gc_copy_vm_call_stack_frame(heap, &vm->registers);
     if (vm->setjmp_activated)

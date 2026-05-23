@@ -273,6 +273,9 @@ static void init_symbols()
     interp->syms.raise = sym("raise");
     interp->syms.funcall = sym("funcall");
     interp->syms.rest_args = sym("rest-args");
+    interp->syms.get0 = sym("get0");
+    interp->syms.set0 = sym("set0");
+    interp->syms.make_env2 = sym("make-env2");
 }
 
 lisp_object_t length(lisp_object_t seq);
@@ -835,6 +838,9 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(raise);
     GC_COPY_SYMBOL(funcall);
     GC_COPY_SYMBOL(rest_args);
+    GC_COPY_SYMBOL(get0);
+    GC_COPY_SYMBOL(set0);
+    GC_COPY_SYMBOL(make_env2);
 #undef GC_COPY_SYMBOL
     /* Roots - VM */
     gc_copy_vm(&interp->heap, &interp->vm);

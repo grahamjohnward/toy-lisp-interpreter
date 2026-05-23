@@ -17,6 +17,8 @@ void vm_init(struct vm *vm, size_t data_stack_size)
 {
     vm->data_stack_size = data_stack_size;
     vm->data_stack = (lisp_object_t *)malloc(sizeof(lisp_object_t) * vm->data_stack_size);
+    vm->other_data_stack = (lisp_object_t *)malloc(sizeof(lisp_object_t) * vm->data_stack_size);
+
     vm->call_stack_size = 1024;
     vm->call_stack = (struct vm_call_stack_frame *)malloc(sizeof(struct vm_call_stack_frame) * vm->call_stack_size);
     vm->call_stack_pointer = vm->call_stack;
@@ -26,6 +28,8 @@ void vm_init(struct vm *vm, size_t data_stack_size)
     vm->registers.environment = NIL;
     vm->registers.closure_env = NIL;
     vm->registers.tags = NIL;
+    vm->registers.fp = NULL;
+    vm->registers.sp = vm->other_data_stack;
     vm->vm_trace = 0;
     vm->setjmp_activated = 0;
     initialize_data_stack(vm);
@@ -41,6 +45,8 @@ static void gc_copy_vm_data_stack(struct lisp_heap *heap, struct vm *vm)
 {
     for (lisp_object_t *p = vm->data_stack; p < vm->top_of_data_stack; p++)
         gc_copy(heap, p);
+    ////    for (lisp_object_t *p = vm->other_data_stack; p < vm->??? ; p++)
+    //  gc_copy(heap, p);
 }
 
 static void gc_copy_vm_call_stack_frame(struct lisp_heap *heap, struct vm_call_stack_frame *frame)
@@ -81,6 +87,21 @@ void vm_print_stack(struct vm *vm)
         i++;
     }
     printf("<- STACK\n");
+}
+
+static void vm_print_other_stack(struct vm *vm)
+{
+    /* Visually speaking, stack grows up here: */
+    printf("OTHER STACK ->\n");
+    int i = 0;
+    for (lisp_object_t *p = vm->registers.sp - 1; p >= vm->other_data_stack; p--) {
+        lisp_object_t obj = *p;
+        char *str = print_object(obj);
+        printf(". %d %s\n", i, str);
+        free(str);
+        i++;
+    }
+    printf("<- OTHER STACK\n");
 }
 
 static void vm_print_call_stack_frame(struct vm_call_stack_frame *p)
@@ -148,6 +169,9 @@ void vm_run_one_instruction(struct vm *vm)
     // clang-format off
     CHECK_INSTRUCTION(push,       vm_inst_push,       1) else
     CHECK_INSTRUCTION(call,       vm_inst_call,       0) else
+    CHECK_INSTRUCTION(get0,       vm_inst_get0,       1) else
+    CHECK_INSTRUCTION(set0,       vm_inst_set0,       1) else
+    CHECK_INSTRUCTION(make_env2,  vm_inst_setup_env2, 1) else
     CHECK_INSTRUCTION(get,        vm_inst_get,        2) else
     CHECK_INSTRUCTION(pop,        vm_inst_pop,        0) else
     CHECK_INSTRUCTION(nop,        vm_inst_nop,        0) else
@@ -164,8 +188,10 @@ void vm_run_one_instruction(struct vm *vm)
     CHECK_INSTRUCTION(abort,      vm_inst_abort,      0);
     // clang-format on
 #undef CHECK_INSTRUCTION
-    if (lisp_function_pointer == NIL)
+    if (lisp_function_pointer == NIL) {
+        TRACE(instruction);
         abort();
+    }
     if (arity == NIL)
         abort();
     void (*fp)() = FunctionPtr(lisp_function_pointer);
@@ -211,6 +237,8 @@ void vm_run_one_instruction(struct vm *vm)
         free(str2);
     if (str3)
         free(str3);
+    if (interp->vm.vm_trace)
+        vm_print_stack(&interp->vm);
 }
 
 #undef VM_TRACE
@@ -219,6 +247,7 @@ void vm_run(struct vm *vm)
 {
     while (vm->registers.instruction_pointer < length(vm->registers.code_vector))
         vm_run_one_instruction(vm);
+    vm_print_stack(vm);
 }
 
 lisp_object_t vm_eval(lisp_object_t code_vector)
@@ -234,6 +263,7 @@ lisp_object_t vm_eval(lisp_object_t code_vector)
 
 void vm_inst_push(struct vm *vm, lisp_object_t obj)
 {
+    assert(vm->top_of_data_stack >= vm->data_stack);
     assert(vm->top_of_data_stack - vm->data_stack < vm->data_stack_size);
     *(vm->top_of_data_stack++) = obj;
 }
@@ -241,6 +271,7 @@ void vm_inst_push(struct vm *vm, lisp_object_t obj)
 void vm_inst_pop(struct vm *vm)
 {
     vm->top_of_data_stack--;
+    assert(vm->top_of_data_stack >= vm->data_stack);
 }
 
 static void vm_setup_funcall(struct vm *vm)
@@ -356,6 +387,26 @@ void vm_inst_setup_env(struct vm *vm, lisp_object_t arity)
     vm->registers.data_stack_offset = LispInt(vm->top_of_data_stack - vm->data_stack);
 }
 
+void vm_inst_setup_env2(struct vm *vm, lisp_object_t arity)
+{
+    lisp_object_t arg_count = vm_pop(vm);
+    if (arg_count > arity)
+        abort();
+    // We have arg_count arguments on the stack and need to populate arity slots on the other stack
+    vm->registers.fp = vm->registers.sp;
+    for (int i = Int(arg_count) - 1; i >= 0; i--)
+        vm->registers.fp[i] = vm_pop(vm);
+    for (int i = Int(arity) - 1; i > Int(arg_count) - 1; i--)
+        vm->registers.fp[i] = NIL;
+    if (vm->registers.closure_env != NIL) {
+        vm->registers.environment = allocate_vector(LispInt(1));
+        svref_set(vm->registers.environment, 0, vm->registers.closure_env);
+    } else {
+        vm->registers.environment = NIL;
+    }
+    vm->registers.sp = vm->registers.fp + Int(arity);
+}
+
 static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
 {
     *vm->call_stack_pointer = vm->registers;
@@ -426,7 +477,7 @@ void vm_inst_ret(struct vm *vm)
         TRACE(cons(o1, o2));
         TRACE(LispInt(Int(o1) - Int(o2)));
         vm_print_stack(vm);
-        // abort();
+        abort();
     }
 }
 
@@ -444,7 +495,13 @@ static lisp_object_t findenv(lisp_object_t env, int offset)
 
 void vm_inst_get(struct vm *vm, lisp_object_t n, lisp_object_t m)
 {
-    lisp_object_t env = findenv(vm->registers.environment, Int(n));
+    lisp_object_t env = NIL;
+    if (n > 0)
+        /* We can just get it from closure_env register */
+        env = findenv(vm->registers.closure_env, Int(n) - 1);
+    else
+        /* Old logic: transitional case where "get 0 n" used rather than get0 n */
+        env = findenv(vm->registers.environment, Int(n));
     assert(length(env) > m);
     vm_inst_push(vm, svref(env, m));
 }
@@ -599,4 +656,21 @@ void vm_inst_swap(struct vm *vm)
     lisp_object_t next = vm_pop(vm);
     vm_inst_push(vm, top);
     vm_inst_push(vm, next);
+}
+
+void vm_inst_set_fp(struct vm *vm)
+{
+    lisp_object_t actual_arg_count = vm_pop(vm);
+    assert(integerp(actual_arg_count) != NIL);
+    vm->registers.fp = vm->top_of_data_stack - Int(actual_arg_count);
+}
+
+void vm_inst_get0(struct vm *vm, lisp_object_t n)
+{
+    vm_inst_push(vm, vm->registers.fp[Int(n) - 1]);
+}
+
+void vm_inst_set0(struct vm *vm, lisp_object_t n)
+{
+    vm->registers.fp[Int(n) - 1] = vm_peek(vm);
 }

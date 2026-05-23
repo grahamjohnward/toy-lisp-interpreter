@@ -111,9 +111,19 @@
     (lexical-context-set-binding-count ctxt 0)
     ctxt))
 
+(defun make-lexical-scope-bindings (bindings)
+  (cons 0 bindings))
+
+(defun lexical-context-get-actual-bindings (bindings)
+  (cdr bindings))
+
+(defun lexical-context-wowza (ctxt)
+  (caar (lexical-context-bindings ctxt)))
+
 (defun lexical-context-enter-scope (ctxt bindings)
-  (lexical-context-set-bindings ctxt (cons bindings
-					   (lexical-context-bindings ctxt)))
+  (lexical-context-set-bindings ctxt
+                                (cons (make-lexical-scope-bindings bindings)
+				      (lexical-context-bindings ctxt)))
   (lexical-context-set-binding-count ctxt
 				     (+ (lexical-context-binding-count ctxt)
 					(length bindings))))
@@ -125,20 +135,71 @@
 					  (length (car bindings))))
     (lexical-context-set-bindings ctxt (cdr (lexical-context-bindings ctxt)))))
 
+(defun lexical-context-lookup-internal (bindings symbol depth)
+  (if (null bindings)
+      nil
+      (let ((bindings-wrapper (car bindings)))
+        (when (> depth (car bindings-wrapper))
+          (rplaca bindings-wrapper depth))
+        (let ((m 1)
+              (bindings-one-scope
+               (lexical-context-get-actual-bindings bindings-wrapper)))
+	  (while (not (null bindings-one-scope))
+            (when (eq (car bindings-one-scope) symbol)
+	      (return-from lexical-context-lookup-internal (list depth m)))
+	    (incf m)
+	    (setq bindings-one-scope (cdr bindings-one-scope))))
+        (lexical-context-lookup-internal (cdr bindings) symbol (+ depth 1)))))
+      
+(defun lexical-context-lookup-broken (cxt symbol)
+  (lexical-context-lookup-internal (lexical-context-bindings ctxt) symbol 0))
+
+(defun boffo (bindings symbol n)
+  (when (null bindings)
+    (return-from boffo nil))
+  (let ((m 1)                           ;Slot within the scope
+        (bindings-wrapper (car bindings)))
+    (let ((bindings-one-scope
+           (lexical-context-get-actual-bindings bindings-wrapper)))
+      (while (not (null bindings-one-scope))
+        (when (eq (car bindings-one-scope) symbol)
+          (when (> n (car bindings-wrapper))
+            (rplaca bindings-wrapper n))
+	  (return-from boffo (list n m)))
+	(incf m)
+	(setq bindings-one-scope (cdr bindings-one-scope))))
+    ;; Need to look at the next set of bindings out
+    (when (> (+ 1 n) (car bindings-wrapper))
+      (rplaca bindings-wrapper n))
+    (boffo (cdr bindings) symbol (+ n 1))))
+
 (defun lexical-context-lookup (ctxt symbol)
+  (boffo (lexical-context-bindings ctxt) symbol 0))
+
+(defun lexical-context-lookup-old (ctxt symbol)
   (let ((bindings (lexical-context-bindings ctxt))
-	(n 0)
-	(m 1))
+	(n 0))                          ;Depth in nested scope
     (while (not (null bindings))
-      (let ((bindings-one-scope (car bindings)))
-	(while (not (null bindings-one-scope))
-          (when (eq (car bindings-one-scope) symbol)
-	    (return-from lexical-context-lookup (list n m)))
-	  (incf m)
-	  (setq bindings-one-scope (cdr bindings-one-scope))))
-      (setq bindings (cdr bindings))
-      (setq m 1)
-      (incf n)))
+      (let ((m 1)                       ;Slot within the scope
+            (bindings-wrapper (car bindings)))
+        (let ((bindings-one-scope
+               (lexical-context-get-actual-bindings bindings-wrapper)))
+	  (while (not (null bindings-one-scope))
+            (when (eq (car bindings-one-scope) symbol)
+              (when (> n (car bindings-wrapper))
+                (rplaca bindings-wrapper n)
+                (print bindings))
+	      (return-from lexical-context-lookup-old (list n m)))
+	    (incf m)
+	    (setq bindings-one-scope (cdr bindings-one-scope))))
+
+        ;; Need to look at next set of bindings out
+        (setq bindings (cdr bindings))
+        (incf n)
+        (when (> n (car bindings-wrapper))
+          (print (list n m))
+          (rplaca bindings-wrapper n)
+          (print bindings)))))
   nil)
 
 ;; Having these three symbols in the code wreaks havoc with quasiquote
@@ -233,7 +294,7 @@
   (compile4-list (cdr expr) ctxt))
 
 (defun parse-arglist (arglist)
-  (let ((result (make-vector 2)))
+  (let ((result (make-vector 3)))
     (let ((i 0) has-rest)
       (tagbody
 	 (dolist (arg arglist)
@@ -245,6 +306,36 @@
 	 (set-svref result 0 has-rest)
 	 (set-svref result 1 i)
 	 (return-from parse-arglist result)))))
+
+
+(defun instruction-arity (ins)
+  (cond ((find ins '(call set-dso pop nop ret raise swap abort)) 0)
+        ((find ins '(push get1 set1 jmp-if-nil jmp tag-jmp rest-args setup-env)) 1)
+        ((find ins '(get set set-tag)) 2)
+        ((consp ins) 0)
+        (t (assert nil))))
+
+(defun wow-amazing (code)
+  (let ((result (%wow-amazing code)))
+;    (trace result)
+    result))
+
+(defun %wow-amazing (code)
+  (if (null code) nil
+      (let ((ins (car code)))
+        (cond ((and (eq ins 'get) (eq (cadr code) 0))
+               `(get0 ,(caddr code) ,@(wow-amazing (cdr (cddr code)))))
+              ((and (eq ins 'set) (eq (cadr code) 0))
+               `(set0 ,(caddr code) ,@(wow-amazing (cdr (cddr code)))))
+              (t
+               (let ((arity (instruction-arity ins)))
+                 (cond ((eq arity 0)
+                        `(,ins ,@(wow-amazing (cdr code))))
+                       ((eq arity 1)
+                        `(,ins ,(cadr code) ,@(wow-amazing (cddr code))))
+                       ((eq arity 2)
+                        `(,ins ,(cadr code) ,(caddr code) ,@(wow-amazing (cdr (cddr code)))))
+                       (t (assert nil)))))))))
 
 ;; (append a b) <=> `(,@a ,@b)
 (defun compile4-lambda (expr ctxt)
@@ -259,17 +350,25 @@
 							  (eq x '&body))))
 						arglist))
     (let ((compiled-body `(,@(compile4 `(progn ,@body) ctxt) ret)))
-      (lexical-context-leave-scope ctxt)
-      (let ((argcount (length arglist))
-	    (arg-info (parse-arglist arglist)))
-        (let ((arity (svref arg-info 1))
-              (has-rest-args (svref arg-info 0)))
-          (if has-rest-args
-              (setq compiled-body `(rest-args ,arity make-env ,arity ,@compiled-body))
-              (setq compiled-body `(make-env ,arity ,@compiled-body))))
-	(let ((code (assemble compiled-body)))
-	  (let ((result `(push ,arg-info push ,code push 2 push %vm-make-function call)))
-	    result))))))
+      (let ((can-stack-allocate (= (lexical-context-wowza ctxt) 0)))
+        (when can-stack-allocate
+          (setq compiled-body (wow-amazing compiled-body)))
+        (lexical-context-leave-scope ctxt)
+        (let ((argcount (length arglist))
+	      (arg-info (parse-arglist arglist)))
+          (let ((arity (svref arg-info 1))
+                (has-rest-args (svref arg-info 0)))
+            (let ((preamble (if can-stack-allocate
+                                 `(make-env2 ,arity)
+                                 `(make-env ,arity))))
+              (if has-rest-args
+                  (setq compiled-body `(rest-args ,arity ,@preamble
+                                                  ,@compiled-body))
+                  (setq compiled-body `(,@preamble ,@compiled-body)))))
+	  (let ((code (assemble compiled-body)))
+	    (let ((result `(push ,arg-info push ,code
+                                 push 2 push %vm-make-function call)))
+	      result)))))))
 
 (defun compile4-if (expr ctxt)
   (assert (eq (car expr) 'if))

@@ -50,6 +50,9 @@ struct syms {
     lisp_object_t raise;
     lisp_object_t funcall;
     lisp_object_t rest_args;
+    lisp_object_t get0;
+    lisp_object_t set0;
+    lisp_object_t make_env2;
 };
 
 #endif

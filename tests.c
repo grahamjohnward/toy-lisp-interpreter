@@ -1796,6 +1796,7 @@ static void test_vm_function()
     /* Check the result */
     lisp_object_t result = vm_peek(&interp->vm);
     char *str = print_object(result);
+    printf("%s\n", str);
     check(strcmp("(hello . world)", str) == 0, "ok");
     free(str);
 
@@ -2031,6 +2032,84 @@ void test_vm_inst_swap()
     free_interpreter();
 }
 
+void test_vm_inst_get0()
+{
+    START_OF_TEST("vm_inst_get0");
+    init_interpreter_for_tests();
+    struct vm *vm = &interp->vm;
+
+    vm_inst_push(vm, LispInt(1));
+    vm_inst_push(vm, LispInt(2));
+    vm_inst_push(vm, LispInt(2)); // arg count
+    vm_inst_setup_env2(vm, LispInt(2));
+
+    vm_inst_get0(vm, LispInt(1));
+    check(vm->top_of_data_stack - vm->data_stack == 1, "size1");
+    check(vm_pop(vm) == LispInt(1), "ok1");
+
+    vm_inst_get0(vm, LispInt(2));
+    check(vm->top_of_data_stack - vm->data_stack == 1, "size2");
+    lisp_object_t top = vm_pop(vm);
+    check(top == LispInt(2), "ok2");
+
+    free_interpreter();
+}
+
+void test_vm_inst_set0()
+{
+    START_OF_TEST("vm_inst_set0");
+    init_interpreter_for_tests();
+    struct vm *vm = &interp->vm;
+    vm->registers.fp = vm->top_of_data_stack;
+    vm_inst_push(vm, LispInt(1));
+    vm_inst_push(vm, LispInt(2));
+    vm_inst_push(vm, LispInt(2)); // arg count
+    vm_inst_setup_env2(vm, LispInt(2));
+
+    vm_inst_push(vm, LispInt(14));
+    vm_inst_set0(vm, LispInt(1));
+    vm_pop(vm); /* Throw away return value of set0 (14) */
+    vm_inst_get0(vm, LispInt(1));
+    check(vm_pop(vm) == LispInt(14), "ok");
+
+    free_interpreter();
+}
+
+void test_vm_function_stack_allocated()
+{
+    START_OF_TEST("vm_function_stack_allocated");
+    init_interpreter_for_tests();
+
+    lisp_object_t lambda_code = parse1_wrapper("#(make-env2 2 push hello get0 1 push 2 push cons call get0 2 push 2 push cons call ret)");
+    /* Make the above code the function value of a symbol */
+    lisp_object_t fn = allocate_function();
+    struct lisp_function *fnptr = LispFunctionPtr(fn);
+    fnptr->kind = interp->syms.lambda;
+    lisp_object_t arg_info = parse1_wrapper("#(nil 1)");
+    fnptr->actual_function = List(NIL, arg_info, lambda_code);
+    struct symbol *symptr = SymbolPtr(sym("foo"));
+    symptr->function = fn;
+
+    /* Some code to call the function */
+    lisp_object_t calling_code = parse1_wrapper("#(push beautiful push world push 2 push foo call)");
+
+    /* Run the code */
+    interp->vm.registers.code_vector = calling_code;
+    vm_run(&interp->vm);
+
+    /* Check the result */
+    lisp_object_t result = vm_peek(&interp->vm);
+    char *str = print_object(result);
+    check(strcmp("((hello . beautiful) . world)", str) == 0, "ok");
+    free(str);
+
+    free_interpreter();
+}
+
+void test_vm_inst_make_env2()
+{
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -2179,6 +2258,10 @@ int main(int argc, char **argv)
     test_native_pointer();
     test_make_symbol();
     test_vm_inst_swap();
+    test_vm_inst_get0();
+    test_vm_inst_set0();
+    test_vm_function_stack_allocated();
+    test_vm_inst_make_env2();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

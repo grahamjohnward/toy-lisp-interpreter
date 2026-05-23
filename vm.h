@@ -13,12 +13,16 @@ struct vm_call_stack_frame {
     lisp_object_t closure_env;
     lisp_object_t tags;
     lisp_object_t data_stack_offset;
+    // Rename these:
+    lisp_object_t *fp;
+    lisp_object_t *sp;
 };
 
 struct vm {
     /* Data stack */
     size_t data_stack_size;
     lisp_object_t *data_stack;
+    lisp_object_t *other_data_stack;
     lisp_object_t *top_of_data_stack;
     /* Call stack */
     size_t call_stack_size;
@@ -65,6 +69,12 @@ void vm_inst_rest_args(struct vm *vm, lisp_object_t arity);
 void vm_inst_get(struct vm *vm, lisp_object_t n, lisp_object_t m);
 
 void vm_inst_set(struct vm *vm, lisp_object_t n, lisp_object_t m);
+
+void vm_inst_setup_env2(struct vm *vm, lisp_object_t arity);
+
+void vm_inst_get0(struct vm *vm, lisp_object_t n);
+
+void vm_inst_set0(struct vm *vm, lisp_object_t n);
 
 void vm_inst_abort(struct vm *vm);
 

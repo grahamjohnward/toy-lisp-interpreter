@@ -135,25 +135,6 @@
 					  (length (car bindings))))
     (lexical-context-set-bindings ctxt (cdr (lexical-context-bindings ctxt)))))
 
-(defun lexical-context-lookup-internal (bindings symbol depth)
-  (if (null bindings)
-      nil
-      (let ((bindings-wrapper (car bindings)))
-        (when (> depth (car bindings-wrapper))
-          (rplaca bindings-wrapper depth))
-        (let ((m 1)
-              (bindings-one-scope
-               (lexical-context-get-actual-bindings bindings-wrapper)))
-	  (while (not (null bindings-one-scope))
-            (when (eq (car bindings-one-scope) symbol)
-	      (return-from lexical-context-lookup-internal (list depth m)))
-	    (incf m)
-	    (setq bindings-one-scope (cdr bindings-one-scope))))
-        (lexical-context-lookup-internal (cdr bindings) symbol (+ depth 1)))))
-      
-(defun lexical-context-lookup-broken (cxt symbol)
-  (lexical-context-lookup-internal (lexical-context-bindings ctxt) symbol 0))
-
 (defun boffo (bindings symbol n)
   (when (null bindings)
     (return-from boffo nil))

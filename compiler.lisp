@@ -157,32 +157,6 @@
 (defun lexical-context-lookup (ctxt symbol)
   (lexical-context-lookup-internal (lexical-context-bindings ctxt) symbol 0))
 
-(defun lexical-context-lookup-old (ctxt symbol)
-  (let ((bindings (lexical-context-bindings ctxt))
-	(n 0))                          ;Depth in nested scope
-    (while (not (null bindings))
-      (let ((m 1)                       ;Slot within the scope
-            (bindings-wrapper (car bindings)))
-        (let ((bindings-one-scope
-               (lexical-context-get-actual-bindings bindings-wrapper)))
-	  (while (not (null bindings-one-scope))
-            (when (eq (car bindings-one-scope) symbol)
-              (when (> n (car bindings-wrapper))
-                (rplaca bindings-wrapper n)
-                (print bindings))
-	      (return-from lexical-context-lookup-old (list n m)))
-	    (incf m)
-	    (setq bindings-one-scope (cdr bindings-one-scope))))
-
-        ;; Need to look at next set of bindings out
-        (setq bindings (cdr bindings))
-        (incf n)
-        (when (> n (car bindings-wrapper))
-          (print (list n m))
-          (rplaca bindings-wrapper n)
-          (print bindings)))))
-  nil)
-
 ;; Having these three symbols in the code wreaks havoc with quasiquote
 ;; expansion:
 (defparameter _quasiquote (make-symbol "quasiquote"))

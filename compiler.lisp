@@ -135,9 +135,9 @@
 					  (length (car bindings))))
     (lexical-context-set-bindings ctxt (cdr (lexical-context-bindings ctxt)))))
 
-(defun boffo (bindings symbol n)
+(defun lexical-context-lookup-internal (bindings symbol n)
   (when (null bindings)
-    (return-from boffo nil))
+    (return-from lexical-context-lookup-internal nil))
   (let ((m 1)                           ;Slot within the scope
         (bindings-wrapper (car bindings)))
     (let ((bindings-one-scope
@@ -146,16 +146,16 @@
         (when (eq (car bindings-one-scope) symbol)
           (when (> n (car bindings-wrapper))
             (rplaca bindings-wrapper n))
-	  (return-from boffo (list n m)))
+	  (return-from lexical-context-lookup-internal (list n m)))
 	(incf m)
 	(setq bindings-one-scope (cdr bindings-one-scope))))
     ;; Need to look at the next set of bindings out
     (when (> (+ 1 n) (car bindings-wrapper))
       (rplaca bindings-wrapper n))
-    (boffo (cdr bindings) symbol (+ n 1))))
+    (lexical-context-lookup-internal (cdr bindings) symbol (+ n 1))))
 
 (defun lexical-context-lookup (ctxt symbol)
-  (boffo (lexical-context-bindings ctxt) symbol 0))
+  (lexical-context-lookup-internal (lexical-context-bindings ctxt) symbol 0))
 
 (defun lexical-context-lookup-old (ctxt symbol)
   (let ((bindings (lexical-context-bindings ctxt))

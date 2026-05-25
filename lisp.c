@@ -340,6 +340,8 @@ lisp_object_t lisp_write(lisp_object_t object, lisp_object_t stream);
 
 lisp_object_t string_concat(lisp_object_t str1, lisp_object_t str2);
 
+lisp_object_t symbol_name(lisp_object_t sym);
+
 static lisp_object_t make_symbol(lisp_object_t string)
 {
     size_t len;
@@ -408,6 +410,7 @@ static void init_builtins()
     DEFBUILTIN("close", do_close, 1);
     DEFBUILTIN("write", lisp_write, 2);
     DEFBUILTIN("%strconcat", string_concat, 2);
+    DEFBUILTIN("symbol-name", symbol_name, 1);
     if (!interp->use_vm) {
         /* In VM, LOAD comes from boot code */
         DEFBUILTIN("load", load, 1);

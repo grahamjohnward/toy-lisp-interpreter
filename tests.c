@@ -2121,6 +2121,17 @@ void test_strconcat()
     free_interpreter();
 }
 
+void test_symbol_name()
+{
+    START_OF_TEST("symbol_name");
+    init_interpreter_for_tests();
+    lisp_object_t result = test_eval_string_helper("(symbol-name 'hello)");
+    char *str = print_object(result);
+    check(strcmp("\"hello\"", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -2274,6 +2285,7 @@ int main(int argc, char **argv)
     test_vm_function_stack_allocated();
     test_vm_inst_make_env2();
     test_strconcat();
+    test_symbol_name();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

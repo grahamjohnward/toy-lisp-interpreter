@@ -2110,6 +2110,17 @@ void test_vm_inst_make_env2()
 {
 }
 
+void test_strconcat()
+{
+    START_OF_TEST("strconcat");
+    init_interpreter_for_tests();
+    lisp_object_t result = test_eval_string_helper("(%strconcat \"bog\" \"boo\")");
+    char *str = print_object(result);
+    check(strcmp("\"bogboo\"", str) == 0, "ok");
+    free(str);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -2262,6 +2273,7 @@ int main(int argc, char **argv)
     test_vm_inst_set0();
     test_vm_function_stack_allocated();
     test_vm_inst_make_env2();
+    test_strconcat();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

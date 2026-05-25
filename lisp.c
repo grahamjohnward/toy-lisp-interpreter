@@ -338,6 +338,8 @@ lisp_object_t lisp_read1(lisp_object_t stream);
 
 lisp_object_t lisp_write(lisp_object_t object, lisp_object_t stream);
 
+lisp_object_t string_concat(lisp_object_t str1, lisp_object_t str2);
+
 static lisp_object_t make_symbol(lisp_object_t string)
 {
     size_t len;
@@ -405,6 +407,7 @@ static void init_builtins()
     DEFBUILTIN("open", do_open, 2);
     DEFBUILTIN("close", do_close, 1);
     DEFBUILTIN("write", lisp_write, 2);
+    DEFBUILTIN("%strconcat", string_concat, 2);
     if (!interp->use_vm) {
         /* In VM, LOAD comes from boot code */
         DEFBUILTIN("load", load, 1);
@@ -2496,6 +2499,22 @@ lisp_object_t lisp_write(lisp_object_t obj, lisp_object_t stream)
     if (rc < 0)
         raise(errno_sym(), stream);
     return T;
+}
+
+lisp_object_t string_concat(lisp_object_t str1, lisp_object_t str2)
+{
+    check_string(str1);
+    check_string(str2);
+    size_t len1, len2;
+    char *p1, *p2;
+    get_string_parts(str1, &len1, &p1);
+    get_string_parts(str2, &len2, &p2);
+    size_t newlen = len1 + len2 + 1;
+    char *newstr = (char *)alloca(newlen);
+    strncpy(newstr, p1, len1);
+    strncpy(newstr + len1, p2, len2);
+    newstr[newlen - 1] = '\0';
+    return allocate_string(newlen, newstr);
 }
 
 // Seems like this may be dodgy in some GC-related way, but can't put my

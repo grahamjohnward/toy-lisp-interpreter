@@ -3,16 +3,6 @@
       `(print (list :trace ,message ',v ,v))
       `(print (list :trace ',v ,v))))
 
-;; not used
-(defun list-to-vector (list)
-  (let ((length (length list)))
-    (let ((vector (make-vector length))
-	  (i 0))
-      (dolist (obj list)
-	(set-svref vector i obj)
-	(setq i (+ 1 i)))
-      vector)))
-
 (defun build-label-alist (list)
   (let ((i 0)
 	(label-alist nil))
@@ -50,20 +40,7 @@
 	      (incf i))))
       vector)))
 
-(defun lexical-context-block-alist (ctxt)
-  (svref ctxt 0))
-
-(defun lexical-context-next-block-number (ctxt)
-  (svref ctxt 1))
-
-(defun lexical-context-bindings (ctxt)
-  (svref ctxt 2))
-
-(defun lexical-context-binding-count (ctxt)
-  (svref ctxt 3))
-
-(defun lexical-context-set-block-alist (ctxt block-alist)
-  (set-svref ctxt 0 block-alist))
+(defstruct lexical-context (block-alist next-block-number bindings binding-count tag-table))
 
 (defun lexical-context-push-block (ctxt block-name block-id)
   (lexical-context-set-block-alist ctxt (cons `(,block-name . ,block-id)
@@ -80,20 +57,11 @@
   (lexical-context-set-block-alist ctxt
 				   (cdr (lexical-context-block-alist ctxt))))
 
-(defun lexical-context-set-next-block-number (ctxt next-block-number)
-  (set-svref ctxt 1 next-block-number))
-
-(defun lexical-context-set-bindings (ctxt bindings)
-  (set-svref ctxt 2 bindings))
-
-(defun lexical-context-set-binding-count (ctxt count)
-  (set-svref ctxt 3 count))
-
 (defun lexical-context-push-tag-table (ctxt tag-table)
-  (set-svref ctxt 4 (cons tag-table (svref ctxt 4))))
+  (lexical-context-set-tag-table ctxt (cons tag-table (lexical-context-tag-table ctxt))))
 
 (defun lexical-context-tag-lookup (ctxt tag)
-  (let ((tag-tables (svref ctxt 4)))
+  (let ((tag-tables (lexical-context-tag-table ctxt)))
     (dolist (tag-table tag-tables)
       (let ((pair (assoc tag tag-table)))
 	(when pair
@@ -101,15 +69,7 @@
   nil)
 
 (defun lexical-context-pop-tag-table (ctxt)
-  (set-svref ctxt 4 (cdr (svref ctxt 4))))
-
-(defun make-lexical-context ()
-  (let ((ctxt (make-vector 5)))
-    (lexical-context-set-block-alist ctxt nil)
-    (lexical-context-set-next-block-number ctxt 0)
-    (lexical-context-set-bindings ctxt nil)
-    (lexical-context-set-binding-count ctxt 0)
-    ctxt))
+  (lexical-context-set-tag-table ctxt (cdr (lexical-context-tag-table ctxt))))
 
 (defun make-lexical-scope-bindings (bindings)
   (cons 0 bindings))
@@ -359,13 +319,6 @@
 (defun compile4-let (expr ctxt)
   (assert (eq (car expr) 'let))
   (compile4 (transform-let expr) ctxt))
-
-;; Because we don't have closures in the interpreted language
-(defun mapcar-with-context (function list context)
-  (if (null list)
-      nil
-      (cons (funcall function (car list) context)
-	    (mapcar-with-context function (cdr list) context))))
 
 (defun compile4-tagbody (expr ctxt)
   (assert (eq (car expr) 'tagbody))
@@ -688,6 +641,8 @@
 ;; Ultimately this should simply be called `compile`
 (defun compile4-toplevel (expr)
   (let ((ctxt (make-lexical-context)))
+    (lexical-context-set-next-block-number ctxt 0)
+    (lexical-context-set-binding-count ctxt 0)
     (let (foo)
       (condition-case e
 	  (progn

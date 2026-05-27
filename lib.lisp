@@ -297,6 +297,13 @@
       nil
       (cons (funcall function (car list)) (mapcar function (cdr list)))))
 
+;; Because we don't have closures in the interpreted language
+(defun mapcar-with-context (function list context)
+  (if (null list)
+      nil
+      (cons (funcall function (car list) context)
+	    (mapcar-with-context function (cdr list) context))))
+
 (defun %reverse-aux (list acc)
   (if (null list)
       acc
@@ -339,3 +346,43 @@
 	  (set-svref result i obj)
 	  (incf i)))
       result)))
+
+(defun list-to-vector (list)
+  (let ((length (length list)))
+    (let ((vector (make-vector length))
+	  (i 0))
+      (dolist (obj list)
+	(set-svref vector i obj)
+	(setq i (+ 1 i)))
+      vector)))
+
+(defun %make-defstruct-accessors (struct-name slot-name index)
+  `(progn
+     (defun ,(make-symbol (%strconcat (%strconcat struct-name "-")
+                                      slot-name))
+         (obj)
+       (svref obj ,index))
+     (defun ,(make-symbol (%strconcat (%strconcat struct-name "-set-")
+                                      slot-name))
+         (obj new-value)
+       (set-svref obj ,index new-value))))
+
+(defmacro defstruct (struct-name slots)
+  (let ((name (symbol-name struct-name))
+        (n (length slots)))
+    `(progn
+       (defun ,(make-symbol (%strconcat "make-" name)) ()
+         (let ((result (make-vector ,(+ 2 n))))
+           (set-svref result 0 :struct)
+           (set-svref result 1 ',struct-name)
+           result))
+       ,@(let ((context (cons 2 name)))
+           (mapcar-with-context
+            #'(lambda (slot-name context)
+                (prog1
+                    (%make-defstruct-accessors (cdr context)
+                                               (symbol-name slot-name)
+                                               (car context))
+                  (rplaca context (+ 1 (car context)))))
+            slots context))
+       ',struct-name)))

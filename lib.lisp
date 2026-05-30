@@ -367,14 +367,35 @@
          (obj new-value)
        (set-svref obj ,index new-value))))
 
+(defun %make-defstruct-initializer (struct-name slots)
+  (let ((index 2))
+    (let ((cond-clauses
+           (mapcar #'(lambda (slot)
+                       (let ((keyword
+                              (make-symbol
+                               (%strconcat ":" (symbol-name slot)))))
+                         (prog1
+                             `((eq (car args) ,keyword)
+                               (progn
+                                 (set-svref result ,index (cadr args))
+                                 (setq args (cddr args))))
+                           (incf index))))
+                   slots)))
+      `(tagbody
+        :next-arg
+          (cond ,@cond-clauses)
+          (when (not (null args))
+            (go :next-arg))))))
+
 (defmacro defstruct (struct-name slots)
   (let ((name (symbol-name struct-name))
         (n (length slots)))
     `(progn
-       (defun ,(make-symbol (%strconcat "make-" name)) ()
+       (defun ,(make-symbol (%strconcat "make-" name)) (&rest args)
          (let ((result (make-vector ,(+ 2 n))))
            (set-svref result 0 :struct)
            (set-svref result 1 ',struct-name)
+           ,(%make-defstruct-initializer struct-name slots)
            result))
        ,@(let ((context (cons 2 name)))
            (mapcar-with-context

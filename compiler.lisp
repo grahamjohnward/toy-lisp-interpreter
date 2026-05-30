@@ -640,9 +640,7 @@
 
 ;; Ultimately this should simply be called `compile`
 (defun compile4-toplevel (expr)
-  (let ((ctxt (make-lexical-context)))
-    (lexical-context-set-next-block-number ctxt 0)
-    (lexical-context-set-binding-count ctxt 0)
+  (let ((ctxt (make-lexical-context :next-block-number 0 :binding-count 0)))
     (let (foo)
       (condition-case e
 	  (progn

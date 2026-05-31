@@ -356,7 +356,7 @@
 	(setq i (+ 1 i)))
       vector)))
 
-(defun %make-defstruct-accessors (struct-name slot-name index)
+(defun %defstruct-make-accessors (struct-name slot-name index)
   `(progn
      (defun ,(make-symbol (%strconcat (%strconcat struct-name "-")
                                       slot-name))
@@ -367,7 +367,7 @@
          (obj new-value)
        (set-svref obj ,index new-value))))
 
-(defun %make-defstruct-initializer (struct-name slots)
+(defun %defstruct-make-initializer (struct-name slots)
   (let ((index 2))
     (let ((cond-clauses
            (mapcar #'(lambda (slot)
@@ -377,33 +377,67 @@
                          (prog1
                              `((eq (car args) ,keyword)
                                (progn
+                                 (push ',slot provided-args)
                                  (set-svref result ,index (cadr args))
                                  (setq args (cddr args))))
                            (incf index))))
                    slots)))
-      `(tagbody
-        :next-arg
-          (cond ,@cond-clauses)
-          (when (not (null args))
-            (go :next-arg))))))
+      `(let (provided-args)
+         (tagbody
+          :next-arg
+            (cond ,@cond-clauses)
+            (when (not (null args))
+              (go :next-arg)))
+         provided-args))))
 
 (defmacro defstruct (struct-name slots)
   (let ((name (symbol-name struct-name))
+        (slot-names (mapcar #'(lambda (slot)
+                                (if (consp slot)
+                                    (car slot)
+                                    slot)) 
+                            slots))
         (n (length slots)))
-    `(progn
-       (defun ,(make-symbol (%strconcat "make-" name)) (&rest args)
-         (let ((result (make-vector ,(+ 2 n))))
-           (set-svref result 0 :struct)
-           (set-svref result 1 ',struct-name)
-           ,(%make-defstruct-initializer struct-name slots)
-           result))
-       ,@(let ((context (cons 2 name)))
-           (mapcar-with-context
-            #'(lambda (slot-name context)
-                (prog1
-                    (%make-defstruct-accessors (cdr context)
-                                               (symbol-name slot-name)
-                                               (car context))
-                  (rplaca context (+ 1 (car context)))))
-            slots context))
-       ',struct-name)))
+    (let (default-initializer-map
+          (i 2))
+      (dolist (slot slots)
+        (when (consp slot)
+          (let ((slot-name (car slot))
+                (slot-initializer (cadr slot)))
+            (push `(cons ',slot-name
+                         (cons ,i
+                               ,(if (or (eq slot-initializer t)
+                                        (eq slot-initializer nil)
+                                        (integerp slot-initializer))
+                                    slot-initializer
+                                    `#'(lambda () ,slot-initializer))))
+                  default-initializer-map)))
+        (incf i))
+      `(progn
+         (defparameter ,struct-name (list ,@default-initializer-map))
+         (defun ,(make-symbol (%strconcat "make-" name)) (&rest args)
+           (let ((result (make-vector ,(+ 2 n))))
+             (set-svref result 0 :struct)
+             (set-svref result 1 ',struct-name)
+             (let ((provided-args
+                    ,(%defstruct-make-initializer struct-name slot-names)))
+               (dolist (thing ,struct-name)
+                 (let ((thing-slot (car thing))
+                       (thing-idx (cadr thing))
+                       (thing-initializer (cddr thing)))
+                   (when (not (find thing-slot provided-args))
+                     (set-svref result thing-idx
+                                (if (functionp thing-initializer)
+                                    (funcall thing-initializer)
+                                    thing-initializer)))))
+               result)))
+         ,@(let ((context (cons 2 name)))
+             (mapcar-with-context
+              #'(lambda (slot-name context)
+                  (prog1
+                      (%defstruct-make-accessors (cdr context)
+                                                 (symbol-name slot-name)
+                                                 (car context))
+                    (rplaca context (+ 1 (car context)))))
+              slot-names context))
+         ',struct-name))))

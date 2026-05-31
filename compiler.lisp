@@ -40,7 +40,7 @@
 	      (incf i))))
       vector)))
 
-(defstruct lexical-context (block-alist next-block-number bindings binding-count tag-table))
+(defstruct lexical-context (block-alist (next-block-number 0) bindings (binding-count 0) tag-table))
 
 (defun lexical-context-push-block (ctxt block-name block-id)
   (lexical-context-set-block-alist ctxt (cons `(,block-name . ,block-id)
@@ -640,7 +640,7 @@
 
 ;; Ultimately this should simply be called `compile`
 (defun compile4-toplevel (expr)
-  (let ((ctxt (make-lexical-context :next-block-number 0 :binding-count 0)))
+  (let ((ctxt (make-lexical-context)))
     (let (foo)
       (condition-case e
 	  (progn

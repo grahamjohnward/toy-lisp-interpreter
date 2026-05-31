@@ -71,18 +71,18 @@
 (defun lexical-context-pop-tag-table (ctxt)
   (lexical-context-set-tag-table ctxt (cdr (lexical-context-tag-table ctxt))))
 
-(defun make-lexical-scope-bindings (bindings)
-  (cons 0 bindings))
+
+(defstruct lexical-scope-bindings ((wowza 0) bindings))
 
 (defun lexical-context-get-actual-bindings (bindings)
-  (cdr bindings))
+  (lexical-scope-bindings-bindings bindings))
 
 (defun lexical-context-wowza (ctxt)
-  (caar (lexical-context-bindings ctxt)))
+  (lexical-scope-bindings-wowza (car (lexical-context-bindings ctxt))))
 
 (defun lexical-context-enter-scope (ctxt bindings)
   (lexical-context-set-bindings ctxt
-                                (cons (make-lexical-scope-bindings bindings)
+                                (cons (make-lexical-scope-bindings :bindings bindings)
 				      (lexical-context-bindings ctxt)))
   (lexical-context-set-binding-count ctxt
 				     (+ (lexical-context-binding-count ctxt)
@@ -104,14 +104,14 @@
            (lexical-context-get-actual-bindings bindings-wrapper)))
       (while (not (null bindings-one-scope))
         (when (eq (car bindings-one-scope) symbol)
-          (when (> n (car bindings-wrapper))
-            (rplaca bindings-wrapper n))
+          (when (> n (lexical-scope-bindings-wowza bindings-wrapper))
+            (lexical-scope-bindings-set-wowza bindings-wrapper n))
 	  (return-from lexical-context-lookup-internal (list n m)))
 	(incf m)
 	(setq bindings-one-scope (cdr bindings-one-scope))))
     ;; Need to look at the next set of bindings out
-    (when (> (+ 1 n) (car bindings-wrapper))
-      (rplaca bindings-wrapper n))
+    (when (> (+ 1 n) (lexical-scope-bindings-wowza bindings-wrapper))
+      (lexical-scope-bindings-set-wowza bindings-wrapper n))
     (lexical-context-lookup-internal (cdr bindings) symbol (+ n 1))))
 
 (defun lexical-context-lookup (ctxt symbol)

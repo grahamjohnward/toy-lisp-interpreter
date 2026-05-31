@@ -72,13 +72,16 @@
   (lexical-context-set-tag-table ctxt (cdr (lexical-context-tag-table ctxt))))
 
 
-(defstruct lexical-scope-bindings ((wowza 0) bindings))
+(defstruct lexical-scope-bindings ((wowza 0) bindings closurep))
 
 (defun lexical-context-get-actual-bindings (bindings)
   (lexical-scope-bindings-bindings bindings))
 
 (defun lexical-context-wowza (ctxt)
   (lexical-scope-bindings-wowza (car (lexical-context-bindings ctxt))))
+
+(defun lexical-context-closurep (ctxt)
+  (lexical-scope-bindings-closurep (car (lexical-context-bindings ctxt))))
 
 (defun lexical-context-enter-scope (ctxt bindings)
   (lexical-context-set-bindings ctxt
@@ -110,6 +113,7 @@
 	(incf m)
 	(setq bindings-one-scope (cdr bindings-one-scope))))
     ;; Need to look at the next set of bindings out
+    (lexical-scope-bindings-set-closurep bindings-wrapper t)
     (when (> (+ 1 n) (lexical-scope-bindings-wowza bindings-wrapper))
       (lexical-scope-bindings-set-wowza bindings-wrapper n))
     (lexical-context-lookup-internal (cdr bindings) symbol (+ n 1))))
@@ -265,7 +269,8 @@
 							  (eq x '&body))))
 						arglist))
     (let ((compiled-body `(,@(compile4 `(progn ,@body) ctxt) ret)))
-      (let ((can-stack-allocate (= (lexical-context-wowza ctxt) 0)))
+      (let ((can-stack-allocate (= (lexical-context-wowza ctxt) 0))
+            (closurep (lexical-context-closurep ctxt)))
         (when can-stack-allocate
           (setq compiled-body (wow-amazing compiled-body)))
         (lexical-context-leave-scope ctxt)
@@ -282,7 +287,10 @@
                   (setq compiled-body `(,@preamble ,@compiled-body)))))
 	  (let ((code (assemble compiled-body)))
 	    (let ((result `(push ,arg-info push ,code
-                                 push 2 push %vm-make-function call)))
+                                 push 2
+                                 push ,(if closurep '%vm-make-function
+                                           '%vm-make-simple-function)
+                                 call)))
 	      result)))))))
 
 (defun compile4-if (expr ctxt)

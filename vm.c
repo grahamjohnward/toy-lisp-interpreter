@@ -255,15 +255,6 @@ void vm_run(struct vm *vm)
     vm_print_stack(vm);
 }
 
-lisp_object_t vm_eval(lisp_object_t code_vector)
-{
-    interp->vm.registers.code_vector = code_vector;
-    interp->vm.registers.instruction_pointer = 0;
-    interp->use_vm = 1;
-    vm_run(&interp->vm);
-    return vm_pop(&interp->vm);
-}
-
 /** Instructions **/
 
 void vm_inst_push(struct vm *vm, lisp_object_t obj)

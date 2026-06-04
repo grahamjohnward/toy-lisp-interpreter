@@ -332,7 +332,7 @@
   (assert (eq (car expr) 'tagbody))
   (let (tag-alist)
     (dolist (form (cdr expr))
-      (when (symbolp form)		;form is tag
+      (when (symbolp form)
 	(let ((label (gensym)))
 	  (setq tag-alist (cons (cons form label) tag-alist)))))
     (lexical-context-push-tag-table ctxt tag-alist)
@@ -444,9 +444,7 @@
 	    ,@compiled-body
 	    jmp (target ,jmp-target)
 	    ,@compiled-handlers
-	    (label ,jmp-target)
-;	    push nil
-            ))))))
+	    (label ,jmp-target)))))))
 
 (defun compile4-function-call (expr ctxt)
   (assert (and (consp expr) (symbolp (car expr))))
@@ -486,9 +484,7 @@
 	       ((symbolp expr)
 		(let ((lookup-result (lexical-context-lookup ctxt expr)))
 		  (if lookup-result
-		      (progn
-;;			(print (list expr lookup-result))
-			`(get ,@lookup-result))
+		      `(get ,@lookup-result)
 		      `(push ,expr push 1 push symbol-value call))))
 	       (t `(push ,expr))))
 	((symbolp (car expr))
@@ -523,7 +519,6 @@
 		 (t (compile4-function-call expr ctxt)))))
 	(t (raise 'bad-expression expr))))
 
-;; This is showing up on the stack, not sure that is expected!
 (defun macroexpand-1 (form)
   (let ((result (%macroexpand-1 form)))
     result))

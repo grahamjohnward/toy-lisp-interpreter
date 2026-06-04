@@ -23,7 +23,7 @@ static int interpreter_initialized;
 
 struct vector {
     object_header_t header;
-    size_t len;
+    lisp_object_t len;
     size_t size_bytes;
 };
 
@@ -150,10 +150,8 @@ static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, lisp
     check_vector(vector);
     struct vector *v = VectorPtr(vector);
     if (index >= v->len) {
-        // This should be an exception
         printf("Index %zu out of bounds for vector (len=%lu)\n", (uint64_t)Int(index), (uint64_t)Int(v->len));
         raise(sym("vector-bounds"), cons(index, vector));
-        // abort();
     }
     lisp_object_t *storage = (lisp_object_t *)(((char *)v) + sizeof(struct vector));
     return storage;

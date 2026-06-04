@@ -611,6 +611,19 @@ static void test_vector_svref()
     free_interpreter();
 }
 
+static lisp_object_t test_eval_string_helper(char *exprstr);
+
+static void test_vector_bounds_check()
+{
+    START_OF_TEST("vector_bounds_check");
+    init_interpreter_for_tests();
+    lisp_object_t r = test_eval_string_helper("(svref #(0 1 2) 2)");
+    check(r == LispInt(2), "within bounds");
+    lisp_object_t ok = test_eval_string_helper("(condition-case e (svref #(0 1 2) 3) (vector-bounds :ok))");
+    check(ok == sym(":ok"), "bounds error");
+    free_interpreter();
+}
+
 static void test_parse_vector()
 {
     START_OF_TEST("parse_vector");
@@ -2174,6 +2187,7 @@ int main(int argc, char **argv)
     test_parse_quote();
     test_vector_initialization();
     test_vector_svref();
+    test_vector_bounds_check();
     test_parse_vector();
     test_print_vector();
     test_car_of_nil();

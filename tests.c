@@ -1686,7 +1686,7 @@ static void test_vm_push_pop()
     init_interpreter(1024 * 1024);
 
     lisp_object_t code_vector = parse1_wrapper("#(push foo push bar)");
-    interp->vm.registers.code_vector = code_vector;
+    vm_set_code_vector(&interp->vm, code_vector);
     vm_run(&interp->vm);
 
     check(eq(sym("bar"), vm_pop(&interp->vm)) != NIL, "stack1");
@@ -1702,7 +1702,7 @@ static void test_vm_call_builtin()
     init_interpreter(1024 * 1024 * 4);
 
     lisp_object_t code_vector = parse1_wrapper("#(push foo push bar push 2 push cons call)");
-    interp->vm.registers.code_vector = code_vector;
+    vm_set_code_vector(&interp->vm, code_vector);
     vm_run(&interp->vm);
 
     char *str = print_object(vm_peek(&interp->vm));
@@ -1803,7 +1803,7 @@ static void test_vm_function()
     svref_set(calling_code, LispInt(5), fn);
 
     /* Run the code */
-    interp->vm.registers.code_vector = calling_code;
+    vm_set_code_vector(&interp->vm, calling_code);
     vm_run(&interp->vm);
 
     /* Check the result */
@@ -1834,7 +1834,7 @@ static void test_vm_function_return_from()
     lisp_object_t calling_code = parse1_wrapper("#(push boo push 1 push foo call)");
 
     /* Run the code */
-    interp->vm.registers.code_vector = calling_code;
+    vm_set_code_vector(&interp->vm, calling_code);
     vm_run(&interp->vm);
 
     /* Check the result */
@@ -1854,7 +1854,7 @@ static void test_vm_inst_jmp()
     init_interpreter_for_tests();
 
     lisp_object_t code = parse1_wrapper("#(jmp 4 push foo push bar)");
-    interp->vm.registers.code_vector = code;
+    vm_set_code_vector(&interp->vm, code);
     vm_run(&interp->vm);
 
     lisp_object_t top = vm_pop(&interp->vm);
@@ -1872,7 +1872,7 @@ static void test_vm_inst_jmp_if_nil1()
     init_interpreter_for_tests();
 
     lisp_object_t code = parse1_wrapper("#(push nil jmp-if-nil 6 push foo push bar)");
-    interp->vm.registers.code_vector = code;
+    vm_set_code_vector(&interp->vm, code);
     vm_run(&interp->vm);
 
     lisp_object_t top = vm_pop(&interp->vm);
@@ -1890,7 +1890,7 @@ static void test_vm_inst_jmp_if_nil2()
     init_interpreter_for_tests();
 
     lisp_object_t code = parse1_wrapper("#(push abc jmp-if-nil 6 push foo push bar)");
-    interp->vm.registers.code_vector = code;
+    vm_set_code_vector(&interp->vm, code);
     vm_run(&interp->vm);
 
     lisp_object_t top = vm_pop(&interp->vm);
@@ -1941,8 +1941,8 @@ static void test_vm_inst_tag_jmp()
     init_interpreter_for_tests();
 
     struct vm *vm = &interp->vm;
-    vm->registers.code_vector = parse1_wrapper("#(foo bar baz quux boof)");
-    vm->registers.instruction_pointer = 0;
+    vm_set_code_vector(vm, parse1_wrapper("#(foo bar baz quux boof)"));
+    vm->registers.instruction_pointer_old = 0;
     vm->registers.environment = NIL;
     vm->registers.tags = NIL;
     vm_inst_set_tag(vm, sym("bof"), LispInt(4));
@@ -1954,13 +1954,13 @@ static void test_vm_inst_tag_jmp()
     *vm->call_stack_pointer = vm->registers;
     vm->call_stack_pointer++;
     vm->registers.code_vector = parse1_wrapper("#(1 2 3 4 5)");
-    vm->registers.instruction_pointer = 0;
+    vm->registers.instruction_pointer_old = 0;
     vm->registers.environment = NIL;
     vm->registers.tags = NIL;
 
     vm_inst_tag_jmp(vm, sym("bof"));
     check(vm->registers.code_vector == expected_code_vector, "code vector");
-    check(vm->registers.instruction_pointer == expected_instruction_pointer, "instruction pointer");
+    check(vm->registers.instruction_pointer_old == expected_instruction_pointer, "instruction pointer");
 
     free_interpreter();
 }
@@ -1970,8 +1970,8 @@ static void test_vm_inst_raise()
     START_OF_TEST("vm_inst_raise");
     init_interpreter_for_tests();
     struct vm *vm = &interp->vm;
-    vm->registers.code_vector = parse1_wrapper("#(foo bar baz quux boof)");
-    vm->registers.instruction_pointer = 0;
+    vm_set_code_vector(vm, parse1_wrapper("#(foo bar baz quux boof)"));
+    vm->registers.instruction_pointer_old = 0;
     vm->registers.environment = NIL;
     vm->registers.tags = NIL;
     vm_inst_set_tag(vm, sym("bof"), LispInt(4));
@@ -1982,7 +1982,7 @@ static void test_vm_inst_raise()
     *vm->call_stack_pointer = vm->registers;
     vm->call_stack_pointer++;
     vm->registers.code_vector = parse1_wrapper("#(1 2 3 4 5)");
-    vm->registers.instruction_pointer = 0;
+    vm->registers.instruction_pointer_old = 0;
     vm->registers.environment = NIL;
     vm->registers.tags = NIL;
 
@@ -1995,7 +1995,7 @@ static void test_vm_inst_raise()
 
     check(vm_peek(vm) == sym("return-value"), "return value");
     check(vm->registers.code_vector == expected_code_vector, "code vector");
-    check(vm->registers.instruction_pointer == expected_instruction_pointer, "instruction pointer");
+    check(vm->registers.instruction_pointer_old == expected_instruction_pointer, "instruction pointer");
 
     free_interpreter();
 }
@@ -2107,7 +2107,7 @@ void test_vm_function_stack_allocated()
     lisp_object_t calling_code = parse1_wrapper("#(push beautiful push world push 2 push foo call)");
 
     /* Run the code */
-    interp->vm.registers.code_vector = calling_code;
+    vm_set_code_vector(&interp->vm, calling_code);
     vm_run(&interp->vm);
 
     /* Check the result */

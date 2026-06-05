@@ -145,6 +145,14 @@ lisp_object_t native_pointer_p(lisp_object_t obj)
     return ((obj & IMMEDIATE_TYPE_MASK) == NATIVE_POINTER_TYPE) ? T : NIL;
 }
 
+lisp_object_t *get_vector_storage(lisp_object_t vector)
+{
+    check_vector(vector);
+    struct vector *v = VectorPtr(vector);
+    lisp_object_t *storage = (lisp_object_t *)(((char *)v) + sizeof(struct vector));
+    return storage;
+}
+
 static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, lisp_object_t index)
 {
     check_vector(vector);

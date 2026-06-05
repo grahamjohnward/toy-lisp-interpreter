@@ -24,7 +24,7 @@ void vm_init(struct vm *vm, size_t data_stack_size)
     vm->call_stack_pointer = vm->call_stack;
     vm->top_of_data_stack = vm->data_stack;
     vm->registers.code_vector = NIL;
-    vm->registers.instruction_pointer = 0;
+    vm->registers.instruction_pointer_old = 0;
     vm->registers.environment = NIL;
     vm->registers.closure_env = NIL;
     vm->registers.tags = NIL;
@@ -56,9 +56,13 @@ static void gc_copy_vm_other_stack(struct lisp_heap *heap, struct vm *vm)
 static void gc_copy_vm_call_stack_frame(struct lisp_heap *heap, struct vm_call_stack_frame *frame)
 {
     gc_copy(heap, &frame->code_vector);
+    ptrdiff_t instruction_pointer_offset = frame->instruction_pointer - frame->code_vector_storage;
+    if (frame->code_vector != NIL)
+        frame->code_vector_storage = get_vector_storage(frame->code_vector);
+    frame->instruction_pointer = frame->code_vector_storage + instruction_pointer_offset;
     gc_copy(heap, &frame->data_stack_offset);
     gc_copy(heap, &frame->environment);
-    gc_copy(heap, &frame->instruction_pointer);
+    gc_copy(heap, &frame->instruction_pointer_old);
     gc_copy(heap, &frame->closure_env);
     gc_copy(heap, &frame->tags);
 }
@@ -115,7 +119,7 @@ static void vm_print_call_stack_frame(struct vm_call_stack_frame *p)
     svref_set(vector, LispInt(0), p->code_vector);
     svref_set(vector, LispInt(1), p->data_stack_offset);
     svref_set(vector, LispInt(2), p->environment);
-    svref_set(vector, LispInt(3), p->instruction_pointer);
+    svref_set(vector, LispInt(3), p->instruction_pointer_old);
     svref_set(vector, LispInt(4), p->tags);
     char *str = print_object(vector);
     printf("%s\n", str);
@@ -159,10 +163,10 @@ lisp_object_t vm_peek(struct vm *vm)
 
 void vm_run_one_instruction(struct vm *vm)
 {
-    if (vm->registers.instruction_pointer == 0 && vm->vm_trace)
+    if (vm->registers.instruction_pointer_old == 0 && vm->vm_trace)
         TRACE(vm->registers.code_vector);
 
-    lisp_object_t instruction = svref(vm->registers.code_vector, vm->registers.instruction_pointer);
+    lisp_object_t instruction = *vm->registers.instruction_pointer;
     lisp_object_t arity = NIL;
     lisp_object_t lisp_function_pointer = NIL;
 
@@ -206,25 +210,28 @@ void vm_run_one_instruction(struct vm *vm)
     char *str2 = NULL;
     char *str3 = NULL;
     if (vm->vm_trace) {
-        str0 = print_object(vm->registers.instruction_pointer);
+        str0 = print_object(vm->registers.instruction_pointer_old);
         str1 = print_object(instruction);
     }
 
     if (arity == 0) {
-        vm->registers.instruction_pointer += LispInt(1);
+        vm->registers.instruction_pointer_old += LispInt1;
+        vm->registers.instruction_pointer++;
         VM_TRACE("; %p %s\t%s\n", (void *)vm->registers.code_vector, str0, str1);
         ((void (*)(struct vm *))fp)(vm);
-    } else if (arity == LispInt(1)) {
-        lisp_object_t arg = svref(vm->registers.code_vector, vm->registers.instruction_pointer + LispInt(1));
-        vm->registers.instruction_pointer += LispInt(2);
+    } else if (arity == LispInt1) {
+        lisp_object_t arg = vm->registers.instruction_pointer[1];
+        vm->registers.instruction_pointer_old += LispInt2;
+        vm->registers.instruction_pointer += 2;
         if (vm->vm_trace)
             str2 = print_object(arg);
         VM_TRACE("; %p %s\t%s %s\n", (void *)vm->registers.code_vector, str0, str1, str2);
         ((void (*)(struct vm *, lisp_object_t))fp)(vm, arg);
-    } else if (arity == LispInt(2)) {
-        lisp_object_t arg1 = svref(vm->registers.code_vector, vm->registers.instruction_pointer + LispInt(1));
-        lisp_object_t arg2 = svref(vm->registers.code_vector, vm->registers.instruction_pointer + LispInt(2));
-        vm->registers.instruction_pointer += LispInt(3);
+    } else if (arity == LispInt2) {
+        lisp_object_t arg1 = vm->registers.instruction_pointer[1];
+        lisp_object_t arg2 = vm->registers.instruction_pointer[2];
+        vm->registers.instruction_pointer_old += LispInt3;
+        vm->registers.instruction_pointer += 3;
         if (vm->vm_trace) {
             str2 = print_object(arg1);
             str3 = print_object(arg2);
@@ -242,15 +249,13 @@ void vm_run_one_instruction(struct vm *vm)
         free(str2);
     if (str3)
         free(str3);
-    if (interp->vm.vm_trace)
-        vm_print_stack(&interp->vm);
 }
 
 #undef VM_TRACE
 
 void vm_run(struct vm *vm)
 {
-    while (vm->registers.instruction_pointer < length(vm->registers.code_vector))
+    while (vm->registers.instruction_pointer_old < length(vm->registers.code_vector))
         vm_run_one_instruction(vm);
     vm_print_stack(vm);
 }
@@ -403,12 +408,22 @@ void vm_inst_setup_env2(struct vm *vm, lisp_object_t arity)
     vm->registers.sp = vm->registers.fp + Int(arity);
 }
 
+void vm_set_code_vector(struct vm *vm, lisp_object_t code_vector)
+{
+    vm->registers.code_vector = code_vector;
+    size_t code_vector_size = length_c(vm->registers.code_vector);
+    lisp_object_t *vector_storage = get_vector_storage(vm->registers.code_vector);
+    vm->registers.instruction_pointer_old = 0;
+    vm->registers.instruction_pointer = vector_storage;
+    vm->registers.max_instruction_pointer = vector_storage + code_vector_size;
+    vm->registers.code_vector_storage = vector_storage;
+}
+
 static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
 {
     *vm->call_stack_pointer = vm->registers;
     vm->call_stack_pointer++;
-    vm->registers.code_vector = caddr(fnptr->actual_function);
-    vm->registers.instruction_pointer = 0;
+    vm_set_code_vector(vm, caddr(fnptr->actual_function));
     vm->registers.environment = NIL;
     vm->registers.closure_env = car(fnptr->actual_function);
     vm->registers.tags = NIL;
@@ -420,6 +435,8 @@ void vm_inst_call(struct vm *vm)
     int funcall_count = 0;
 start:
     fn = vm_pop(vm);
+    lisp_object_t orig_fn = NIL;
+    orig_fn = fn;
     if (fn == interp->syms.funcall) {
         // XXX does #'funcall work??  I think it does!
         vm_setup_funcall(vm);
@@ -519,14 +536,17 @@ void vm_inst_abort(struct vm *vm)
 
 void vm_inst_jmp(struct vm *vm, lisp_object_t dest)
 {
-    vm->registers.instruction_pointer = dest;
+    vm->registers.instruction_pointer_old = dest;
+    vm->registers.instruction_pointer = vm->registers.code_vector_storage + Int(dest);
 }
 
 void vm_inst_jmp_if_nil(struct vm *vm, lisp_object_t dest)
 {
     lisp_object_t value = vm_pop(vm);
-    if (value == NIL)
-        vm->registers.instruction_pointer = dest;
+    if (value == NIL) {
+        vm->registers.instruction_pointer_old = dest;
+        vm->registers.instruction_pointer = vm->registers.code_vector_storage + Int(dest);
+    }
 }
 
 lisp_object_t vm_make_function2(lisp_object_t arg_info, lisp_object_t code, lisp_object_t env)

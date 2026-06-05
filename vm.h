@@ -8,7 +8,10 @@
 
 struct vm_call_stack_frame {
     lisp_object_t code_vector;
-    lisp_object_t instruction_pointer;
+    lisp_object_t *code_vector_storage;
+    lisp_object_t instruction_pointer_old;
+    lisp_object_t *instruction_pointer;
+    lisp_object_t *max_instruction_pointer;
     lisp_object_t environment;
     lisp_object_t closure_env;
     lisp_object_t tags;
@@ -51,6 +54,10 @@ lisp_object_t vm_peek(struct vm *vm);
 void vm_run(struct vm *);
 
 void gc_copy_vm(struct lisp_heap *heap, struct vm *vm);
+
+lisp_object_t *get_vector_storage(lisp_object_t vector);
+
+void vm_set_code_vector(struct vm *vm, lisp_object_t code_vector);
 
 /** Instructions **/
 

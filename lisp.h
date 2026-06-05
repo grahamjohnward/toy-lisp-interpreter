@@ -80,6 +80,9 @@ lisp_object_t load(lisp_object_t filename);
 #define LispFunctionPtr(obj) ((struct lisp_function *)((obj) & PTR_MASK))
 
 #define LispInt(x) (((uint64_t)(x)) << 3)
+#define LispInt1 8U
+#define LispInt2 16U
+#define LispInt3 24U
 #define Int(x) (((int64_t)(x)) >> 3)
 
 void check_vector(lisp_object_t obj);

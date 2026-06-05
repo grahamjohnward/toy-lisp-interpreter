@@ -124,7 +124,7 @@ int main(int argc, char **argv)
             close(fd);
             text_stream_free(&ts);
         }
-        interp->vm.registers.code_vector = symbol_value(vmboot_sym);
+        vm_set_code_vector(&interp->vm, symbol_value(vmboot_sym));
         lisp_object_t arglist = allocate_vector(LispInt(argc - i));
         for (int argidx = 0; i < argc; i++, argidx++) {
             lisp_object_t string = allocate_string(strlen(argv[i]) + 1, argv[i]);

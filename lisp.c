@@ -494,6 +494,8 @@ void init_interpreter2(size_t heap_size, int use_vm)
     lisp_heap_init(&interp->heap, heap_size);
     // Should get this stack size from somewhere
     vm_init(&interp->vm, 1024 * 1024);
+    interp->symbol_table_hash_buckets = 256;
+    interp->symbol_table = allocate_vector(LispInt(interp->symbol_table_hash_buckets));
     init_symbols();
     init_builtins();
     interpreter_initialized = 1;
@@ -540,6 +542,7 @@ static void gc_if_needed(size_t bytes_needed)
         size_t bytes_in_use_now = heap->freeptr - heap->from_space;
         size_t bytes_free = heap->size_bytes / 2 - bytes_in_use_now;
         if (bytes_free < bytes_needed) {
+            printf("%s\n", print_object(interp->symbol_table));
             printf("Heap exhausted\n");
             exit(1);
         }
@@ -573,6 +576,18 @@ lisp_object_t list(lisp_object_t first, ...)
     return result;
 }
 
+/* https://github.com/lsds/musl/blob/6516282d2adfad2c7e66d854cde3357120c75dbd/ldso/dynlink.c#L200 */
+static uint32_t sysv_hash(const char *s0)
+{
+    const unsigned char *s = (void *)s0;
+    uint_fast32_t h = 0;
+    while (*s) {
+        h = 16 * h + *s++;
+        h ^= h >> 24 & 0xf0;
+    }
+    return h & 0xfffffff;
+}
+
 static lisp_object_t allocate_new_symbol(lisp_object_t name)
 {
     check_string(name);
@@ -587,12 +602,15 @@ static lisp_object_t allocate_new_symbol(lisp_object_t name)
     s->value = NIL;
     s->function = NIL;
     s->plist = NIL;
-    lisp_object_t symbol = (uint64_t)s | SYMBOL_TYPE;
-    interp->symbol_table = cons(symbol, interp->symbol_table);
-    /* Keywords */
     size_t size;
     char *str;
     get_string_parts(name, &size, &str);
+    s->hash = (uint64_t)sysv_hash(str);
+    lisp_object_t symbol = (uint64_t)s | SYMBOL_TYPE;
+    int bucket = s->hash % interp->symbol_table_hash_buckets;
+    lisp_object_t *storage = get_vector_storage(interp->symbol_table);
+    storage[bucket] = cons(symbol, storage[bucket]);
+    /* Keywords */
     if (str[0] == ':') {
         s->value = symbol;
         s->plist = cons(cons(sym("param"), T), NIL);
@@ -995,7 +1013,21 @@ lisp_object_t symbol_name(lisp_object_t sym)
     return SymbolPtr(sym)->name;
 }
 
-lisp_object_t find_symbol(lisp_object_t list_of_symbols, lisp_object_t name)
+static lisp_object_t find_symbol_in_list(lisp_object_t list_of_symbols, lisp_object_t name, uint32_t hash);
+
+lisp_object_t find_symbol(lisp_object_t name)
+{
+    size_t len;
+    char *str;
+    get_string_parts(name, &len, &str);
+    uint32_t hash = sysv_hash(str);
+    size_t buckets = interp->symbol_table_hash_buckets;
+    int bucket = hash % buckets;
+    lisp_object_t *storage = get_vector_storage(interp->symbol_table);
+    return find_symbol_in_list(storage[bucket], name, hash);
+}
+
+lisp_object_t find_symbol_in_list(lisp_object_t list_of_symbols, lisp_object_t name, uint32_t hash)
 {
     check_string(name);
     if (list_of_symbols == NIL)
@@ -1005,12 +1037,13 @@ lisp_object_t find_symbol(lisp_object_t list_of_symbols, lisp_object_t name)
     if (string_equalp(symbol_name(first), name) == T)
         return first;
     else
-        return find_symbol(cdr(list_of_symbols), name);
+        return find_symbol_in_list(cdr(list_of_symbols), name, hash);
 }
 
 lisp_object_t allocate_symbol(lisp_object_t name)
 {
-    lisp_object_t preexisting_symbol = find_symbol(interp->symbol_table, name);
+
+    lisp_object_t preexisting_symbol = find_symbol(name);
     if (preexisting_symbol != NIL) {
         return preexisting_symbol;
     } else {

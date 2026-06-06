@@ -415,18 +415,19 @@ static void test_parse_multiple_symbols()
     lisp_object_t sym3 = NIL;
     char *s1 = "foo";
     init_interpreter_for_tests();
-    interp->symbol_table = NIL;
+    interp->symbol_table = parse1_wrapper("#(nil nil)");
+    interp->symbol_table_hash_buckets = 2;
     parse1_wrapper(s1);
     char *s2 = "bar";
     sym2 = parse1_wrapper(s2);
     char *str = print_object(interp->symbol_table);
-    check(strcmp("(bar foo)", str) == 0, "symbol table looks right");
+    check(strcmp("#((bar) (foo))", str) == 0, "symbol table looks right");
     free(str);
     char *s3 = "bar";
     sym3 = parse1_wrapper(s3);
     check(eq(sym2, sym3) == T, "symbols eq");
     str = print_object(interp->symbol_table);
-    check(strcmp("(bar foo)", str) == 0, "symbol table looks right(2)");
+    check(strcmp("#((bar) (foo))", str) == 0, "symbol table looks right(2)");
     free(str);
     free_interpreter();
 }

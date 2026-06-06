@@ -185,6 +185,7 @@ struct symbol {
     lisp_object_t value;
     lisp_object_t function;
     lisp_object_t plist;
+    uint64_t hash;
 };
 
 struct lisp_heap {

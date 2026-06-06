@@ -21,6 +21,7 @@ struct return_context {
 struct lisp_interpreter {
     struct syms syms;
     lisp_object_t symbol_table;
+    size_t symbol_table_hash_buckets;
     struct return_context *return_stack;
     struct lisp_heap heap;
     lisp_object_t *top_of_stack;

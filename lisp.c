@@ -452,6 +452,7 @@ void init_interpreter_from_image(char *image)
     }
     assert(rc == interp->heap.heap);
     do_read(fd, interp->heap.from_space, interp->heap.freeptr - interp->heap.from_space);
+    interp->symbol_table_hash_buckets = length_c(interp->symbol_table);
     text_stream_init_fd(&interp->ts_stdin, 0);
 
     struct vm *vm = &interp->vm;
@@ -460,7 +461,9 @@ void init_interpreter_from_image(char *image)
     do_read(fd, (char *)&vm->data_stack_size, sizeof(size_t));
     size_t vm_data_stack_size_bytes = sizeof(lisp_object_t) * vm->data_stack_size;
     vm->data_stack = (lisp_object_t *)malloc(vm_data_stack_size_bytes);
+    vm->other_data_stack = (lisp_object_t *)malloc(vm_data_stack_size_bytes);
     do_read(fd, (char *)vm->data_stack, vm_data_stack_size_bytes);
+    do_read(fd, (char *)vm->other_data_stack, vm_data_stack_size_bytes);
 
     /* Call stack */
     do_read(fd, (char *)&vm->call_stack_size, sizeof(size_t));
@@ -471,6 +474,7 @@ void init_interpreter_from_image(char *image)
     /* We don't attempt to restore the stack as it was */
     vm->call_stack_pointer = vm->call_stack;
     vm->top_of_data_stack = vm->data_stack;
+    vm->registers.sp = vm->other_data_stack;
     init_symbols();
     init_builtins();
     interpreter_initialized = 1;
@@ -2435,6 +2439,7 @@ lisp_object_t save_image(lisp_object_t name)
     do_write(fd, interp->heap.from_space, interp->heap.freeptr - interp->heap.from_space);
     do_write(fd, (char *)&interp->vm.data_stack_size, sizeof(size_t));
     do_write(fd, (char *)interp->vm.data_stack, sizeof(lisp_object_t) * interp->vm.data_stack_size);
+    do_write(fd, (char *)interp->vm.other_data_stack, sizeof(lisp_object_t) * interp->vm.data_stack_size);
     do_write(fd, (char *)&interp->vm.call_stack_size, sizeof(size_t));
     do_write(fd, (char *)interp->vm.call_stack, sizeof(struct vm_call_stack_frame) * interp->vm.call_stack_size);
     close(fd);

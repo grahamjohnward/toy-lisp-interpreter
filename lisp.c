@@ -430,7 +430,7 @@ static void init_builtins()
 #undef DEFBUILTIN
 }
 
-void init_interpeter_from_image(char *image)
+void init_interpreter_from_image(char *image)
 {
     assert(!interpreter_initialized);
     int fd = open(image, O_RDONLY);

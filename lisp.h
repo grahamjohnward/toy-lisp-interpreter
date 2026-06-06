@@ -25,7 +25,7 @@ char *read_token(struct text_stream *ts);
 
 void init_interpreter(size_t heap_size);
 void init_interpreter2(size_t heap_size, int use_vm);
-void init_interpeter_from_image(char *image);
+void init_interpreter_from_image(char *image);
 void free_interpreter();
 
 char *print_object(lisp_object_t obj);

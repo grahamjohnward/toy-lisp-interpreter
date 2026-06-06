@@ -106,7 +106,7 @@ int main(int argc, char **argv)
     struct interpreter_settings settings;
     int i = parse_args(argc, argv, &settings);
     if (settings.image)
-        init_interpeter_from_image(settings.image);
+        init_interpreter_from_image(settings.image);
     else
         init_interpreter2(settings.heap_size, settings.use_vm);
     if (settings.use_vm) {

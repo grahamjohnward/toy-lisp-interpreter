@@ -1942,25 +1942,23 @@ static void test_vm_inst_tag_jmp()
 
     struct vm *vm = &interp->vm;
     vm_set_code_vector(vm, parse1_wrapper("#(foo bar baz quux boof)"));
-    vm->registers.instruction_pointer_old = 0;
     vm->registers.environment = NIL;
     vm->registers.tags = NIL;
     vm_inst_set_tag(vm, sym("bof"), LispInt(4));
 
     lisp_object_t expected_code_vector = vm->registers.code_vector;
-    lisp_object_t expected_instruction_pointer = LispInt(4);
+    lisp_object_t *expected_instruction_pointer = vm->registers.code_vector_storage + 4;
 
     /* As if a function call happened */
     *vm->call_stack_pointer = vm->registers;
     vm->call_stack_pointer++;
-    vm->registers.code_vector = parse1_wrapper("#(1 2 3 4 5)");
-    vm->registers.instruction_pointer_old = 0;
+    vm_set_code_vector(vm, parse1_wrapper("#(1 2 3 4 5)"));
     vm->registers.environment = NIL;
     vm->registers.tags = NIL;
 
     vm_inst_tag_jmp(vm, sym("bof"));
     check(vm->registers.code_vector == expected_code_vector, "code vector");
-    check(vm->registers.instruction_pointer_old == expected_instruction_pointer, "instruction pointer");
+    check(vm->registers.instruction_pointer == expected_instruction_pointer, "instruction pointer");
 
     free_interpreter();
 }
@@ -1971,18 +1969,16 @@ static void test_vm_inst_raise()
     init_interpreter_for_tests();
     struct vm *vm = &interp->vm;
     vm_set_code_vector(vm, parse1_wrapper("#(foo bar baz quux boof)"));
-    vm->registers.instruction_pointer_old = 0;
     vm->registers.environment = NIL;
     vm->registers.tags = NIL;
     vm_inst_set_tag(vm, sym("bof"), LispInt(4));
     lisp_object_t expected_code_vector = vm->registers.code_vector;
-    lisp_object_t expected_instruction_pointer = LispInt(4);
-
+    lisp_object_t *expected_instruction_pointer = vm->registers.code_vector_storage + 4;
     /* As if a function call happened */
     *vm->call_stack_pointer = vm->registers;
     vm->call_stack_pointer++;
-    vm->registers.code_vector = parse1_wrapper("#(1 2 3 4 5)");
-    vm->registers.instruction_pointer_old = 0;
+    vm_set_code_vector(vm, parse1_wrapper("#(1 2 3 4 5)"));
+
     vm->registers.environment = NIL;
     vm->registers.tags = NIL;
 
@@ -1995,7 +1991,7 @@ static void test_vm_inst_raise()
 
     check(vm_peek(vm) == sym("return-value"), "return value");
     check(vm->registers.code_vector == expected_code_vector, "code vector");
-    check(vm->registers.instruction_pointer_old == expected_instruction_pointer, "instruction pointer");
+    check(vm->registers.instruction_pointer == expected_instruction_pointer, "instruction pointer");
 
     free_interpreter();
 }

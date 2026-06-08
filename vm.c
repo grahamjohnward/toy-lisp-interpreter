@@ -169,13 +169,13 @@ void vm_run_one_instruction(struct vm *vm)
         TRACE(vm->registers.code_vector);
 
     lisp_object_t instruction = *vm->registers.instruction_pointer;
-    lisp_object_t arity = NIL;
-    lisp_object_t lisp_function_pointer = NIL;
+    int arity = -1;
+    void (*fp)() = NULL;
 
-#define CHECK_INSTRUCTION(sym, fn, the_arity)                                \
-    if (instruction == interp->syms.sym) {                                   \
-        arity = LispInt(the_arity);                                          \
-        lisp_function_pointer = ((lisp_object_t)fn) | FUNCTION_POINTER_TYPE; \
+#define CHECK_INSTRUCTION(sym, fn, the_arity) \
+    if (instruction == interp->syms.sym) {    \
+        arity = the_arity;                    \
+        fp = fn;                              \
     }
     // clang-format off
     CHECK_INSTRUCTION(push,       vm_inst_push,       1) else
@@ -199,13 +199,12 @@ void vm_run_one_instruction(struct vm *vm)
     CHECK_INSTRUCTION(abort,      vm_inst_abort,      0);
     // clang-format on
 #undef CHECK_INSTRUCTION
-    if (lisp_function_pointer == NIL) {
+    if (!fp) {
         TRACE(instruction);
         abort();
     }
-    if (arity == NIL)
+    if (arity == -1)
         abort();
-    void (*fp)() = FunctionPtr(lisp_function_pointer);
 
     char *str0 = NULL;
     char *str1 = NULL;
@@ -220,14 +219,14 @@ void vm_run_one_instruction(struct vm *vm)
         vm->registers.instruction_pointer++;
         VM_TRACE("; %p %s\t%s\n", (void *)vm->registers.code_vector, str0, str1);
         ((void (*)(struct vm *))fp)(vm);
-    } else if (arity == LispInt1) {
+    } else if (arity == 1) {
         lisp_object_t arg = vm->registers.instruction_pointer[1];
         vm->registers.instruction_pointer += 2;
         if (vm->vm_trace)
             str2 = print_object(arg);
         VM_TRACE("; %p %s\t%s %s\n", (void *)vm->registers.code_vector, str0, str1, str2);
         ((void (*)(struct vm *, lisp_object_t))fp)(vm, arg);
-    } else if (arity == LispInt2) {
+    } else if (arity == 2) {
         lisp_object_t arg1 = vm->registers.instruction_pointer[1];
         lisp_object_t arg2 = vm->registers.instruction_pointer[2];
         vm->registers.instruction_pointer += 3;

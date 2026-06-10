@@ -4,6 +4,7 @@
 			  ("compiler.lisp" . "compiler.compiled")
 			  ("vmboot.lisp" . "vmboot.compiled")
                           ("eval.lisp" . "eval.compiled")
+                          ("load.lisp" . "load.compiled")
 			  ("bootstrap.lisp" . "bootstrap.compiled"))))
   (tagbody
    next-file

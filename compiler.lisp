@@ -123,9 +123,9 @@
 
 ;; Having these three symbols in the code wreaks havoc with quasiquote
 ;; expansion:
-(defparameter _quasiquote (make-symbol "quasiquote"))
-(defparameter _unquote (make-symbol "unquote"))
-(defparameter _unquote-splice (make-symbol "unquote-splice"))
+(defparameter %quasiquote (make-symbol "quasiquote"))
+(defparameter %unquote (make-symbol "unquote"))
+(defparameter %unquote-splice (make-symbol "unquote-splice"))
 
 (defparameter *depth* 0)
 
@@ -158,11 +158,11 @@
 			       (convert-quasiquote (svref expr i) depth)))
 		  new-vector))
 	       ((consp expr)
-		(cond ((eq (car expr) _unquote)
+		(cond ((eq (car expr) %unquote)
 		       (progn
 			 (print (list :bad expr))
 			 (assert (eq :bog :boo))))	;error
-		      ((eq (car expr) _quasiquote)
+		      ((eq (car expr) %quasiquote)
 		       (convert-quasiquote (cadr expr) (+ 1 depth)))
 		      (t (cons (convert-quasiquote (car expr) depth)
 			       (convert-quasiquote (cdr expr) depth)))))
@@ -180,18 +180,18 @@
 		    `(let ((,var ,(convert-quasiquote unquoted 0)))
 		       (append ,var ,(convert-quasiquote rest depth))))))
 	       (t
-		`((,_unquote-splice
+		`((,%unquote-splice
 		   ,(convert-quasiquote (cdar expr) (- depth 1)))))))
 	((> depth 0)
 	 (cond ((vectorp expr)
 		`(apply #'vector ,@(convert-quasiquote (cdr expr) depth)))
 	       ((consp expr)
-                (cond ((eq (car expr) _unquote)
+                (cond ((eq (car expr) %unquote)
 		       (convert-quasiquote (cadr expr) (- depth 1)))
 		      ((eq (car expr) 'unquote-splice)
 		       (convert-quasiquote (cadr expr) (- depth 1)))
-		      ((eq (car expr) _quasiquote)
-		       `(cons _quasiquote
+		      ((eq (car expr) %quasiquote)
+		       `(cons %quasiquote
 			      ,(convert-quasiquote (cdr expr) (+ depth 1))))
 		      (t
 		       `(cons ,(convert-quasiquote (car expr) depth)

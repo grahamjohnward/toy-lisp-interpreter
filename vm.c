@@ -391,7 +391,8 @@ void vm_inst_setup_env2(struct vm *vm, lisp_object_t arity)
     lisp_object_t arg_count = vm_pop(vm);
     if (arg_count > arity)
         abort();
-    // We have arg_count arguments on the stack and need to populate arity slots on the other stack
+    /* We have arg_count arguments on the stack and need to populate
+       arity slots on the other stack */
     vm->registers.fp = vm->registers.sp;
     for (int i = Int(arg_count) - 1; i >= 0; i--)
         vm->registers.fp[i] = vm_pop(vm);
@@ -435,7 +436,6 @@ start:
     lisp_object_t orig_fn = NIL;
     orig_fn = fn;
     if (fn == interp->syms.funcall) {
-        // XXX does #'funcall work??  I think it does!
         vm_setup_funcall(vm);
         funcall_count++;
         goto start;
@@ -444,7 +444,6 @@ start:
        to write VM code by hand. */
     if (symbolp(fn) != NIL) {
         fn = (SymbolPtr(fn))->function;
-        //	TRACE(type_of(fn));
     }
     if (functionp(fn) == NIL) {
         TRACE(fn);

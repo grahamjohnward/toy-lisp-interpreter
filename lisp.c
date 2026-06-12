@@ -758,7 +758,7 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
 
 static void gc_check_copied_object(lisp_object_t obj)
 {
-    if (integerp(obj) != NIL || stringp(obj) != NIL /* || vectorp(obj) != NIL */ || function_pointer_p(obj) != NIL || native_pointer_p(obj) != NIL || obj == T || obj == NIL)
+    if (integerp(obj) != NIL || stringp(obj) != NIL || function_pointer_p(obj) != NIL || native_pointer_p(obj) != NIL || obj == T || obj == NIL)
         return;
     assert(!(obj & FORWARDING_POINTER));
     char *p = (char *)(obj & PTR_MASK);
@@ -785,10 +785,11 @@ void gc_copy_jmp_buf(struct lisp_heap *heap, jmp_buf buf)
         if (!jmp_buf_entry_is_pointer[i]) {
             lisp_object_t o = (lisp_object_t)(buf->__jmpbuf[i]);
             if (object_is_in_from_space(heap, o)) {
-                /* This is not actually expected, since on x86_64, the registers in the
-                   jmp_buf are either stack pointers (which we don't need to
-                   GC), or rbx and r12-r15 which don't seem to be used given how
-                   we are compiling this code.
+                /* This is not actually expected, since on x86_64, the
+                   registers in the jmp_buf are either stack pointers
+                   (which we don't need to GC), or rbx and r12-r15
+                   which don't seem to be used given how we are
+                   compiling this code.
 
                    On AArch64, not so sure
                 */
@@ -1161,7 +1162,8 @@ lisp_object_t parse_cons(struct text_stream *ts)
         text_stream_advance(ts);
         return new_cons;
     } else {
-        /* This temporary is needed to get the value on the stack for the GC to see */
+        /* This temporary is needed to get the value on the stack for
+           the GC to see */
         lisp_object_t tmp = parse_cons(ts);
         rplacd(new_cons, tmp);
     }
@@ -1650,8 +1652,6 @@ void push_return_context(lisp_object_t type)
     ctxt->tagbody_forms = NULL;
     ctxt->tagbody_forms_len = 0;
     interp->return_stack = ctxt;
-    // for lexical scope, save current frame in here
-    // ctxt->frame = interp->frame;
 }
 
 lisp_object_t pop_return_context()
@@ -1767,7 +1767,7 @@ lisp_object_t apply(lisp_object_t fn, lisp_object_t x, lisp_object_t a)
             return raise(sym("illegal-function-call"), fn);
         }
         if (symbolp(fn) != NIL) {
-            // Check whether it is s symbol with function binding
+            /* Check whether it is s symbol with function binding */
             struct symbol *symptr = SymbolPtr(fn);
             if (symptr->function != NIL) {
                 fn = symptr->function;

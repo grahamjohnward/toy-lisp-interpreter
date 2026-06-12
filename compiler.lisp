@@ -24,14 +24,14 @@
         (when (functionp obj)
           (%asm abort))
 	(if (consp obj)
-	    (let ((foo (car obj)))
-	      (cond ((eq foo 'target)
+	    (let ((first (car obj)))
+	      (cond ((eq first 'target)
 		     (progn
 		       (set-svref vector i (cdr (assoc (cadr obj) label-alist)))
                        (when (functionp (cdr (assoc (cadr obj) label-alist)))
                          (%asm abort))
 		       (incf i)))
-		    ((eq foo 'literally)
+		    ((eq first 'literally)
 		     (progn
 		       (set-svref vector i (cadr obj))
 		       (incf i)))))
@@ -226,7 +226,6 @@
 	 (set-svref result 1 i)
 	 (return-from parse-arglist result)))))
 
-
 (defun instruction-arity (ins)
   (cond ((find ins '(call set-dso pop nop ret raise swap abort)) 0)
         ((find ins '(push get1 set1 jmp-if-nil jmp tag-jmp rest-args setup-env)) 1)
@@ -286,12 +285,11 @@
                                                   ,@compiled-body))
                   (setq compiled-body `(,@preamble ,@compiled-body)))))
 	  (let ((code (assemble compiled-body)))
-	    (let ((result `(push ,arg-info push ,code
-                                 push 2
-                                 push ,(if closurep '%vm-make-function
-                                           '%vm-make-simple-function)
-                                 call)))
-	      result)))))))
+            `(push ,arg-info push ,code
+                   push 2
+                   push ,(if closurep '%vm-make-function
+                             '%vm-make-simple-function)
+                   call)))))))
 
 (defun compile4-if (expr ctxt)
   (assert (eq (car expr) 'if))
@@ -338,8 +336,8 @@
     (lexical-context-push-tag-table ctxt tag-alist)
     (prog1
 	(append
-	 (apply #'append (mapcar #'(lambda (foo)
-				     `(set-tag ,(cdr foo) (target ,(cdr foo))))
+	 (apply #'append (mapcar #'(lambda (pair)
+				     `(set-tag ,(cdr pair) (target ,(cdr pair))))
 				 tag-alist))
 	 (apply #'append
 		(mapcar-with-context
@@ -610,7 +608,7 @@
 	   (let ((clauses (second form))
 		 (body (cdr (cdr form))))
 	     `(let ,(macroexpand-all-let clauses)
-		,@(macroexpand-all-list body)))) ;not working?
+		,@(macroexpand-all-list body))))
 	  ((eq sym 'quote) form)
 	  ((eq sym 'function)
 	   (macroexpand-all-function form))
@@ -619,10 +617,12 @@
 ;; Ultimately this should simply be called `compile`
 (defun compile4-toplevel (expr)
   (let ((ctxt (make-lexical-context)))
-    (let (foo)
+    (let (macroexpanded-code)
       (condition-case e
 	  (progn
-	    (setq foo (macroexpand-all (convert-quasiquote expr 0)))
-	    (assemble (compile4 (convert-quasiquote foo 0) ctxt)))
-	(assertion-failed (print (list foo expr)))
-	(bad-function (print (list foo expr)))))))
+	    (setq macroexpanded-code
+                  (macroexpand-all (convert-quasiquote expr 0)))
+	    (assemble
+                (compile4 (convert-quasiquote macroexpanded-code 0) ctxt)))
+	(assertion-failed (print (list macroexpanded-code expr)))
+	(bad-function (print (list macroexpanded-code expr)))))))

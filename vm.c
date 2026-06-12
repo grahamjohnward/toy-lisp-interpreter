@@ -215,20 +215,25 @@ void vm_run_one_instruction(struct vm *vm)
         str1 = print_object(instruction);
     }
 
-    if (arity == 0) {
+    lisp_object_t arg1 = NIL;
+    lisp_object_t arg2 = NIL;
+    switch (arity) {
+    case 0:
         vm->registers.instruction_pointer++;
         VM_TRACE("; %p %s\t%s\n", (void *)vm->registers.code_vector, str0, str1);
         ((void (*)(struct vm *))fp)(vm);
-    } else if (arity == 1) {
-        lisp_object_t arg = vm->registers.instruction_pointer[1];
+        break;
+    case 1:
+        arg1 = vm->registers.instruction_pointer[1];
         vm->registers.instruction_pointer += 2;
         if (vm->vm_trace)
-            str2 = print_object(arg);
+            str2 = print_object(arg1);
         VM_TRACE("; %p %s\t%s %s\n", (void *)vm->registers.code_vector, str0, str1, str2);
-        ((void (*)(struct vm *, lisp_object_t))fp)(vm, arg);
-    } else if (arity == 2) {
-        lisp_object_t arg1 = vm->registers.instruction_pointer[1];
-        lisp_object_t arg2 = vm->registers.instruction_pointer[2];
+        ((void (*)(struct vm *, lisp_object_t))fp)(vm, arg1);
+        break;
+    case 2:
+        arg1 = vm->registers.instruction_pointer[1];
+        arg2 = vm->registers.instruction_pointer[2];
         vm->registers.instruction_pointer += 3;
         if (vm->vm_trace) {
             str2 = print_object(arg1);
@@ -236,7 +241,8 @@ void vm_run_one_instruction(struct vm *vm)
         }
         VM_TRACE("; %p %s\t%s %s %s\n", (void *)vm->registers.code_vector, str0, str1, str2, str3);
         ((void (*)(struct vm *, lisp_object_t, lisp_object_t))fp)(vm, arg1, arg2);
-    } else {
+        break;
+    default:
         abort();
     }
     if (str0)

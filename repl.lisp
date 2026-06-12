@@ -14,6 +14,7 @@
 	       (print result))
 	   (runtime-error (print e))
 	   (unbound-variable (print e))
+           (bad-function (print e))
 	   (type-error
             (progn
               (princ "Type error: ")

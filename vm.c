@@ -452,10 +452,11 @@ start:
         fn = (SymbolPtr(fn))->function;
     }
     if (functionp(fn) == NIL) {
-        TRACE(fn);
-        printf("NOT A FUNCTION!!\n");
-        TRACE(type_of(fn));
-        printf("funcall_count = %d\n", funcall_count);
+        vm_inst_push(vm, sym("bad-function"));
+        vm_inst_push(vm, orig_fn);
+        vm_inst_push(vm, LispInt(2));
+        vm_inst_raise(vm);
+        return;
     }
     struct lisp_function *fnptr = LispFunctionPtr(fn);
 

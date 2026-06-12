@@ -320,8 +320,13 @@ static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
     lisp_object_t arg3 = NIL;
     lisp_object_t provided_arity = vm_pop(vm);
     lisp_object_t arity = (int64_t)caddr(actual_function);
-    if (provided_arity != arity)
-        abort(); // Should use new exception-raising mechanism
+    if (provided_arity != arity) {
+        vm_inst_push(vm, sym("bad-arity"));
+        vm_inst_push(vm, cons(provided_arity, arity));
+        vm_inst_push(vm, LispInt(2));
+        vm_inst_raise(vm);
+        return;
+    }
     int v = setjmp(vm->jmp_buf);
     if (v != 0) {
         vm_inst_raise(vm);

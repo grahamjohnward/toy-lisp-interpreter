@@ -5,14 +5,6 @@
 #include <setjmp.h>
 #include <stdio.h>
 
-static void initialize_data_stack(struct vm *vm)
-{
-    for (size_t x = 0; x < vm->data_stack_size; x++) {
-        lisp_object_t *p = vm->top_of_data_stack + x;
-        *p = (lisp_object_t)12345678;
-    }
-}
-
 void vm_init(struct vm *vm, size_t data_stack_size)
 {
     vm->data_stack_size = data_stack_size;
@@ -31,7 +23,6 @@ void vm_init(struct vm *vm, size_t data_stack_size)
     vm->registers.sp = vm->other_data_stack;
     vm->vm_trace = 0;
     vm->setjmp_activated = 0;
-    initialize_data_stack(vm);
 }
 
 void vm_free(struct vm *vm)

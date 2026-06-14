@@ -326,8 +326,6 @@ lisp_object_t set_symbol_function(lisp_object_t symbol, lisp_object_t function);
 
 lisp_object_t nthcdr(lisp_object_t n, lisp_object_t list);
 
-lisp_object_t eval2(lisp_object_t e);
-
 lisp_object_t vm_make_function(lisp_object_t arg_info, lisp_object_t code_vector);
 
 lisp_object_t vm_make_simple_function(lisp_object_t arg_info, lisp_object_t code_vector);
@@ -1712,11 +1710,6 @@ lisp_object_t nthcdr(lisp_object_t n, lisp_object_t list)
     for (int i = 0; i < n_int; i++)
         result = cdr(result);
     return result;
-}
-
-lisp_object_t eval2(lisp_object_t e)
-{
-    return NIL;
 }
 
 static lisp_object_t apply_lambda(lisp_object_t fn, lisp_object_t x, lisp_object_t a)

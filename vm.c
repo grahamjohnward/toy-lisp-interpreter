@@ -326,7 +326,7 @@ static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
     } else {
         vm->setjmp_activated = 1;
     }
-    int arity_c = Int((int)arity);
+    int arity_c = Int(arity);
     switch (arity_c) {
     case 0:
         result = ((lisp_object_t (*)())fp)();

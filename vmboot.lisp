@@ -1,5 +1,5 @@
 (progn
-  (defun %bog (list)
+  (defun list-to-vector-reverse (list)
     (let ((l (length list)))
       (let ((i (two-arg-minus l 1))
             (result (make-vector l)))
@@ -62,8 +62,8 @@
          (setq i (two-arg-plus i 1))
          (go next)
        done)
-      (setq *argv* (%bog arguments))
-      (setq files-to-load (%bog files-to-load))
+      (setq *argv* (list-to-vector-reverse arguments))
+      (setq files-to-load (list-to-vector-reverse files-to-load))
       (let ((nfiles (length files-to-load))
             (i 0))
         (tagbody

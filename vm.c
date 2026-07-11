@@ -400,13 +400,13 @@ void vm_inst_setup_env2(struct vm *vm, lisp_object_t arity)
         vm->registers.fp[i] = vm_pop(vm);
     for (int i = Int(arity) - 1; i > Int(arg_count) - 1; i--)
         vm->registers.fp[i] = NIL;
+    vm->registers.sp = vm->registers.fp + Int(arity);
     if (vm->registers.closure_env != NIL) {
         vm->registers.environment = allocate_vector(LispInt(1));
         svref_set(vm->registers.environment, 0, vm->registers.closure_env);
     } else {
         vm->registers.environment = NIL;
     }
-    vm->registers.sp = vm->registers.fp + Int(arity);
 }
 
 void vm_set_code_vector(struct vm *vm, lisp_object_t code_vector)

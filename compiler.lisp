@@ -15,7 +15,30 @@
 	  (setq i (+ 1 i))))
     (cons label-alist i)))
 
+(defun optimize-push-pop (list)
+  (when (null list)
+    (return-from optimize-push-pop nil))
+  ;; We can't optimize (push nil (label foo) pop) since there may be a
+  ;; jump to the label.  In fact that's probably why it's there
+  (when (and (not (null (cdr list)))
+             (not (null (cddr list)))
+             (eq (car list) 'push)
+             (eq (caddr list) 'pop))
+    (return-from optimize-push-pop (optimize-push-pop (cdddr list))))
+  (cons (car list) (optimize-push-pop (cdr list))))
+
+(defun optimize-nops (list)
+  (if (null list)
+      nil
+      (if (null (cdr list))
+          list
+          (if (eq (car list) 'nop)
+              (optimize-nops (cdr list))
+              (cons (car list) (optimize-nops (cdr list)))))))
+
 (defun assemble (list)
+  (setq list (optimize-nops list))
+  (setq list (optimize-push-pop list))
   (let ((label-info (build-label-alist list)))
     (let ((label-alist (car label-info))
 	  (vector (make-vector (cdr label-info)))

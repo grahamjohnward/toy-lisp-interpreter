@@ -616,8 +616,10 @@ void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
             return;
         }
     }
-    TRACE(tag);
-    vm_inst_abort(vm);
+    char *str = print_object(tag);
+    printf("No handler for %s\n", str);
+    free(str);
+    exit(1);
 }
 
 void vm_inst_raise(struct vm *vm)

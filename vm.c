@@ -11,7 +11,7 @@ void vm_init(struct vm *vm, size_t data_stack_size)
     vm->data_stack = (lisp_object_t *)malloc(sizeof(lisp_object_t) * vm->data_stack_size);
     vm->other_data_stack = (lisp_object_t *)malloc(sizeof(lisp_object_t) * vm->data_stack_size);
 
-    vm->call_stack_size = 1024;
+    vm->call_stack_size = 1024 * 1024;
     vm->call_stack = (struct vm_call_stack_frame *)malloc(sizeof(struct vm_call_stack_frame) * vm->call_stack_size);
     vm->call_stack_pointer = vm->call_stack;
     vm->top_of_data_stack = vm->data_stack;

@@ -134,6 +134,12 @@
       (if (two-arg-less-than first (car rest))
 	  (apply '< rest))))
 
+(defun 1+ (x)
+  (+ x 1))
+
+(defun 1- (x)
+  (- x 1))
+
 (defmacro dotimes (var-and-max &body thing)
   (let ((var (car var-and-max))
 	(max (car (cdr var-and-max))))

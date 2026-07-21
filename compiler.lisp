@@ -256,26 +256,26 @@
         ((consp ins) 0)
         (t (assert nil))))
 
-(defun wow-amazing (code)
-  (let ((result (%wow-amazing code)))
+(defun stack-convert (code)
+  (let ((result (%stack-convert code)))
 ;    (trace result)
     result))
 
-(defun %wow-amazing (code)
+(defun %stack-convert (code)
   (if (null code) nil
       (let ((ins (car code)))
         (cond ((and (eq ins 'get) (eq (cadr code) 0))
-               `(get0 ,(caddr code) ,@(wow-amazing (cdr (cddr code)))))
+               `(get0 ,(caddr code) ,@(stack-convert (cdr (cddr code)))))
               ((and (eq ins 'set) (eq (cadr code) 0))
-               `(set0 ,(caddr code) ,@(wow-amazing (cdr (cddr code)))))
+               `(set0 ,(caddr code) ,@(stack-convert (cdr (cddr code)))))
               (t
                (let ((arity (instruction-arity ins)))
                  (cond ((eq arity 0)
-                        `(,ins ,@(wow-amazing (cdr code))))
+                        `(,ins ,@(stack-convert (cdr code))))
                        ((eq arity 1)
-                        `(,ins ,(cadr code) ,@(wow-amazing (cddr code))))
+                        `(,ins ,(cadr code) ,@(stack-convert (cddr code))))
                        ((eq arity 2)
-                        `(,ins ,(cadr code) ,(caddr code) ,@(wow-amazing (cdr (cddr code)))))
+                        `(,ins ,(cadr code) ,(caddr code) ,@(stack-convert (cdr (cddr code)))))
                        (t (assert nil)))))))))
 
 ;; (append a b) <=> `(,@a ,@b)
@@ -294,7 +294,7 @@
       (let ((can-stack-allocate (= (lexical-context-wowza ctxt) 0))
             (closurep (lexical-context-closurep ctxt)))
         (when can-stack-allocate
-          (setq compiled-body (wow-amazing compiled-body)))
+          (setq compiled-body (stack-convert compiled-body)))
         (lexical-context-leave-scope ctxt)
         (let ((argcount (length arglist))
 	      (arg-info (parse-arglist arglist)))

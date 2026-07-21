@@ -263,6 +263,9 @@
 (defun caadr (x)
   (car (cadr x)))
 
+(defun cdddr (x)
+  (cdr (cddr x)))
+
 (defun cadddr (x)
   (car (cdr (cddr x))))
 

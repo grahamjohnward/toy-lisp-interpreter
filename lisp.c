@@ -357,6 +357,11 @@ static lisp_object_t get_vm_stack()
     return vm_get_stack(&interp->vm);
 }
 
+static lisp_object_t mod(lisp_object_t a, lisp_object_t b)
+{
+    return LispInt(Int(a) % Int(b));
+}
+
 #define FUNCALL_ARITY -1
 
 static void init_builtins()
@@ -412,6 +417,7 @@ static void init_builtins()
     DEFBUILTIN("write", lisp_write, 2);
     DEFBUILTIN("%strconcat", string_concat, 2);
     DEFBUILTIN("symbol-name", symbol_name, 1);
+    DEFBUILTIN("mod", mod, 2);
     if (!interp->use_vm) {
         /* In VM, LOAD comes from boot code */
         DEFBUILTIN("load", load, 1);

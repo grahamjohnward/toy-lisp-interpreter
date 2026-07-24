@@ -14,7 +14,6 @@ struct vm_call_stack_frame {
     lisp_object_t environment;
     lisp_object_t closure_env;
     lisp_object_t tags;
-    lisp_object_t data_stack_offset;
     // Rename these:
     lisp_object_t *fp;
     lisp_object_t *sp;

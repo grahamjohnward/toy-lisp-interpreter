@@ -54,7 +54,6 @@ static void gc_copy_vm_call_stack_frame(struct lisp_heap *heap, struct vm_call_s
         frame->max_instruction_pointer = vector_storage + code_vector_size;
     }
     frame->instruction_pointer = frame->code_vector_storage + instruction_pointer_offset;
-    gc_copy(heap, &frame->data_stack_offset);
     gc_copy(heap, &frame->environment);
     gc_copy(heap, &frame->closure_env);
     gc_copy(heap, &frame->tags);
@@ -110,7 +109,6 @@ static void vm_print_call_stack_frame(struct vm_call_stack_frame *p)
 {
     lisp_object_t vector = allocate_vector(LispInt(5));
     svref_set(vector, LispInt(0), p->code_vector);
-    svref_set(vector, LispInt(1), p->data_stack_offset);
     svref_set(vector, LispInt(2), p->environment);
     svref_set(vector, LispInt(3), LispInt(p->instruction_pointer - p->code_vector_storage));
     svref_set(vector, LispInt(4), p->tags);
@@ -384,8 +382,6 @@ void vm_inst_setup_env(struct vm *vm, lisp_object_t arity)
     for (int i = Int(arg_count); i > 0; i--)
         svref_set(vm->registers.environment, LispInt(i), vm_pop(vm));
     svref_set(vm->registers.environment, 0, vm->registers.closure_env);
-    // XXX!
-    vm->registers.data_stack_offset = LispInt(vm->top_of_data_stack - vm->data_stack);
 }
 
 void vm_inst_setup_env2(struct vm *vm, lisp_object_t arity)
@@ -478,19 +474,8 @@ start:
 void vm_inst_ret(struct vm *vm)
 {
     assert(vm->call_stack_pointer > vm->call_stack);
-    lisp_object_t o1 = vm->registers.data_stack_offset;
     struct vm_call_stack_frame *call_stack_frame = --vm->call_stack_pointer;
-
     vm->registers = *call_stack_frame;
-    vm->registers.data_stack_offset = o1;
-    lisp_object_t o2 = vm->registers.data_stack_offset;
-
-    if (o1 != o2) {
-        TRACE(cons(o1, o2));
-        TRACE(LispInt(Int(o1) - Int(o2)));
-        vm_print_stack(vm);
-        abort();
-    }
 }
 
 static lisp_object_t findenv(lisp_object_t env, int offset)

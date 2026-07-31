@@ -1,0 +1,63 @@
+#(push bad+
+  push #(t 1 nil)
+  push #(rest-args 1
+         make-env 1
+         set-tag g51 25
+         push #(nil 2 nil)
+         push #(make-env2 2
+                set-tag g52 10 ; -> ret, at the very end
+                push 0
+                set0 2
+                pop
+                push nil
+                get 1 1
+                push 2
+                push eq
+                call
+                jmp-if-nil 31
+                push g51
+                get0 2
+                push 2
+                raise
+                jmp 33
+                push nil ; 31
+                pop
+                get 1 1
+                push 1
+                push car
+                call
+                set0 1
+                pop
+                get 1 1
+                push 1
+                push cdr
+                call
+                set 1 1
+                pop
+                get0 2
+                get0 1
+                push 2
+                push two-arg-plus
+                call
+                set0 2
+                pop
+                tag-jmp g52
+                pop
+                push nil
+                ret)
+         push 2
+         push %vm-make-function
+         call
+         push nil
+         push nil
+         push 3
+         push funcall
+         tailcall
+         ret) ; 25
+  push 2
+  push %vm-make-simple-function
+  call
+  push 2
+  push set-symbol-function
+  call)
+#(push 6 push 7 push 8 push 3 push bad+ call push 1 push print call)

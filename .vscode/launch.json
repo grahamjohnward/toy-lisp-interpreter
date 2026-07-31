@@ -21,10 +21,7 @@
                 "--heap-size=128m",
                 "--use-vm",
                 "--vmboot=vmboot.compiled2",
-                "lib.compiled2",
-                "compiler.compiled2",
-                "apply.compiled",
-                "bootstrap.compiled2"
+                "bad.compiled"
             ]
         },
         {

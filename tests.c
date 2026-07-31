@@ -2142,6 +2142,22 @@ void test_symbol_name()
     free_interpreter();
 }
 
+void test_vm_inst_tailcall()
+{
+    START_OF_TEST("vm_inst_tailcall");
+    init_interpreter_for_tests();
+    struct vm *vm = &interp->vm;
+
+    char *code1 = "#(push nthcdr push #(nil 2 nil) push #(make-env2 2 set-tag g97 41 get0 1 push 0 push 2 push = call jmp-if-nil 20 get0 2 jmp 41 get0 1 push 1 push 2 push two-arg-minus call get0 2 push 1 push cdr call push 2 push nthcdr tailcall ret) push 2 push %vm-make-simple-function call push 2 push set-symbol-function call)";
+    vm_set_code_vector(vm, parse1_wrapper(code1));
+    vm_run(vm);
+    char *code2 = "#(push 3 push (foo bar baz quux ooh) push 2 push nthcdr call)";
+    vm_set_code_vector(vm, parse1_wrapper(code2));
+    vm->vm_trace = 1;
+    vm_run(vm);
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -2297,6 +2313,7 @@ int main(int argc, char **argv)
     test_vm_inst_make_env2();
     test_strconcat();
     test_symbol_name();
+    test_vm_inst_tailcall();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

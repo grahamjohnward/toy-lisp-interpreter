@@ -53,6 +53,7 @@ struct syms {
     lisp_object_t get0;
     lisp_object_t set0;
     lisp_object_t make_env2;
+    lisp_object_t tailcall;
 };
 
 #endif

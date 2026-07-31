@@ -65,6 +65,8 @@ void vm_inst_pop(struct vm *vm);
 
 void vm_inst_call(struct vm *vm);
 
+void vm_inst_tailcall(struct vm *vm);
+
 void vm_inst_ret(struct vm *vm);
 
 void vm_inst_setup_env(struct vm *vm, lisp_object_t arity);

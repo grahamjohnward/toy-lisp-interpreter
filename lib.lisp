@@ -238,6 +238,7 @@
 
 (defmacro assert (thing-that-should-be-true)
   `(when (not ,thing-that-should-be-true)
+     (print ,thing-that-should-be-true)
      (raise 'assertion-failed ',thing-that-should-be-true)))
 
 (defun append (&rest lists)

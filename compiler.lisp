@@ -63,7 +63,7 @@
 	      (incf i))))
       vector)))
 
-(defstruct lexical-context (block-alist (next-block-number 0) bindings (binding-count 0) tag-table))
+(defstruct lexical-context (block-alist (next-block-number 0) bindings (binding-count 0) tag-table tailp))
 
 (defun lexical-context-push-block (ctxt block-name block-id)
   (lexical-context-set-block-alist ctxt (cons `(,block-name . ,block-id)
@@ -94,6 +94,22 @@
 (defun lexical-context-pop-tag-table (ctxt)
   (lexical-context-set-tag-table ctxt (cdr (lexical-context-tag-table ctxt))))
 
+(defmacro with-nontail-position (ctxt &body body)
+  (%push-tail-position-state nil ctxt body))
+
+(defmacro with-tail-position (ctxt &body body)
+  (%push-tail-position-state t ctxt body))
+
+(defun %push-tail-position-state (tail-position-p ctxt body)
+  (let ((ctxt-gensym (gensym))
+        (old-value-gensym (gensym)))
+    `(let ((,ctxt-gensym ,ctxt))
+       ;; No let* yet
+       (let ((,old-value-gensym (lexical-context-tailp ,ctxt-gensym)))
+         (lexical-context-set-tailp ,ctxt-gensym ,tail-position-p)
+         (prog1
+             ,@body
+           (lexical-context-set-tailp ,ctxt-gensym ,old-value-gensym))))))
 
 (defstruct lexical-scope-bindings ((wowza 0) bindings closurep))
 
@@ -225,12 +241,12 @@
 	(t (assert nil))))
 
 (defun compile4-list (forms ctxt)
-  (if (null forms)
-      nil
-      (if (null (cdr forms))
-	  (append (compile4 (car forms) ctxt) (compile4-list (cdr forms) ctxt))
-	  (append (compile4 (car forms) ctxt) '(pop) (compile4-list (cdr forms) ctxt)))))
-  
+  (if (null (cdr forms))
+      (compile4 (car forms) ctxt)
+      (append (with-nontail-position ctxt (compile4 (car forms) ctxt))
+              '(pop)
+              (compile4-list (cdr forms) ctxt))))
+
 (defun compile4-progn (expr ctxt)
   (assert (eq (car expr) 'progn))
   (compile4-list (cdr expr) ctxt))
@@ -250,7 +266,7 @@
 	 (return-from parse-arglist result)))))
 
 (defun instruction-arity (ins)
-  (cond ((find ins '(call set-dso pop nop ret raise swap abort)) 0)
+  (cond ((find ins '(call tailcall set-dso pop nop ret raise swap abort)) 0)
         ((find ins '(push get1 set1 jmp-if-nil jmp tag-jmp rest-args setup-env)) 1)
         ((find ins '(get set set-tag)) 2)
         ((consp ins) 0)
@@ -258,7 +274,7 @@
 
 (defun stack-convert (code)
   (let ((result (%stack-convert code)))
-;    (trace result)
+                                        ;    (trace result)
     result))
 
 (defun %stack-convert (code)
@@ -368,7 +384,7 @@
 		     (if (symbolp form)
 			 `((label
 			    ,(lexical-context-tag-lookup ctxt form)))
-			 (append (compile4 form ctxt) '(pop))))
+			 (append (with-nontail-position ctxt (compile4 form ctxt)) '(pop))))
 		 (cdr expr) ctxt))
 	 '(push nil))
       (lexical-context-pop-tag-table ctxt))))
@@ -389,7 +405,7 @@
 	(val (caddr expr)))
     (let ((lookup-result (lexical-context-lookup ctxt var)))
       (if lookup-result
-	  `(,@(compile4 val ctxt) set ,@lookup-result)
+	  `(,@(with-nontail-position ctxt (compile4 val ctxt)) set ,@lookup-result)
 	  `(push ,var ,@(compile4 val ctxt) push 2 push set-symbol-value call)))))
 
 (defun compile4-block (expr ctxt)
@@ -458,9 +474,9 @@
 	    (compiled-body (compile4 body1 ctxt)))
 	(let ((compiled-handlers
 	       (apply #'append
-	       (mapcar-with-context #'compile4-condition-case-handler
-				    (zip (mapcar #'cdr handlers) tag-alist)
-				    (list ctxt jmp-target e)))))
+	              (mapcar-with-context #'compile4-condition-case-handler
+				           (zip (mapcar #'cdr handlers) tag-alist)
+				           (list ctxt jmp-target e)))))
 	  `(,@set-tags
 	    ,@compiled-body
 	    jmp (target ,jmp-target)
@@ -473,10 +489,12 @@
         (arg-count 0)
 	(result nil))
     (dolist (arg (cdr expr))
-      (setq result (append result (compile4 arg ctxt)))
+      (setq result (append result
+                           (with-nontail-position ctxt (compile4 arg ctxt))))
       (setq arg-count (+ 1 arg-count)))
     (let ((pass-arg-count `(push ,arg-count))
-	  (more-stuff `(push ,sym call)))
+	  (more-stuff
+           `(push ,sym ,(if (lexical-context-tailp ctxt) 'call 'call))))
       (setq result (append (append result pass-arg-count) more-stuff))
       result)))
 
@@ -486,6 +504,11 @@
 
 (defun compile4 (expr ctxt)
   (when *trace-compile*
+    (princ "\n")
+    (dotimes (i *depth*)
+      (princ " "))
+    (princ "tailp: ")
+    (print (lexical-context-tailp ctxt))
     (dotimes (i *depth*)
       (princ " "))
     (print expr)
@@ -514,7 +537,7 @@
 		  (let ((function (cadr expr)))
 		    (if (symbolp function)
 			`(push ,function)
-			(compile4-lambda function ctxt))))
+			(with-tail-position ctxt (compile4-lambda function ctxt)))))
 		 ((eq sym 'progn)
 		  (compile4-progn expr ctxt))
 		 ((eq sym 'quote)
@@ -536,7 +559,7 @@
 		 ((eq sym 'return-from)
 		  (compile4-return-from expr ctxt))
 		 ((eq sym 'condition-case)
-		  (compile4-condition-case expr ctxt))
+		  (with-nontail-position ctxt (compile4-condition-case expr ctxt)))
 		 (t (compile4-function-call expr ctxt)))))
 	(t (raise 'bad-expression expr))))
 

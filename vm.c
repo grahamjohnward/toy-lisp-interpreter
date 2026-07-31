@@ -3,6 +3,7 @@
 
 #include <assert.h>
 #include <setjmp.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 void vm_init(struct vm *vm, size_t data_stack_size)
@@ -169,6 +170,7 @@ void vm_run_one_instruction(struct vm *vm)
     // clang-format off
     CHECK_INSTRUCTION(push,       vm_inst_push,       1) else
     CHECK_INSTRUCTION(call,       vm_inst_call,       0) else
+    CHECK_INSTRUCTION(tailcall,   vm_inst_tailcall,   0) else
     CHECK_INSTRUCTION(get,        vm_inst_get,        2) else
     CHECK_INSTRUCTION(pop,        vm_inst_pop,        0) else
     CHECK_INSTRUCTION(nop,        vm_inst_nop,        0) else
@@ -415,17 +417,20 @@ void vm_set_code_vector(struct vm *vm, lisp_object_t code_vector)
     vm->registers.code_vector_storage = vector_storage;
 }
 
-static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
+static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr, int is_tail_call)
 {
-    *vm->call_stack_pointer = vm->registers;
-    vm->call_stack_pointer++;
+    if (!is_tail_call) {
+        *vm->call_stack_pointer = vm->registers;
+        vm->call_stack_pointer++;
+    }
     vm_set_code_vector(vm, caddr(fnptr->actual_function));
+
     vm->registers.environment = NIL;
     vm->registers.closure_env = car(fnptr->actual_function);
     vm->registers.tags = NIL;
 }
 
-void vm_inst_call(struct vm *vm)
+static void vm_call(struct vm *vm, int is_tail_call)
 {
     lisp_object_t fn = NIL;
     int funcall_count = 0;
@@ -455,7 +460,7 @@ start:
     if (fnptr->kind == interp->syms.built_in_function) {
         vm_call_builtin_function(vm, fnptr);
     } else if (fnptr->kind == interp->syms.lambda) {
-        vm_call_lambda(vm, fnptr);
+        vm_call_lambda(vm, fnptr, is_tail_call);
     } else {
         char *str = print_object(fn);
         printf("Bad function: %s\n", str);
@@ -469,6 +474,18 @@ start:
         vm_inst_push(vm, LispInt(2));
         vm_inst_raise(vm);
     }
+}
+
+void vm_inst_call(struct vm *vm)
+{
+    int is_tail_call = false;
+    vm_call(vm, is_tail_call);
+}
+
+void vm_inst_tailcall(struct vm *vm)
+{
+    int is_tail_call = true;
+    vm_call(vm, is_tail_call);
 }
 
 void vm_inst_ret(struct vm *vm)
@@ -570,7 +587,9 @@ void vm_inst_set_tag(struct vm *vm, lisp_object_t tag, lisp_object_t dest)
     svref_set(tag_info, 0, tag);
     svref_set(tag_info, LispInt(1), dest);
     svref_set(tag_info, LispInt(2), stack_offset);
+
     vm->registers.tags = cons(tag_info, vm->registers.tags);
+    TRACE(vm->registers.tags);
 }
 // Do we also need an instruction to clear a tag?  Think so ...
 
@@ -590,7 +609,9 @@ void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
     // happening from (go ...) inside a tagbody?  Maybe it is actually.  Needs a
     // test case.  For now, let's assume this is OK for the tagbody use-case
     for (struct vm_call_stack_frame *frame = vm->call_stack_pointer - 1; frame >= vm->call_stack; frame--) {
+
         lisp_object_t tag_info = frame_has_tag(frame, tag);
+        TRACE(tag_info);
         if (tag_info != NIL) {
             lisp_object_t dest = svref_c(tag_info, 1);
             lisp_object_t stack_offset = svref_c(tag_info, 2);

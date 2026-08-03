@@ -357,18 +357,52 @@ static void test_strings()
     lisp_object_t s2 = NIL;
     lisp_object_t s3 = NIL;
     init_interpreter_for_tests();
-    s1 = allocate_string(6, "hello");
-    s2 = allocate_string(6, "hello");
-    s3 = allocate_string(7, "oohaah");
+    s1 = allocate_string(12, "hello there");
+    s2 = allocate_string(12, "hello there");
+    s3 = allocate_string(11, "oohaah omg");
+    check((s1 & TYPE_MASK) == STRING_TYPE, "type/1");
+    check((s2 & TYPE_MASK) == STRING_TYPE, "type/2");
+    check((s3 & TYPE_MASK) == STRING_TYPE, "type/3");
     check(string_equalp(s1, s2) == T, "equal strings are equalp/1");
     check(string_equalp(s2, s1) == T, "equal strings are equalp/2");
     check(string_equalp(s1, s3) == NIL, "unequal strings are not equalp/1");
     check(string_equalp(s2, s3) == NIL, "unequal strings are not equalp/2");
     size_t len;
     char *str;
-    get_string_parts(s1, &len, &str);
+    get_string_parts(&s1, &len, &str);
+    check(len == 11, "get_string_parts/length");
+    check(strncmp("hello", str, 5) == 0, "get_string_parts/string");
+    free_interpreter();
+}
+
+static void test_short_strings()
+{
+    START_OF_TEST("short_strings");
+    lisp_object_t s1 = NIL;
+    lisp_object_t s2 = NIL;
+    lisp_object_t s3 = NIL;
+    lisp_object_t s4 = NIL;
+    init_interpreter_for_tests();
+    s1 = allocate_string(6, "hello");
+    s2 = allocate_string(6, "hello");
+    s3 = allocate_string(4, "ooh");
+    check((s1 & TYPE_MASK) == SHORT_STRING_TYPE, "implementation_type/1");
+    check((s2 & TYPE_MASK) == SHORT_STRING_TYPE, "implementation_type/2");
+    check((s3 & TYPE_MASK) == SHORT_STRING_TYPE, "implementation_type/3");
+    check(type_of(s1) == interp->syms.string, "type/1");
+    check(type_of(s2) == interp->syms.string, "type/2");
+    check(type_of(s3) == interp->syms.string, "type/3");
+    check(string_equalp(s1, s2) == T, "equal strings are equalp/1");
+    check(string_equalp(s2, s1) == T, "equal strings are equalp/2");
+    check(string_equalp(s1, s3) == NIL, "unequal strings are not equalp/1");
+    check(string_equalp(s2, s3) == NIL, "unequal strings are not equalp/2");
+    size_t len;
+    char *str;
+    get_string_parts(&s1, &len, &str);
     check(len == 5, "get_string_parts/length");
     check(strncmp("hello", str, 5) == 0, "get_string_parts/string");
+    s4 = allocate_string(19, "hello you are nice");
+    check(string_equalp(s1, s4) == NIL, "long string not equalp to short string");
     free_interpreter();
 }
 
@@ -458,7 +492,7 @@ static void test_parse_string()
     obj = parse_string_wrapper(string);
     check(stringp(obj), "stringp");
     size_t len;
-    get_string_parts(obj, &len, &str);
+    get_string_parts(&obj, &len, &str);
     check(len == 5, "length");
     check(strcmp("hello", str) == 0, "value");
     str2 = print_object(obj);
@@ -477,7 +511,7 @@ static void test_parse_string_with_escape_characters()
     check(stringp(obj), "stringp");
     size_t len;
     char *str;
-    get_string_parts(obj, &len, &str);
+    get_string_parts(&obj, &len, &str);
     check(len == 9, "length");
     check(strcmp("he\"llo\n\t\r", str) == 0, "value");
     str = print_object(obj);
@@ -2170,6 +2204,7 @@ int main(int argc, char **argv)
     test_read_empty_list();
     test_read_empty_list_in_list();
     test_strings();
+    test_short_strings();
     test_print_empty_cons();
     test_symbol_pointer();
     test_parse_symbol();

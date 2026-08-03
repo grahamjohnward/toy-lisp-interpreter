@@ -98,7 +98,7 @@ lisp_object_t eq(lisp_object_t o1, lisp_object_t o2)
 
 lisp_object_t stringp(lisp_object_t obj)
 {
-    return ISTYPE(obj, STRING_TYPE);
+    return (((obj & TYPE_MASK) == STRING_TYPE) || ((obj & TYPE_MASK) == SHORT_STRING_TYPE)) ? T : NIL;
 }
 
 lisp_object_t symbolp(lisp_object_t obj)
@@ -348,7 +348,7 @@ static lisp_object_t make_symbol(lisp_object_t string)
 {
     size_t len;
     char *str;
-    get_string_parts(string, &len, &str);
+    get_string_parts(&string, &len, &str);
     return sym(str);
 }
 
@@ -612,7 +612,7 @@ static lisp_object_t allocate_new_symbol(lisp_object_t name)
     s->plist = NIL;
     size_t size;
     char *str;
-    get_string_parts(name, &size, &str);
+    get_string_parts(&name, &size, &str);
     s->hash = (uint64_t)sysv_hash(str);
     lisp_object_t symbol = (uint64_t)s | SYMBOL_TYPE;
     int bucket = s->hash % interp->symbol_table_hash_buckets;
@@ -697,7 +697,7 @@ static int object_is_in_to_space(struct lisp_heap *heap, lisp_object_t obj)
 void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
 {
     assert_heap_invariants(heap);
-    if (*p == NIL || *p == T || *p == VARARGS_LIST_SENTINEL)
+    if (*p == NIL || *p == T || *p == VARARGS_LIST_SENTINEL || IS_SHORT_STRING(*p))
         return;
     if (consp(*p) == NIL && symbolp(*p) == NIL && stringp(*p) == NIL && vectorp(*p) == NIL && functionp(*p) == NIL)
         return;
@@ -971,8 +971,7 @@ void free_interpreter()
     }
 }
 
-/* len here includes the terminating null byte of str */
-lisp_object_t allocate_string(size_t len, char *str)
+lisp_object_t allocate_long_string(size_t len, char *str)
 {
     assert(!str[len - 1]);
     /* I want to make this a multiple of 16
@@ -991,12 +990,33 @@ lisp_object_t allocate_string(size_t len, char *str)
     return (lisp_object_t)new_string | STRING_TYPE;
 }
 
-void get_string_parts(lisp_object_t string, size_t *lenptr, char **strptr)
+static lisp_object_t allocate_short_string(size_t len, char *str)
 {
-    check_string(string);
-    struct string_header *header = StringPtr(string);
-    *lenptr = header->string_length - 1;
-    *strptr = ((char *)header) + sizeof(struct string_header);
+    lisp_object_t short_string = SHORT_STRING_TYPE;
+    strncpy((char *)&short_string + 1, str, 7);
+    return short_string;
+}
+
+/* len here includes the terminating null byte of str */
+lisp_object_t allocate_string(size_t len, char *str)
+{
+    if (len > 7)
+        return allocate_long_string(len, str);
+    else
+        return allocate_short_string(len, str);
+}
+
+void get_string_parts(lisp_object_t *string, size_t *lenptr, char **strptr)
+{
+    check_string(*string);
+    if (IS_SHORT_STRING(*string)) {
+        *strptr = ((char *)string) + 1;
+        *lenptr = strlen(*strptr);
+    } else {
+        struct string_header *header = StringPtr(*string);
+        *lenptr = header->string_length - 1;
+        *strptr = ((char *)header) + sizeof(struct string_header);
+    }
 }
 
 lisp_object_t string_equalp(lisp_object_t s1, lisp_object_t s2)
@@ -1006,13 +1026,26 @@ lisp_object_t string_equalp(lisp_object_t s1, lisp_object_t s2)
     if (eq(s1, s2) != NIL) {
         return T;
     } else {
-        size_t l1, l2;
-        char *str1, *str2;
-        get_string_parts(s1, &l1, &str1);
-        get_string_parts(s2, &l2, &str2);
-        if (l1 != l2)
-            return NIL;
-        return strncmp(str1, str2, l1) == 0 ? T : NIL;
+        if (IS_SHORT_STRING(s1)) {
+            if (IS_SHORT_STRING(s2)) {
+                return s1 == s2 ? T : NIL;
+            } else {
+                return NIL;
+            }
+        } else {
+            if (IS_SHORT_STRING(s2)) {
+                return NIL;
+            } else {
+                size_t l1, l2;
+                char *str1, *str2;
+                get_string_parts(&s1, &l1, &str1);
+                get_string_parts(&s2, &l2, &str2);
+                if (l1 != l2)
+                    return NIL;
+                int strncmp_result = strncmp(str1, str2, l1);
+                return strncmp_result == 0 ? T : NIL;
+            }
+        }
     }
 }
 
@@ -1028,7 +1061,7 @@ lisp_object_t find_symbol(lisp_object_t name)
 {
     size_t len;
     char *str;
-    get_string_parts(name, &len, &str);
+    get_string_parts(&name, &len, &str);
     uint32_t hash = sysv_hash(str);
     size_t buckets = interp->symbol_table_hash_buckets;
     int bucket = hash % buckets;
@@ -1403,7 +1436,7 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
         struct symbol *sym = SymbolPtr(obj);
         size_t len;
         char *strptr;
-        get_string_parts(sym->name, &len, &strptr);
+        get_string_parts(&sym->name, &len, &strptr);
         char *tmp = alloca(len + 1);
         strncpy(tmp, strptr, len);
         tmp[len] = 0;
@@ -1447,7 +1480,7 @@ static void print_string_to_buffer(lisp_object_t string, struct string_buffer *s
 {
     size_t len = 0;
     char *str = NULL;
-    get_string_parts(string, &len, &str);
+    get_string_parts(&string, &len, &str);
     size_t bufsize = 64;
     char *buf = alloca(bufsize);
     int j = 0;
@@ -2283,7 +2316,7 @@ lisp_object_t load(lisp_object_t filename)
     check_string(filename);
     size_t len;
     char *str;
-    get_string_parts(filename, &len, &str);
+    get_string_parts(&filename, &len, &str);
     load_str(str);
     return T;
 }
@@ -2331,7 +2364,7 @@ lisp_object_t princ(lisp_object_t obj)
     if (stringp(obj) != NIL) {
         size_t len;
         char *str;
-        get_string_parts(obj, &len, &str);
+        get_string_parts(&obj, &len, &str);
         printf("%s", str);
     } else {
         char *str = print_object(obj);
@@ -2400,6 +2433,8 @@ lisp_object_t type_of(lisp_object_t obj)
         }
     case FUNCTION_POINTER_TYPE:
         return sym("function-pointer");
+    case SHORT_STRING_TYPE:
+        return interp->syms.string;
     case 0:
         return interp->syms.integer;
     default:
@@ -2425,7 +2460,7 @@ lisp_object_t save_image(lisp_object_t name)
 {
     size_t len;
     char *str;
-    get_string_parts(name, &len, &str);
+    get_string_parts(&name, &len, &str);
     int fd = open(str, O_CREAT | O_WRONLY | O_APPEND | O_TRUNC, S_IRUSR | S_IWUSR);
     if (fd < 0) {
         perror("save_image: open");
@@ -2468,7 +2503,7 @@ lisp_object_t do_open_for_reading(lisp_object_t filename)
 {
     char *str;
     size_t len;
-    get_string_parts(filename, &len, &str);
+    get_string_parts(&filename, &len, &str);
     int fd = open(str, O_RDONLY);
     if (fd < 0)
         raise(errno_sym(), filename);
@@ -2487,7 +2522,7 @@ lisp_object_t do_open_for_writing(lisp_object_t filename)
 {
     char *str;
     size_t len;
-    get_string_parts(filename, &len, &str);
+    get_string_parts(&filename, &len, &str);
     int fd = open(str, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU);
     if (fd < 0)
         raise(errno_sym(), filename);
@@ -2550,8 +2585,8 @@ lisp_object_t string_concat(lisp_object_t str1, lisp_object_t str2)
     check_string(str2);
     size_t len1, len2;
     char *p1, *p2;
-    get_string_parts(str1, &len1, &p1);
-    get_string_parts(str2, &len2, &p2);
+    get_string_parts(&str1, &len1, &p1);
+    get_string_parts(&str2, &len2, &p2);
     size_t newlen = len1 + len2 + 1;
     char *newstr = (char *)alloca(newlen);
     strncpy(newstr, p1, len1);

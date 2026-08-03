@@ -58,6 +58,7 @@ lisp_object_t load(lisp_object_t filename);
 #define OBJECT_TYPE           0x0000000000000001
 #define FUNCTION_POINTER_TYPE 0x0000000000000002
 #define NATIVE_POINTER_TYPE   0x0000000000000003
+#define SHORT_STRING_TYPE     0x0000000000000004
 
 #define TYPE_MASK             0xff00000000000007
 #define PTR_MASK              0x0000fffffffffff8
@@ -82,6 +83,8 @@ lisp_object_t load(lisp_object_t filename);
 #define LispInt(x) (((uint64_t)(x)) << 3)
 #define Int(x) (((int64_t)(x)) >> 3)
 
+#define IS_SHORT_STRING(s) ((s & TYPE_MASK) == SHORT_STRING_TYPE)
+
 void check_vector(lisp_object_t obj);
 
 lisp_object_t svref_c(lisp_object_t vector, size_t index);
@@ -92,7 +95,7 @@ lisp_object_t allocate_string(size_t len, char *str);
 lisp_object_t allocate_vector(lisp_object_t size);
 lisp_object_t allocate_function();
 
-void get_string_parts(lisp_object_t string, size_t *lenptr, char **strptr);
+void get_string_parts(lisp_object_t *string, size_t *lenptr, char **strptr);
 
 lisp_object_t length(lisp_object_t seq);
 int length_c(lisp_object_t seq);

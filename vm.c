@@ -199,7 +199,7 @@ lisp_object_t vm_peek(struct vm *vm)
     TRACE2;                                      \
     fp(vm, arg1, arg2);
 
-void vm_run_one_instruction(struct vm *vm)
+void vm_run_one_instruction(struct vm *vm, struct syms *syms)
 {
 #ifdef VM_TRACE_ENABLED
     if (vm->vm_trace && (vm->registers.instruction_pointer - vm->registers.code_vector_storage) == 0)
@@ -222,7 +222,7 @@ void vm_run_one_instruction(struct vm *vm)
 #endif
 
 #define CHECK_INSTRUCTION(sym, fp, the_arity) \
-    if (instruction == interp->syms.sym) {    \
+    if (instruction == syms->sym) {           \
         INST##the_arity(fp);                  \
     }
     // clang-format off
@@ -274,8 +274,9 @@ void vm_run_one_instruction(struct vm *vm)
 
 void vm_run(struct vm *vm)
 {
+    struct syms *syms = &interp->syms;
     while (vm->registers.instruction_pointer < vm->registers.max_instruction_pointer)
-        vm_run_one_instruction(vm);
+        vm_run_one_instruction(vm, syms);
     vm_print_stack(vm);
 }
 

@@ -34,6 +34,7 @@ struct vm {
     /* For throwing exceptions from built-in functions */
     jmp_buf jmp_buf;
     int vm_trace;
+    int vm_trace_in_this_build;
     int setjmp_activated;
 };
 

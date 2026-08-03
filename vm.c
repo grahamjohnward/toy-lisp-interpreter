@@ -22,6 +22,11 @@ void vm_init(struct vm *vm, size_t data_stack_size)
     vm->registers.fp = NULL;
     vm->registers.sp = vm->other_data_stack;
     vm->vm_trace = 0;
+#ifdef VM_TRACE_ENABLED
+    vm->vm_trace_in_this_build = 1;
+#else
+    vm->vm_trace_in_this_build = 0;
+#endif
     vm->setjmp_activated = 0;
 }
 
@@ -147,44 +152,65 @@ lisp_object_t vm_peek(struct vm *vm)
     return vm->top_of_data_stack[-1];
 }
 
+#ifdef VM_TRACE_ENABLED
+#define TRACE0 VM_TRACE("; %p %s\t%s\n", (void *)vm->registers.code_vector, str0, str1)
+#define TRACE1                     \
+    if (vm->vm_trace)              \
+        str2 = print_object(arg1); \
+    VM_TRACE("; %p %s\t%s %s\n", (void *)vm->registers.code_vector, str0, str1, str2)
+#define TRACE2                     \
+    if (vm->vm_trace) {            \
+        str2 = print_object(arg1); \
+        str3 = print_object(arg2); \
+    }                              \
+    VM_TRACE("; %p %s\t%s %s %s\n", (void *)vm->registers.code_vector, str0, str1, str2, str3)
+#else
+#define TRACE0 \
+    do {       \
+    } while (0);
+#define TRACE1 \
+    do {       \
+    } while (0);
+#define TRACE2 \
+    do {       \
+    } while (0);
+#endif
+
 #define VM_TRACE(format, ...)        \
     if (interp->vm.vm_trace) {       \
         printf(format, __VA_ARGS__); \
     }
 
-#define INST0(fp)                                                             \
-    vm->registers.instruction_pointer++;                                      \
-    VM_TRACE("; %p %s\t%s\n", (void *)vm->registers.code_vector, str0, str1); \
+#define INST0(fp)                        \
+    vm->registers.instruction_pointer++; \
+    TRACE0;                              \
     fp(vm);
 
-#define INST1(fp)                                                                      \
-    arg1 = vm->registers.instruction_pointer[1];                                       \
-    vm->registers.instruction_pointer += 2;                                            \
-    if (vm->vm_trace)                                                                  \
-        str2 = print_object(arg1);                                                     \
-    VM_TRACE("; %p %s\t%s %s\n", (void *)vm->registers.code_vector, str0, str1, str2); \
+#define INST1(fp)                                \
+    arg1 = vm->registers.instruction_pointer[1]; \
+    vm->registers.instruction_pointer += 2;      \
+    TRACE1;                                      \
     fp(vm, arg1);
 
-#define INST2(fp)                                                                               \
-    arg1 = vm->registers.instruction_pointer[1];                                                \
-    arg2 = vm->registers.instruction_pointer[2];                                                \
-    vm->registers.instruction_pointer += 3;                                                     \
-    if (vm->vm_trace) {                                                                         \
-        str2 = print_object(arg1);                                                              \
-        str3 = print_object(arg2);                                                              \
-    }                                                                                           \
-    VM_TRACE("; %p %s\t%s %s %s\n", (void *)vm->registers.code_vector, str0, str1, str2, str3); \
+#define INST2(fp)                                \
+    arg1 = vm->registers.instruction_pointer[1]; \
+    arg2 = vm->registers.instruction_pointer[2]; \
+    vm->registers.instruction_pointer += 3;      \
+    TRACE2;                                      \
     fp(vm, arg1, arg2);
 
 void vm_run_one_instruction(struct vm *vm)
 {
+#ifdef VM_TRACE_ENABLED
     if (vm->vm_trace && (vm->registers.instruction_pointer - vm->registers.code_vector_storage) == 0)
         TRACE(vm->registers.code_vector);
+#endif
 
     lisp_object_t instruction = *vm->registers.instruction_pointer;
     lisp_object_t arg1 = NIL;
     lisp_object_t arg2 = NIL;
 
+#ifdef VM_TRACE_ENABLED
     char *str0 = NULL;
     char *str1 = NULL;
     char *str2 = NULL;
@@ -193,6 +219,7 @@ void vm_run_one_instruction(struct vm *vm)
         str0 = print_object(LispInt(vm->registers.instruction_pointer - vm->registers.code_vector_storage));
         str1 = print_object(instruction);
     }
+#endif
 
 #define CHECK_INSTRUCTION(sym, fp, the_arity) \
     if (instruction == interp->syms.sym) {    \
@@ -225,7 +252,7 @@ void vm_run_one_instruction(struct vm *vm)
     }
 
 #undef CHECK_INSTRUCTION
-
+#ifdef VM_TRACE_ENABLED
     if (vm->vm_trace) {
         free(str0);
         free(str1);
@@ -234,6 +261,7 @@ void vm_run_one_instruction(struct vm *vm)
         if (str3)
             free(str3);
     }
+#endif
 }
 
 #undef INST2

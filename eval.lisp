@@ -12,5 +12,6 @@
 	       (go last-bit))
 	   (go loop)
 	 last-bit
-	   (set-svref new-code j 'ret))
+           ;; Append ret instruction
+	   (set-svref new-code j 8))
         (funcall (%vm-make-simple-function #(nil 0) new-code))))))

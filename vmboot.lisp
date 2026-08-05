@@ -32,7 +32,7 @@
 			  (go last-bit))
 		      (go loop)
 		    last-bit
-		      (set-svref new-code j 'ret))
+		      (set-svref new-code j 8))
 		   ;; We don't want this to make a closure:
                    ;; XXX why is this using funcall??
 		   (funcall (%vm-make-simple-function #(nil 0) new-code)))))

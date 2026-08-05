@@ -5,6 +5,28 @@
 #include <setjmp.h>
 #include <stdio.h>
 
+enum instruction {
+    INST_PUSH,
+    INST_CALL,
+    INST_GET,
+    INST_POP,
+    INST_NOP,
+    INST_JMP_IF_NIL,
+    INST_GET0,
+    INST_SET,
+    INST_RET,
+    INST_JMP,
+    INST_MAKE_ENV2,
+    INST_SET_TAG,
+    INST_TAG_JMP,
+    INST_SET0,
+    INST_MAKE_ENV,
+    INST_REST_ARGS,
+    INST_RAISE,
+    INST_SWAP,
+    INST_ABORT
+};
+
 void vm_init(struct vm *vm, size_t data_stack_size)
 {
     vm->data_stack_size = data_stack_size;
@@ -199,7 +221,7 @@ lisp_object_t vm_peek(struct vm *vm)
     TRACE2;                                      \
     fp(vm, arg1, arg2);
 
-void vm_run_one_instruction(struct vm *vm, struct syms *syms)
+void vm_run_one_instruction(struct vm *vm)
 {
 #ifdef VM_TRACE_ENABLED
     if (vm->vm_trace && (vm->registers.instruction_pointer - vm->registers.code_vector_storage) == 0)
@@ -221,30 +243,30 @@ void vm_run_one_instruction(struct vm *vm, struct syms *syms)
     }
 #endif
 
-#define CHECK_INSTRUCTION(sym, fp, the_arity) \
-    if (instruction == syms->sym) {           \
-        INST##the_arity(fp);                  \
+#define CHECK_INSTRUCTION(code, fp, the_arity) \
+    if (instruction == LispInt(code)) {        \
+        INST##the_arity(fp);                   \
     }
     // clang-format off
-    CHECK_INSTRUCTION(push,       vm_inst_push,       1) else
-    CHECK_INSTRUCTION(call,       vm_inst_call,       0) else
-    CHECK_INSTRUCTION(get,        vm_inst_get,        2) else
-    CHECK_INSTRUCTION(pop,        vm_inst_pop,        0) else
-    CHECK_INSTRUCTION(nop,        vm_inst_nop,        0) else
-    CHECK_INSTRUCTION(jmp_if_nil, vm_inst_jmp_if_nil, 1) else
-    CHECK_INSTRUCTION(get0,       vm_inst_get0,       1) else
-    CHECK_INSTRUCTION(set,        vm_inst_set,        2) else
-    CHECK_INSTRUCTION(ret,        vm_inst_ret,        0) else
-    CHECK_INSTRUCTION(jmp,        vm_inst_jmp,        1) else
-    CHECK_INSTRUCTION(make_env2,  vm_inst_setup_env2, 1) else
-    CHECK_INSTRUCTION(set_tag,    vm_inst_set_tag,    2) else
-    CHECK_INSTRUCTION(tag_jmp,    vm_inst_tag_jmp,    1) else
-    CHECK_INSTRUCTION(set0,       vm_inst_set0,       1) else
-    CHECK_INSTRUCTION(make_env,   vm_inst_setup_env,  1) else
-    CHECK_INSTRUCTION(rest_args,  vm_inst_rest_args,  1) else
-    CHECK_INSTRUCTION(raise,      vm_inst_raise,      0) else
-    CHECK_INSTRUCTION(swap,       vm_inst_swap,       0) else
-    CHECK_INSTRUCTION(abort,      vm_inst_abort,      0) else
+    CHECK_INSTRUCTION(INST_PUSH,       vm_inst_push,       1) else
+    CHECK_INSTRUCTION(INST_CALL,       vm_inst_call,       0) else
+    CHECK_INSTRUCTION(INST_GET,        vm_inst_get,        2) else
+    CHECK_INSTRUCTION(INST_POP,        vm_inst_pop,        0) else
+    CHECK_INSTRUCTION(INST_NOP,        vm_inst_nop,        0) else
+    CHECK_INSTRUCTION(INST_JMP_IF_NIL, vm_inst_jmp_if_nil, 1) else
+    CHECK_INSTRUCTION(INST_GET0,       vm_inst_get0,       1) else
+    CHECK_INSTRUCTION(INST_SET,        vm_inst_set,        2) else
+    CHECK_INSTRUCTION(INST_RET,        vm_inst_ret,        0) else
+    CHECK_INSTRUCTION(INST_JMP,        vm_inst_jmp,        1) else
+    CHECK_INSTRUCTION(INST_MAKE_ENV2,  vm_inst_setup_env2, 1) else
+    CHECK_INSTRUCTION(INST_SET_TAG,    vm_inst_set_tag,    2) else
+    CHECK_INSTRUCTION(INST_TAG_JMP,    vm_inst_tag_jmp,    1) else
+    CHECK_INSTRUCTION(INST_SET0,       vm_inst_set0,       1) else
+    CHECK_INSTRUCTION(INST_MAKE_ENV,   vm_inst_setup_env,  1) else
+    CHECK_INSTRUCTION(INST_REST_ARGS,  vm_inst_rest_args,  1) else
+    CHECK_INSTRUCTION(INST_RAISE,      vm_inst_raise,      0) else
+    CHECK_INSTRUCTION(INST_SWAP,       vm_inst_swap,       0) else
+    CHECK_INSTRUCTION(INST_ABORT,      vm_inst_abort,      0) else
     // clang-format on
     {
         TRACE(instruction);
@@ -252,6 +274,7 @@ void vm_run_one_instruction(struct vm *vm, struct syms *syms)
     }
 
 #undef CHECK_INSTRUCTION
+
 #ifdef VM_TRACE_ENABLED
     if (vm->vm_trace) {
         free(str0);
@@ -265,18 +288,14 @@ void vm_run_one_instruction(struct vm *vm, struct syms *syms)
 }
 
 #undef INST2
-
 #undef INST1
-
 #undef INST0
-
 #undef VM_TRACE
 
 void vm_run(struct vm *vm)
 {
-    struct syms *syms = &interp->syms;
     while (vm->registers.instruction_pointer < vm->registers.max_instruction_pointer)
-        vm_run_one_instruction(vm, syms);
+        vm_run_one_instruction(vm);
     vm_print_stack(vm);
 }
 
@@ -471,6 +490,7 @@ start:
         fn = (SymbolPtr(fn))->function;
     }
     if (functionp(fn) == NIL) {
+        TRACE(orig_fn);
         vm_inst_push(vm, sym("bad-function"));
         vm_inst_push(vm, orig_fn);
         vm_inst_push(vm, LispInt(2));
@@ -631,7 +651,7 @@ void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
     char *str = print_object(tag);
     printf("No handler for %s\n", str);
     free(str);
-    exit(1);
+    abort();
 }
 
 void vm_inst_raise(struct vm *vm)

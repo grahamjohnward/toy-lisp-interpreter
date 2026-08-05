@@ -36,9 +36,64 @@
               (optimize-nops (cdr list))
               (cons (car list) (optimize-nops (cdr list)))))))
 
+(defparameter *instruction-info-alist* nil)
+
+(defun define-instructions (instructions)
+  (let ((code 0))
+    (dolist (instruction instructions)
+      (let ((symbol (car instruction))
+            (arity (cadr instruction)))
+        (setq *instruction-info-alist*
+              (cons (cons symbol (cons arity code)) *instruction-info-alist*))
+        (incf code))))
+  (setq *instruction-info-alist* (reverse *instruction-info-alist*)))
+
+(define-instructions
+    ;; These have to be in the same order as the enum in vm.c
+    '((push 1)
+      (call 0)
+      (get 2)
+      (pop 0)
+      (nop 0)
+      (jmp-if-nil 1)
+      (get0 1)
+      (set 2)
+      (ret 0)
+      (jmp 1)
+      (make-env2 1)
+      (set-tag 2)
+      (tag-jmp 1)
+      (set0 1)
+      (make-env 1)
+      (rest-args 1)
+      (raise 0)
+      (swap 0)
+      (abort 0)))
+
+(defun convert-to-bytecode (code-vector)
+  (let ((length (length code-vector)))
+    (let ((result (make-vector length)))
+      (let ((i 0))
+        (tagbody
+         iterate
+           (let ((ins (svref code-vector i)))
+             (let ((info (cdr (assoc ins *instruction-info-alist*))))
+               (let ((arity (car info))
+                     (code (cdr info)))
+                 (set-svref result i code)
+                 (incf i)
+                 (dotimes (j arity)
+                   (set-svref result i (svref code-vector i))
+                   (incf i))
+                 (when (= i length)
+                   (go done))
+                 (go iterate))))
+         done))
+      result)))
+
 (defun assemble (list)
   (setq list (optimize-nops list))
-  (setq list (optimize-push-pop list))
+;  (setq list (optimize-push-pop list))
   (let ((label-info (build-label-alist list)))
     (let ((label-alist (car label-info))
 	  (vector (make-vector (cdr label-info)))
@@ -61,7 +116,7 @@
 	    (progn
 	      (set-svref vector i obj)
 	      (incf i))))
-      vector)))
+      (convert-to-bytecode vector))))
 
 (defstruct lexical-context (block-alist (next-block-number 0) bindings (binding-count 0) tag-table))
 
@@ -250,11 +305,10 @@
 	 (return-from parse-arglist result)))))
 
 (defun instruction-arity (ins)
-  (cond ((find ins '(call set-dso pop nop ret raise swap abort)) 0)
-        ((find ins '(push get1 set1 jmp-if-nil jmp tag-jmp rest-args setup-env)) 1)
-        ((find ins '(get set set-tag)) 2)
-        ((consp ins) 0)
-        (t (assert nil))))
+  (if (symbolp ins)
+      (let ((instruction-info (cdr (assoc ins *instruction-info-alist*))))
+        (car instruction-info))
+      0))
 
 (defun stack-convert (code)
   (let ((result (%stack-convert code)))
@@ -647,5 +701,7 @@
                   (macroexpand-all (convert-quasiquote expr 0)))
 	    (assemble
                 (compile4 (convert-quasiquote macroexpanded-code 0) ctxt)))
+        (type-error (print (list e expr)))
 	(assertion-failed (print (list macroexpanded-code expr)))
-	(bad-function (print (list macroexpanded-code expr)))))))
+	(bad-function (print (list macroexpanded-code expr)))
+        ))))

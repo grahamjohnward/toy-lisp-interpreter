@@ -1,5 +1,6 @@
 #include "vm.h"
 
+#include <assert.h>
 #include <stdio.h>
 
 enum instruction {
@@ -141,3 +142,17 @@ void vm_run_one_instruction(struct vm *vm)
 #undef INST1
 #undef INST0
 #undef VM_TRACE
+
+void vm_run(struct vm *vm)
+{
+    while (vm->registers.instruction_pointer < vm->registers.max_instruction_pointer)
+        vm_run_one_instruction(vm);
+    vm_print_stack(vm);
+}
+
+void vm_inst_push(struct vm *vm, lisp_object_t obj)
+{
+    assert(vm->top_of_data_stack >= vm->data_stack);
+    assert(vm->top_of_data_stack - vm->data_stack < vm->data_stack_size);
+    *(vm->top_of_data_stack++) = obj;
+}

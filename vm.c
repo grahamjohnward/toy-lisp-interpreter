@@ -155,21 +155,7 @@ lisp_object_t vm_peek(struct vm *vm)
     return vm->top_of_data_stack[-1];
 }
 
-void vm_run(struct vm *vm)
-{
-    while (vm->registers.instruction_pointer < vm->registers.max_instruction_pointer)
-        vm_run_one_instruction(vm);
-    vm_print_stack(vm);
-}
-
 /** Instructions **/
-
-void vm_inst_push(struct vm *vm, lisp_object_t obj)
-{
-    assert(vm->top_of_data_stack >= vm->data_stack);
-    assert(vm->top_of_data_stack - vm->data_stack < vm->data_stack_size);
-    *(vm->top_of_data_stack++) = obj;
-}
 
 void vm_inst_pop(struct vm *vm)
 {

@@ -28,31 +28,8 @@ struct syms {
     lisp_object_t pctblock;
     lisp_object_t return_from;
     lisp_object_t if_;
-    lisp_object_t pop;
-    lisp_object_t push;
-    lisp_object_t swap;
-    lisp_object_t call;
-    lisp_object_t ret;
-    lisp_object_t vm_ins_arity;
-    lisp_object_t vm_ins_fp;
-    lisp_object_t vm_make_function;
-    lisp_object_t vm_make_simple_function;
-    lisp_object_t provided_arg_count;
-    lisp_object_t abort;
-    lisp_object_t jmp;
-    lisp_object_t jmp_if_nil;
     lisp_object_t closure;
-    lisp_object_t make_env;
-    lisp_object_t get;
-    lisp_object_t set_tag;
-    lisp_object_t tag_jmp;
-    lisp_object_t nop;
-    lisp_object_t raise;
     lisp_object_t funcall;
-    lisp_object_t rest_args;
-    lisp_object_t get0;
-    lisp_object_t set0;
-    lisp_object_t make_env2;
 };
 
 #endif

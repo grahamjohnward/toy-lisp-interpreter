@@ -257,31 +257,8 @@ static void init_symbols()
     interp->syms.pctblock = sym("%block");
     interp->syms.return_from = sym("return-from");
     interp->syms.if_ = sym("if");
-    interp->syms.pop = sym("pop");
-    interp->syms.push = sym("push");
-    interp->syms.swap = sym("swap");
-    interp->syms.call = sym("call");
-    interp->syms.ret = sym("ret");
-    interp->syms.vm_ins_arity = sym("%vm-ins-arity");
-    interp->syms.vm_ins_fp = sym("%vm-ins-fp");
-    interp->syms.vm_make_function = sym("%vm-make-function");
-    interp->syms.vm_make_simple_function = sym("%vm-make-simple-function");
-    interp->syms.provided_arg_count = sym("%provided-arg-count");
-    interp->syms.abort = sym("abort");
-    interp->syms.jmp = sym("jmp");
-    interp->syms.jmp_if_nil = sym("jmp-if-nil");
     interp->syms.closure = sym("closure");
-    interp->syms.make_env = sym("make-env");
-    interp->syms.get = sym("get");
-    interp->syms.set_tag = sym("set-tag");
-    interp->syms.tag_jmp = sym("tag-jmp");
-    interp->syms.nop = sym("nop");
-    interp->syms.raise = sym("raise");
     interp->syms.funcall = sym("funcall");
-    interp->syms.rest_args = sym("rest-args");
-    interp->syms.get0 = sym("get0");
-    interp->syms.set0 = sym("set0");
-    interp->syms.make_env2 = sym("make-env2");
 }
 
 lisp_object_t length(lisp_object_t seq);
@@ -852,31 +829,8 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(pctblock);
     GC_COPY_SYMBOL(block);
     GC_COPY_SYMBOL(if_);
-    GC_COPY_SYMBOL(pop);
-    GC_COPY_SYMBOL(push);
-    GC_COPY_SYMBOL(swap);
-    GC_COPY_SYMBOL(call);
-    GC_COPY_SYMBOL(ret);
-    GC_COPY_SYMBOL(vm_ins_arity);
-    GC_COPY_SYMBOL(vm_ins_fp);
-    GC_COPY_SYMBOL(vm_make_function);
-    GC_COPY_SYMBOL(vm_make_simple_function);
-    GC_COPY_SYMBOL(provided_arg_count);
-    GC_COPY_SYMBOL(abort);
-    GC_COPY_SYMBOL(jmp);
-    GC_COPY_SYMBOL(jmp_if_nil);
     GC_COPY_SYMBOL(closure);
-    GC_COPY_SYMBOL(make_env);
-    GC_COPY_SYMBOL(get);
-    GC_COPY_SYMBOL(set_tag);
-    GC_COPY_SYMBOL(tag_jmp);
-    GC_COPY_SYMBOL(nop);
-    GC_COPY_SYMBOL(raise);
     GC_COPY_SYMBOL(funcall);
-    GC_COPY_SYMBOL(rest_args);
-    GC_COPY_SYMBOL(get0);
-    GC_COPY_SYMBOL(set0);
-    GC_COPY_SYMBOL(make_env2);
 #undef GC_COPY_SYMBOL
     /* Roots - VM */
     gc_copy_vm(&interp->heap, &interp->vm);

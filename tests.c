@@ -880,7 +880,7 @@ static void test_eval()
 static void test_load1()
 {
     START_OF_TEST("load");
-    lisp_object_t result1 = test_eval_string_helper("(load \"/home/graham/toy-lisp-interpreter/test-load.lisp\")");
+    lisp_object_t result1 = test_eval_string_helper("(load \"test-load.lisp\")");
     check(result1 == T, "load returns T");
     lisp_object_t result2 = test_eval_string_helper("(test1 (quote there))");
     char *str = print_object(result2);

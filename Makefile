@@ -1,4 +1,9 @@
-CC=clang-19
+ifeq ($(shell uname), Darwin)
+  CC=clang
+else
+  CC=clang-19
+endif
+
 CFLAGS=-gdwarf-4 -falign-functions=8
 
 PROG1 := tests

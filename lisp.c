@@ -158,7 +158,7 @@ static lisp_object_t *check_vector_bounds_get_storage(lisp_object_t vector, lisp
     check_vector(vector);
     struct vector *v = VectorPtr(vector);
     if (index >= v->len) {
-        printf("Index %zu out of bounds for vector (len=%lu)\n", (uint64_t)Int(index), (uint64_t)Int(v->len));
+        printf("Index %lu out of bounds for vector (len=%lu)\n", (unsigned long)Int(index), (unsigned long)Int(v->len));
         raise(sym("vector-bounds"), cons(index, vector));
     }
     lisp_object_t *storage = (lisp_object_t *)(((char *)v) + sizeof(struct vector));
@@ -746,8 +746,8 @@ static void gc_check_copied_object(lisp_object_t obj)
     assert(p >= interp->heap.from_space && p < interp->heap.from_space + interp->heap.size_bytes / 2);
 }
 
+#if defined(__linux__)
 #if defined(__x86_64__)
-
 int jmp_buf_size = 8;
 
 static int jmp_buf_entry_is_pointer[] = { 0, 1, 0, 0, 0, 0, 1, 1 };
@@ -759,12 +759,18 @@ int jmp_buf_size = 11;
 static int jmp_buf_entry_is_pointer[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 #endif
+#define BUF(buf) (buf->__jmpbuf)
+#elif defined(__APPLE__)
+int jmp_buf_size = 11;
+static int jmp_buf_entry_is_pointer[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+#define BUF(buf) (buf)
+#endif
 
 void gc_copy_jmp_buf(struct lisp_heap *heap, jmp_buf buf)
 {
     for (int i = 0; i < jmp_buf_size; i++)
         if (!jmp_buf_entry_is_pointer[i]) {
-            lisp_object_t o = (lisp_object_t)(buf->__jmpbuf[i]);
+            lisp_object_t o = (lisp_object_t)(BUF(buf)[i]);
             if (object_is_in_from_space(heap, o)) {
                 /* This is not actually expected, since on x86_64, the
                    registers in the jmp_buf are either stack pointers
@@ -775,10 +781,12 @@ void gc_copy_jmp_buf(struct lisp_heap *heap, jmp_buf buf)
                    On AArch64, not so sure
                 */
                 abort();
-                gc_copy(heap, (lisp_object_t *)&buf->__jmpbuf[i]);
+                gc_copy(heap, (lisp_object_t *)&BUF(buf)[i]);
             }
         }
 }
+
+#undef BUF
 
 lisp_object_t gc()
 {
@@ -1357,9 +1365,9 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
 {
     if (integerp(obj) != NIL) {
         int64_t value = ((int64_t)obj) / 8;
-        int length = snprintf(NULL, 0, "%ld", value);
+        int length = snprintf(NULL, 0, "%ld", (long)value);
         char *str = alloca(length + 1);
-        snprintf(str, length + 1, "%ld", value);
+        snprintf(str, length + 1, "%ld", (long)value);
         string_buffer_append(sb, str);
     } else if (obj == NIL) {
         string_buffer_append(sb, "nil");

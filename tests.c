@@ -130,7 +130,7 @@ static void test_parse_large_negative_integer()
 
 static void test_integer_too_large()
 {
-    START_OF_TEST("test_integer_too_large");
+    START_OF_TEST("integer_too_large");
     char *test_string = "1152921504606846976";
     /* Calls abort() */
     // int64_t result = parse_integer_wrapper(&test_string);
@@ -138,7 +138,7 @@ static void test_integer_too_large()
 
 static void test_integer_too_negative()
 {
-    START_OF_TEST("test_integer_too_negative");
+    START_OF_TEST("integer_too_negative");
     char *test_string = "-1152921504606846977";
     /* Calls abort() */
     // int64_t result = parse_integer_wrapper(&test_string);
@@ -750,7 +750,7 @@ static void test_parse_list_of_dotted_pairs()
 
 static void test_sublis()
 {
-    START_OF_TEST("test_sublis");
+    START_OF_TEST("sublis");
     init_interpreter_for_tests();
     char *text1 = "((X . SHAKESPEARE) (Y . (THE TEMPEST)))";
     char *text2 = "(X WROTE Y)";

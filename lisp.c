@@ -2377,18 +2377,18 @@ lisp_object_t princ(lisp_object_t obj)
             check_integer(result);         \
             return result;                 \
         } else if (floatp(y) != NIL) {     \
-            int ix = Int(x);               \
-            float fy = Float(y);           \
-            float sum = ix op fy;          \
+            int xint = Int(x);             \
+            float yfloat = Float(y);       \
+            float sum = xint op yfloat;    \
             return LispFloat(sum);         \
         } else {                           \
             abort();                       \
         }                                  \
     } else if (floatp(x) != NIL) {         \
         if (integerp(y) != NIL) {          \
-            float fx = Float(x);           \
-            int iy = Int(y);               \
-            float sum = fx op iy;          \
+            float xfloat = Float(x);       \
+            int yint = Int(y);             \
+            float sum = xfloat op yint;    \
             return LispFloat(sum);         \
         } else if (floatp(y) != NIL) {     \
             float fx = Float(x);           \

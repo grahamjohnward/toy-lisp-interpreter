@@ -251,7 +251,7 @@ static void test_print_float()
     init_interpreter_for_tests();
     obj = parse1_wrapper(test_string);
     char *result = print_object(obj);
-    check(strcmp("1.250000", result) == 0, "string value");
+    check(strcmp("1.25", result) == 0, "string value");
     free(result);
     free_interpreter();
 }
@@ -971,19 +971,19 @@ static void test_plus()
 static void test_plus_integer_float()
 {
     START_OF_TEST("plus_integer_float");
-    test_eval_helper("(two-arg-plus 1 1.25)", "2.250000");
+    test_eval_helper("(two-arg-plus 1 1.25)", "2.25");
 }
 
 static void test_plus_float_integer()
 {
     START_OF_TEST("plus_float_integer");
-    test_eval_helper("(two-arg-plus 1.25 1)", "2.250000");
+    test_eval_helper("(two-arg-plus 1.25 1)", "2.25");
 }
 
 static void test_plus_float_float()
 {
     START_OF_TEST("plus_float_float");
-    test_eval_helper("(two-arg-plus 1.25 1.25)", "2.500000");
+    test_eval_helper("(two-arg-plus 1.25 1.25)", "2.5");
 }
 
 static void test_minus()
@@ -995,19 +995,19 @@ static void test_minus()
 static void test_minus_integer_float()
 {
     START_OF_TEST("minus");
-    test_eval_helper("(two-arg-minus 2 0.25)", "1.750000");
+    test_eval_helper("(two-arg-minus 2 0.25)", "1.75");
 }
 
 static void test_minus_float_integer()
 {
     START_OF_TEST("minus_float_integer");
-    test_eval_helper("(two-arg-minus 1.25 1)", "0.250000");
+    test_eval_helper("(two-arg-minus 1.25 1)", "0.25");
 }
 
 static void test_minus_float_float()
 {
     START_OF_TEST("minus_float_float");
-    test_eval_helper("(two-arg-minus 1.25 0.5)", "0.750000");
+    test_eval_helper("(two-arg-minus 1.25 0.5)", "0.75");
 }
 
 static void test_times()
@@ -1021,19 +1021,19 @@ static void test_times()
 static void test_times_integer_float()
 {
     START_OF_TEST("times_integer_float");
-    test_eval_helper("(two-arg-times 2 1.25)", "2.500000");
+    test_eval_helper("(two-arg-times 2 1.25)", "2.5");
 }
 
 static void test_times_float_integer()
 {
     START_OF_TEST("times_float_integer");
-    test_eval_helper("(two-arg-times 1.25 2)", "2.500000");
+    test_eval_helper("(two-arg-times 1.25 2)", "2.5");
 }
 
 static void test_times_float_float()
 {
     START_OF_TEST("times_float_float");
-    test_eval_helper("(two-arg-times 2.5 2.5)", "6.250000");
+    test_eval_helper("(two-arg-times 2.5 2.5)", "6.25");
 }
 
 static void test_divide()
@@ -1045,19 +1045,19 @@ static void test_divide()
 static void test_divide_integer_float()
 {
     START_OF_TEST("divide_integer_float");
-    test_eval_helper("(two-arg-divide 10 2.5)", "4.000000");
+    test_eval_helper("(two-arg-divide 10 2.5)", "4.");
 }
 
 static void test_divide_float_integer()
 {
     START_OF_TEST("divide_float_integer");
-    test_eval_helper("(two-arg-divide 2.5 2)", "1.250000");
+    test_eval_helper("(two-arg-divide 2.5 2)", "1.25");
 }
 
 static void test_divide_float_float()
 {
     START_OF_TEST("divide_float_float");
-    test_eval_helper("(two-arg-divide 7.5 2.5)", "3.000000");
+    test_eval_helper("(two-arg-divide 7.5 2.5)", "3.");
 }
 
 static void test_read_token()

@@ -1394,9 +1394,11 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
         string_buffer_append(sb, str);
     } else if (floatp(obj) != NIL) {
         float value = Float(obj);
-        int length = snprintf(NULL, 0, "%f", value);
+        int length = snprintf(NULL, 0, "%#.9g", value);
         char *str = alloca(length + 1);
-        snprintf(str, length + 1, "%f", value);
+        snprintf(str, length + 1, "%#.9g", value);
+        for (char *c = str + length - 1; *c == '0'; c--)
+            *c = '\0';
         string_buffer_append(sb, str);
     } else if (obj == NIL) {
         string_buffer_append(sb, "nil");

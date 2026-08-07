@@ -30,6 +30,7 @@ struct syms {
     lisp_object_t if_;
     lisp_object_t closure;
     lisp_object_t funcall;
+    lisp_object_t single_float;
 };
 
 #endif

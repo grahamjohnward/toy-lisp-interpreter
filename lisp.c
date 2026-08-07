@@ -123,6 +123,11 @@ lisp_object_t integerp(lisp_object_t obj)
     return x == 0 ? T : NIL;
 }
 
+lisp_object_t floatp(lisp_object_t obj)
+{
+    return ((obj & IMMEDIATE_TYPE_MASK) == SINGLE_FLOAT_TYPE) ? T : NIL;
+}
+
 lisp_object_t consp(lisp_object_t obj)
 {
     return ISTYPE(obj, CONS_TYPE);
@@ -259,6 +264,7 @@ static void init_symbols()
     interp->syms.if_ = sym("if");
     interp->syms.closure = sym("closure");
     interp->syms.funcall = sym("funcall");
+    interp->syms.single_float = sym("single-float");
 }
 
 lisp_object_t length(lisp_object_t seq);
@@ -739,7 +745,7 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
 
 static void gc_check_copied_object(lisp_object_t obj)
 {
-    if (integerp(obj) != NIL || stringp(obj) != NIL || function_pointer_p(obj) != NIL || native_pointer_p(obj) != NIL || obj == T || obj == NIL)
+    if (integerp(obj) != NIL || floatp(obj) != NIL || stringp(obj) != NIL || function_pointer_p(obj) != NIL || native_pointer_p(obj) != NIL || obj == T || obj == NIL)
         return;
     assert(!(obj & FORWARDING_POINTER));
     char *p = (char *)(obj & PTR_MASK);
@@ -839,6 +845,7 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(if_);
     GC_COPY_SYMBOL(closure);
     GC_COPY_SYMBOL(funcall);
+    GC_COPY_SYMBOL(single_float);
 #undef GC_COPY_SYMBOL
     /* Roots - VM */
     gc_copy_vm(&interp->heap, &interp->vm);
@@ -1253,6 +1260,24 @@ lisp_object_t parse_dispatch(struct text_stream *ts)
     }
 }
 
+static lisp_object_t parse_token(char *token)
+{
+    char *zeroxprefix = strstr(token, "0x");
+    int base = zeroxprefix == token ? 16 : 10;
+    char *endptr;
+    uint64_t val = strtoll(token, &endptr, base);
+    if (*endptr == '\0') {
+        return base == 16 ? (val | FUNCTION_POINTER_TYPE) : LispInt(val);
+    }
+    float f = strtof(token, &endptr);
+    if (*endptr == '\0') {
+        lisp_object_t result = SINGLE_FLOAT_TYPE;
+        *(((float *)&result) + 1) = f;
+        return result;
+    }
+    return parse_symbol(token);
+}
+
 lisp_object_t parse1(struct text_stream *ts)
 {
     skip_whitespace(ts);
@@ -1290,15 +1315,7 @@ lisp_object_t parse1(struct text_stream *ts)
         return parse_string(ts);
     } else {
         char *token = read_token(ts);
-        char *zeroxprefix = strstr(token, "0x");
-        int base = zeroxprefix == token ? 16 : 10;
-        char *endptr;
-        uint64_t val = strtoll(token, &endptr, base);
-        lisp_object_t result = NIL;
-        if (*endptr == '\0')
-            result = base == 16 ? (val | FUNCTION_POINTER_TYPE) : LispInt(val);
-        else
-            result = parse_symbol(token);
+        lisp_object_t result = parse_token(token);
         free(token);
         return result;
     }
@@ -1368,6 +1385,12 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
         int length = snprintf(NULL, 0, "%ld", (long)value);
         char *str = alloca(length + 1);
         snprintf(str, length + 1, "%ld", (long)value);
+        string_buffer_append(sb, str);
+    } else if (floatp(obj) != NIL) {
+        float value = Float(obj);
+        int length = snprintf(NULL, 0, "%f", value);
+        char *str = alloca(length + 1);
+        snprintf(str, length + 1, "%f", value);
         string_buffer_append(sb, str);
     } else if (obj == NIL) {
         string_buffer_append(sb, "nil");
@@ -2397,6 +2420,8 @@ lisp_object_t type_of(lisp_object_t obj)
         return sym("function-pointer");
     case SHORT_STRING_TYPE:
         return interp->syms.string;
+    case SINGLE_FLOAT_TYPE:
+        return interp->syms.single_float;
     case 0:
         return interp->syms.integer;
     default:

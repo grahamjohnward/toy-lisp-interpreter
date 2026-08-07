@@ -59,6 +59,7 @@ lisp_object_t load(lisp_object_t filename);
 #define FUNCTION_POINTER_TYPE 0x0000000000000002
 #define NATIVE_POINTER_TYPE   0x0000000000000003
 #define SHORT_STRING_TYPE     0x0000000000000004
+#define SINGLE_FLOAT_TYPE     0x0000000000000005
 
 #define TYPE_MASK             0xff00000000000007
 #define PTR_MASK              0x0000fffffffffff8
@@ -82,6 +83,8 @@ lisp_object_t load(lisp_object_t filename);
 
 #define LispInt(x) (((uint64_t)(x)) << 3)
 #define Int(x) (((int64_t)(x)) >> 3)
+
+#define Float(x) *(((float *)&(x)) + 1)
 
 #define IS_SHORT_STRING(s) ((s & TYPE_MASK) == SHORT_STRING_TYPE)
 

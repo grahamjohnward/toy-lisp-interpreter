@@ -1271,8 +1271,7 @@ static lisp_object_t parse_token(char *token)
     }
     float f = strtof(token, &endptr);
     if (*endptr == '\0') {
-        lisp_object_t result = SINGLE_FLOAT_TYPE;
-        *(((float *)&result) + 1) = f;
+        lisp_object_t result = LispFloat(f);
         return result;
     }
     return parse_symbol(token);

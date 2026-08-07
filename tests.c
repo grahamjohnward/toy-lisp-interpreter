@@ -144,6 +144,22 @@ static void test_integer_too_negative()
     // int64_t result = parse_integer_wrapper(&test_string);
 }
 
+static void test_parse_float()
+{
+    START_OF_TEST("parse_float");
+    lisp_object_t result = parse1_wrapper("1.25");
+    check(floatp(result) != NIL, "floatp");
+    check(Float(result) == 1.25, "value");
+}
+
+static void test_parse_negative_float()
+{
+    START_OF_TEST("parse_negative_float");
+    lisp_object_t result = parse1_wrapper("-1.25");
+    check(floatp(result) != NIL, "floatp");
+    check(Float(result) == -1.25, "value");
+}
+
 static void test_parse_single_integer_list()
 {
     START_OF_TEST("parse_single_integer_list");
@@ -223,6 +239,19 @@ static void test_print_integer()
     obj = parse1_wrapper(test_string);
     char *result = print_object(obj);
     check(strcmp("93", result) == 0, "string value");
+    free(result);
+    free_interpreter();
+}
+
+static void test_print_float()
+{
+    START_OF_TEST("print_float");
+    char *test_string = "1.25";
+    lisp_object_t obj = NIL;
+    init_interpreter_for_tests();
+    obj = parse1_wrapper(test_string);
+    char *result = print_object(obj);
+    check(strcmp("1.250000", result) == 0, "string value");
     free(result);
     free_interpreter();
 }
@@ -2186,11 +2215,14 @@ int main(int argc, char **argv)
     test_parse_large_negative_integer();
     test_integer_too_large();
     test_integer_too_negative();
+    test_parse_float();
+    test_parse_negative_float();
     test_parse_single_integer_list();
     test_parse_integer_list();
     test_parse_dotted_pair_of_integers();
     test_string_buffer();
     test_print_integer();
+    test_print_float();
     test_print_single_integer_list();
     test_print_integer_list();
     test_print_dotted_pair();

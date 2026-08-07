@@ -84,6 +84,7 @@ lisp_object_t load(lisp_object_t filename);
 #define LispInt(x) (((uint64_t)(x)) << 3)
 #define Int(x) (((int64_t)(x)) >> 3)
 
+#define LispFloat(x) (SINGLE_FLOAT_TYPE + ((uint64_t)*((uint32_t *)&(x)) << 32))
 #define Float(x) *(((float *)&(x)) + 1)
 
 #define IS_SHORT_STRING(s) ((s & TYPE_MASK) == SHORT_STRING_TYPE)
@@ -107,6 +108,7 @@ lisp_object_t push(lisp_object_t obj, lisp_object_t *place);
 
 lisp_object_t symbolp(lisp_object_t obj);
 lisp_object_t integerp(lisp_object_t obj);
+lisp_object_t floatp(lisp_object_t obj);
 lisp_object_t consp(lisp_object_t obj);
 lisp_object_t stringp(lisp_object_t obj);
 lisp_object_t vectorp(lisp_object_t obj);

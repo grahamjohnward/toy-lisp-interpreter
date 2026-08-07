@@ -992,6 +992,24 @@ static void test_minus()
     test_eval_helper("(two-arg-minus 7 4)", "3");
 }
 
+static void test_minus_integer_float()
+{
+    START_OF_TEST("minus");
+    test_eval_helper("(two-arg-minus 2 0.25)", "1.750000");
+}
+
+static void test_minus_float_integer()
+{
+    START_OF_TEST("minus_float_integer");
+    test_eval_helper("(two-arg-minus 1.25 1)", "0.250000");
+}
+
+static void test_minus_float_float()
+{
+    START_OF_TEST("minus_float_float");
+    test_eval_helper("(two-arg-minus 1.25 0.5)", "0.750000");
+}
+
 static void test_times()
 {
     START_OF_TEST("times");
@@ -1000,10 +1018,46 @@ static void test_times()
     test_eval_helper("(two-arg-times 65536 65536)", "4294967296");
 }
 
+static void test_times_integer_float()
+{
+    START_OF_TEST("times_integer_float");
+    test_eval_helper("(two-arg-times 2 1.25)", "2.500000");
+}
+
+static void test_times_float_integer()
+{
+    START_OF_TEST("times_float_integer");
+    test_eval_helper("(two-arg-times 1.25 2)", "2.500000");
+}
+
+static void test_times_float_float()
+{
+    START_OF_TEST("times_float_float");
+    test_eval_helper("(two-arg-times 2.5 2.5)", "6.250000");
+}
+
 static void test_divide()
 {
     START_OF_TEST("divide");
     test_eval_helper("(two-arg-divide 256 -2)", "-128");
+}
+
+static void test_divide_integer_float()
+{
+    START_OF_TEST("divide_integer_float");
+    test_eval_helper("(two-arg-divide 10 2.5)", "4.000000");
+}
+
+static void test_divide_float_integer()
+{
+    START_OF_TEST("divide_float_integer");
+    test_eval_helper("(two-arg-divide 2.5 2)", "1.250000");
+}
+
+static void test_divide_float_float()
+{
+    START_OF_TEST("divide_float_float");
+    test_eval_helper("(two-arg-divide 7.5 2.5)", "3.000000");
 }
 
 static void test_read_token()
@@ -2293,8 +2347,17 @@ int main(int argc, char **argv)
     test_plus_float_integer();
     test_plus_float_float();
     test_minus();
+    test_minus_integer_float();
+    test_minus_float_integer();
+    test_minus_float_float();
     test_times();
+    test_times_integer_float();
+    test_times_float_integer();
+    test_times_float_float();
     test_divide();
+    test_divide_integer_float();
+    test_divide_float_integer();
+    test_divide_float_float();
     test_read_token();
     test_numeric_equals();
     test_parse_function_pointer();

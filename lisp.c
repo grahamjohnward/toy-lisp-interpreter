@@ -381,6 +381,7 @@ static void init_builtins()
     DEFBUILTIN("save-image", save_image, 1);
     DEFBUILTIN("type-of", type_of, 1);
     DEFBUILTIN("integerp", integerp, 1);
+    DEFBUILTIN("floatp", floatp, 1);
     DEFBUILTIN("consp", consp, 1);
     DEFBUILTIN("stringp", stringp, 1);
     DEFBUILTIN("vectorp", vectorp, 1);
@@ -2365,71 +2366,89 @@ lisp_object_t princ(lisp_object_t obj)
     return obj;
 }
 
+#define PLUS_OR_MINUS(op)                  \
+    check_number(x);                       \
+    check_number(y);                       \
+    if (integerp(x) != NIL) {              \
+        if (integerp(y) != NIL) {          \
+            lisp_object_t result = x op y; \
+            check_integer(result);         \
+            return result;                 \
+        } else if (floatp(y) != NIL) {     \
+            int ix = Int(x);               \
+            float fy = Float(y);           \
+            float sum = ix op fy;          \
+            return LispFloat(sum);         \
+        } else {                           \
+            abort();                       \
+        }                                  \
+    } else if (floatp(x) != NIL) {         \
+        if (integerp(y) != NIL) {          \
+            float fx = Float(x);           \
+            int iy = Int(y);               \
+            float sum = fx op iy;          \
+            return LispFloat(sum);         \
+        } else if (floatp(y) != NIL) {     \
+            float fx = Float(x);           \
+            float fy = Float(y);           \
+            float sum = fx op fy;          \
+            return LispFloat(sum);         \
+        } else {                           \
+            abort();                       \
+        }                                  \
+    } else {                               \
+        abort();                           \
+    }
+
 lisp_object_t plus(lisp_object_t x, lisp_object_t y)
 {
-    check_number(x);
-    check_number(y);
-    if (integerp(x) != NIL) {
-        if (integerp(y) != NIL) {
-            lisp_object_t result = x + y;
-            check_integer(result);
-            return result;
-        } else if (floatp(y) != NIL) {
-            int ix = Int(x);
-            float fy = Float(y);
-            float sum = ix + fy;
-            return LispFloat(sum);
-        } else {
-            abort();
-        }
-    } else if (floatp(x) != NIL) {
-        if (integerp(y) != NIL) {
-            float fx = Float(x);
-            int iy = Int(y);
-            float sum = fx + iy;
-            return LispFloat(sum);
-        } else if (floatp(y) != NIL) {
-            float fx = Float(x);
-            float fy = Float(y);
-            float sum = fx + fy;
-            return LispFloat(sum);
-        } else {
-            abort();
-        }
-    } else {
-        abort();
-    }
+    PLUS_OR_MINUS(+);
 }
 
 lisp_object_t minus(lisp_object_t x, lisp_object_t y)
 {
-    check_integer(x);
-    check_integer(y);
-    lisp_object_t result = x - y;
-    check_integer(result);
-    return result;
+    PLUS_OR_MINUS(-);
 }
+#undef PLUS_OR_MINUS
+
+#define TIMES_OR_DIVIDE(op)                        \
+    check_number(x);                               \
+    check_number(y);                               \
+    if (integerp(x) != NIL) {                      \
+        int64_t xint = Int(x);                     \
+        if (integerp(y) != NIL) {                  \
+            int64_t xint = Int(x);                 \
+            int64_t yint = Int(y);                 \
+            return LispInt(xint op yint);          \
+        } else if (floatp(y) != NIL) {             \
+            float yfloat = Float(y);               \
+            float result_float = xint op yfloat;   \
+            return LispFloat(result_float);        \
+        } else {                                   \
+            abort();                               \
+        }                                          \
+    } else if (floatp(x) != NIL) {                 \
+        float xfloat = Float(x);                   \
+        if (integerp(y) != NIL) {                  \
+            int64_t yint = Int(y);                 \
+            float result_float = xfloat op yint;   \
+            return LispFloat(result_float);        \
+        } else if (floatp(y) != NIL) {             \
+            float yfloat = Float(y);               \
+            float result_float = xfloat op yfloat; \
+            return LispFloat(result_float);        \
+        }                                          \
+    }                                              \
+    abort();
 
 lisp_object_t times(lisp_object_t x, lisp_object_t y)
 {
-    check_integer(x);
-    check_integer(y);
-    int64_t xint = Int(x);
-    int64_t yint = Int(y);
-    lisp_object_t result = LispInt(xint * yint);
-    check_integer(result);
-    return result;
+    TIMES_OR_DIVIDE(*);
 }
 
 lisp_object_t divide(lisp_object_t x, lisp_object_t y)
 {
-    check_integer(x);
-    check_integer(y);
-    int64_t xint = x;
-    int64_t yint = y;
-    lisp_object_t result = LispInt(xint / yint);
-    check_integer(result);
-    return result;
+    TIMES_OR_DIVIDE(/);
 }
 
 lisp_object_t type_of(lisp_object_t obj)

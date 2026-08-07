@@ -554,7 +554,8 @@
 
 (defun %compile4 (expr ctxt)
   (cond ((atom expr) 
-	 (cond ((or (stringp expr) (integerp expr) (eq t expr) (eq nil expr))
+	 (cond ((or (stringp expr) (integerp expr) (floatp expr)
+                    (eq t expr) (eq nil expr))
 		`(push ,expr))
 	       ((symbolp expr)
 		(let ((lookup-result (lexical-context-lookup ctxt expr)))

@@ -117,6 +117,12 @@ void check_integer(int64_t obj)
         abort();
 }
 
+void check_number(lisp_object_t obj)
+{
+    if (floatp(obj) == NIL && obj % 8)
+        abort();
+}
+
 lisp_object_t integerp(lisp_object_t obj)
 {
     uint64_t x = obj & IMMEDIATE_TYPE_MASK;
@@ -2223,7 +2229,7 @@ lisp_object_t eval_function_call(lisp_object_t e, lisp_object_t a)
 
 lisp_object_t eval(lisp_object_t e, lisp_object_t a)
 {
-    if (e == NIL || e == T || integerp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL || functionp(e) != NIL || function_pointer_p(e) != NIL | native_pointer_p(e) != NIL)
+    if (e == NIL || e == T || integerp(e) != NIL || floatp(e) != NIL || vectorp(e) != NIL || stringp(e) != NIL || functionp(e) != NIL || function_pointer_p(e) != NIL | native_pointer_p(e) != NIL)
         return e;
     if (atom(e) != NIL) {
         lisp_object_t x = assoc(e, a);
@@ -2361,11 +2367,38 @@ lisp_object_t princ(lisp_object_t obj)
 
 lisp_object_t plus(lisp_object_t x, lisp_object_t y)
 {
-    check_integer(x);
-    check_integer(y);
-    lisp_object_t result = x + y;
-    check_integer(result);
-    return result;
+    check_number(x);
+    check_number(y);
+    if (integerp(x) != NIL) {
+        if (integerp(y) != NIL) {
+            lisp_object_t result = x + y;
+            check_integer(result);
+            return result;
+        } else if (floatp(y) != NIL) {
+            int ix = Int(x);
+            float fy = Float(y);
+            float sum = ix + fy;
+            return LispFloat(sum);
+        } else {
+            abort();
+        }
+    } else if (floatp(x) != NIL) {
+        if (integerp(y) != NIL) {
+            float fx = Float(x);
+            int iy = Int(y);
+            float sum = fx + iy;
+            return LispFloat(sum);
+        } else if (floatp(y) != NIL) {
+            float fx = Float(x);
+            float fy = Float(y);
+            float sum = fx + fy;
+            return LispFloat(sum);
+        } else {
+            abort();
+        }
+    } else {
+        abort();
+    }
 }
 
 lisp_object_t minus(lisp_object_t x, lisp_object_t y)

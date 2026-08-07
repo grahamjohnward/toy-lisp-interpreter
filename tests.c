@@ -968,6 +968,24 @@ static void test_plus()
     test_eval_helper("(two-arg-plus 3 4)", "7");
 }
 
+static void test_plus_integer_float()
+{
+    START_OF_TEST("plus_integer_float");
+    test_eval_helper("(two-arg-plus 1 1.25)", "2.250000");
+}
+
+static void test_plus_float_integer()
+{
+    START_OF_TEST("plus_float_integer");
+    test_eval_helper("(two-arg-plus 1.25 1)", "2.250000");
+}
+
+static void test_plus_float_float()
+{
+    START_OF_TEST("plus_float_float");
+    test_eval_helper("(two-arg-plus 1.25 1.25)", "2.500000");
+}
+
 static void test_minus()
 {
     START_OF_TEST("minus");
@@ -2271,6 +2289,9 @@ int main(int argc, char **argv)
     test_rplacd();
     test_rest_args();
     test_plus();
+    test_plus_integer_float();
+    test_plus_float_integer();
+    test_plus_float_float();
     test_minus();
     test_times();
     test_divide();

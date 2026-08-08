@@ -5,7 +5,7 @@
 	  (tagbody
 	   loop
 	     (setq input (read1 in-stream))
-	     (let ((code (compile4-toplevel input)))
+	     (let ((code (compile-toplevel input)))
                (let ((len (length code)))
                  (let ((new-code (make-vector (two-arg-plus len 1)))
 		       (j 0))

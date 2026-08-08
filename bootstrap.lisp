@@ -22,7 +22,7 @@
 		 (tagbody
 		  loop
 		    (setq input (read1 in-stream))
-		    (write (compile4-toplevel input) out-stream)
+		    (write (compile-toplevel input) out-stream)
 		    (go loop)))
 	     (end-of-file nil)))))
      (setq files-to-compile (cdr files-to-compile))

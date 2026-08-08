@@ -1,6 +1,6 @@
 ;; Implementation of eval for the stack machine
 (defun eval (expr)
-  (let ((compiled-expr (compile4-toplevel expr)))
+  (let ((compiled-expr (compile-toplevel expr)))
     (let ((len (length compiled-expr)))
       (let ((new-code (make-vector (two-arg-plus len 1)))
             (j 0))

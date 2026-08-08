@@ -154,7 +154,6 @@ lisp_object_t save_image(lisp_object_t name);
 lisp_object_t type_of(lisp_object_t obj);
 lisp_object_t gensym();
 lisp_object_t compile_toplevel(lisp_object_t expr);
-lisp_object_t compile3_toplevel(lisp_object_t expr);
 lisp_object_t append(lisp_object_t list1, lisp_object_t list2);
 lisp_object_t symbol_value(lisp_object_t symbol);
 lisp_object_t set_symbol_value(lisp_object_t symbol, lisp_object_t value);

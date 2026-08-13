@@ -5,6 +5,6 @@
 	  (tagbody
 	   loop
 	     (setq input (read1 in-stream))
-             (eval input)
+             (print (eval input))
              (go loop)))
       (end-of-file t))))

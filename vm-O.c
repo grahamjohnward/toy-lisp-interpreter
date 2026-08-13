@@ -22,7 +22,9 @@ enum instruction {
     INST_REST_ARGS,
     INST_RAISE,
     INST_SWAP,
-    INST_ABORT
+    INST_ABORT,
+    INST_SETUP_MVC,
+    INST_SAVE_STACK_POINTER
 };
 
 #ifdef VM_TRACE_ENABLED
@@ -118,6 +120,8 @@ void vm_run_one_instruction(struct vm *vm)
     CHECK_INSTRUCTION(INST_RAISE,      vm_inst_raise,      0) else
     CHECK_INSTRUCTION(INST_SWAP,       vm_inst_swap,       0) else
     CHECK_INSTRUCTION(INST_ABORT,      vm_inst_abort,      0) else
+    CHECK_INSTRUCTION(INST_SETUP_MVC,  vm_inst_setup_mvc,  0) else
+    CHECK_INSTRUCTION(INST_SAVE_STACK_POINTER, vm_inst_save_stack_pointer, 0) else
     // clang-format on
     {
         TRACE(instruction);

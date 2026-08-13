@@ -14,9 +14,9 @@ struct vm_call_stack_frame {
     lisp_object_t environment;
     lisp_object_t closure_env;
     lisp_object_t tags;
-    // Rename these:
     lisp_object_t *fp;
     lisp_object_t *sp;
+    lisp_object_t *saved_stack_pointer;
 };
 
 struct vm {
@@ -97,5 +97,9 @@ void vm_inst_raise(struct vm *vm);
 void vm_inst_nop(struct vm *vm);
 
 void vm_inst_swap(struct vm *vm);
+
+void vm_inst_setup_mvc(struct vm *vm);
+
+void vm_inst_save_stack_pointer(struct vm *vm);
 
 #endif

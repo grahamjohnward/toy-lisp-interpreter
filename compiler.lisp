@@ -68,7 +68,8 @@
       (rest-args 1)
       (raise 0)
       (swap 0)
-      (abort 0)))
+      (abort 0)
+      (setup-mvc 0)))
 
 (defun convert-to-bytecode (code-vector)
   (let ((length (length code-vector)))
@@ -521,6 +522,27 @@
 	    ,@compiled-handlers
 	    (label ,jmp-target)))))))
 
+(defun compile-list-no-pop (forms ctxt)
+  (if (null forms)
+      nil
+      (append (compile (car forms) ctxt) (compile-list-no-pop (cdr forms) ctxt))))
+
+(defun compile-values (expr ctxt)
+  (assert (eq (first expr) 'values))
+  (let ((exprs (rest expr)))
+    (let ((n-extra (- (length exprs) 1))
+          pops)
+      (dotimes (i (+ 1 n-extra))
+        (push 'pop pops))
+      `(,@(compile (first exprs) ctxt)
+          push ,n-extra
+          ,@(compile-list-no-pop (rest exprs) ctxt)
+          ,@pops))))
+
+(defun compile-multiple-value-call (expr ctxt)
+  (assert (eq (first expr)) 'multiple-value-call)
+  )
+
 (defun compile-function-call (expr ctxt)
   (assert (and (consp expr) (symbolp (car expr))))
   (let ((sym (car expr))
@@ -592,6 +614,10 @@
 		  (compile-return-from expr ctxt))
 		 ((eq sym 'condition-case)
 		  (compile-condition-case expr ctxt))
+                 ((eq sym 'values)
+                  (compile-values expr ctxt))
+                 ((eq sym 'multiple-value-call)
+                  (compile-multiple-value-call expr ctxt))
 		 (t (compile-function-call expr ctxt)))))
 	(t (raise 'bad-expression expr))))
 

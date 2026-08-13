@@ -24,6 +24,7 @@ void vm_init(struct vm *vm, size_t data_stack_size)
     vm->registers.tags = NIL;
     vm->registers.fp = NULL;
     vm->registers.sp = vm->other_data_stack;
+    vm->registers.saved_stack_pointer = NULL;
     vm->vm_trace = 0;
 #ifdef VM_TRACE_ENABLED
     vm->vm_trace_in_this_build = 1;
@@ -569,4 +570,21 @@ void vm_inst_get0(struct vm *vm, lisp_object_t n)
 void vm_inst_set0(struct vm *vm, lisp_object_t n)
 {
     vm->registers.fp[Int(n) - 1] = vm_peek(vm);
+}
+
+void vm_inst_setup_mvc(struct vm *vm)
+{
+    lisp_object_t n_extra = *vm->top_of_data_stack;
+    int i;
+    for (i = 0; i < Int(n_extra); i++) {
+        printf("i = %d\n", i);
+        vm->top_of_data_stack[i] = vm->top_of_data_stack[i + 1];
+    }
+    vm->top_of_data_stack[i] = n_extra + LispInt(1);
+    vm->top_of_data_stack += Int(n_extra) + 1;
+}
+
+void vm_inst_save_stack_pointer(struct vm *vm)
+{
+    vm->registers.saved_stack_pointer = vm->top_of_data_stack;
 }

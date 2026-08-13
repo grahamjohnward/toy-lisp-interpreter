@@ -278,6 +278,9 @@
 (defun first (list)
   (car list))
 
+(defun rest (list)
+  (cdr list))
+
 (defun second (list)
   (cadr list))
 

@@ -2277,6 +2277,37 @@ void test_symbol_name()
     free_interpreter();
 }
 
+void test_vm_inst_setup_mvc()
+{
+    START_OF_TEST("vm_inst_setup_mvc");
+    init_interpreter_for_tests();
+    struct vm *vm = &interp->vm;
+    vm_print_stack(vm);
+    vm_inst_push(vm, sym("arg1"));
+    vm_inst_push(vm, LispInt(2)); // n_extra
+    vm_inst_push(vm, sym("arg2"));
+    vm_inst_push(vm, sym("arg3"));
+    vm_inst_pop(vm);
+    vm_inst_pop(vm);
+    vm_inst_pop(vm);
+    vm_inst_setup_mvc(vm);
+    vm_print_stack(vm);
+    free_interpreter();
+}
+
+void test_vm_inst_save_stack_pointer()
+{
+    START_OF_TEST("vm_inst_save_stack_pointer");
+    init_interpreter_for_tests();
+    struct vm *vm = &interp->vm;
+    vm_inst_push(vm, sym("hello"));
+    lisp_object_t *saved = vm->top_of_data_stack;
+    vm_inst_save_stack_pointer(vm);
+    vm_inst_push(vm, sym("world"));
+    check(vm->registers.saved_stack_pointer == saved, "ok");
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -2448,6 +2479,8 @@ int main(int argc, char **argv)
     test_vm_inst_make_env2();
     test_strconcat();
     test_symbol_name();
+    test_vm_inst_setup_mvc();
+    test_vm_inst_save_stack_pointer();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

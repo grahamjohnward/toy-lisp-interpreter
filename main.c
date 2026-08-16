@@ -15,6 +15,7 @@ struct interpreter_settings {
     int use_vm;
     char *vmboot;
     int vm_trace;
+    char *evalstr;
 };
 
 static struct option options[] = {
@@ -23,6 +24,7 @@ static struct option options[] = {
     { "use-vm", no_argument, 0, 3 },
     { "vmboot", optional_argument, 0, 4 },
     { "vm-trace", no_argument, 0, 5 },
+    { "eval", optional_argument, 0, 6 },
     { 0, 0, 0, 0 }
 };
 
@@ -94,6 +96,10 @@ static int parse_args(int argc, char **argv, struct interpreter_settings *settin
         case 5:
             settings->vm_trace = 1;
             break;
+        case 6:
+            settings->evalstr = malloc(strlen(optarg) + 1);
+            strcpy(settings->evalstr, optarg);
+            break;
         default:
             abort();
         }
@@ -135,6 +141,20 @@ int main(int argc, char **argv)
     } else {
         for (; i < argc; i++)
             load_str(argv[i]);
+    }
+    if (settings.evalstr) {
+        lisp_object_t eval = read_from_string(allocate_string(strlen(settings.evalstr) + 1, settings.evalstr));
+        lisp_object_t code_to_eval = List(sym("print"), eval);
+        if (settings.use_vm) {
+            char *code_template = "#(0 placeholder 0 1 0 eval 1)";
+            lisp_object_t code_template_lisp_string = allocate_string(strlen(code_template) + 1, code_template);
+            lisp_object_t code_vector = read_from_string(code_template_lisp_string);
+            svref_set(code_vector, LispInt(1), code_to_eval);
+            vm_set_code_vector(&interp->vm, code_vector);
+            vm_run(&interp->vm);
+        } else {
+            eval_toplevel(code_to_eval);
+        }
     }
     free_interpreter();
     if (settings.image)

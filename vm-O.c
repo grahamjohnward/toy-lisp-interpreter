@@ -1,3 +1,4 @@
+#include "interp.h"
 #include "vm.h"
 
 #include <assert.h>

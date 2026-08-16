@@ -2277,6 +2277,18 @@ void test_symbol_name()
     free_interpreter();
 }
 
+void test_read_from_string()
+{
+    START_OF_TEST("read_from_string");
+    init_interpreter_for_tests();
+    char *string = "(foo bar)";
+    lisp_object_t lisp_string = allocate_string(strlen(string) + 1, string);
+    lisp_object_t result = read_from_string(lisp_string);
+    char *str = print_object(result);
+    check(strcmp(string, str) == 0, "ok");
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -2448,6 +2460,7 @@ int main(int argc, char **argv)
     test_vm_inst_make_env2();
     test_strconcat();
     test_symbol_name();
+    test_read_from_string();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

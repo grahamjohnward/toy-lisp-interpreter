@@ -363,6 +363,7 @@ static void init_builtins()
     DEFBUILTIN("eq", eq, 2);
     DEFBUILTIN("read", lisp_read, 0);
     DEFBUILTIN("read1", lisp_read1, 1);
+    DEFBUILTIN("read-from-string", read_from_string, 1);
     DEFBUILTIN("print", print, 1);
     DEFBUILTIN("princ", princ, 1);
     DEFBUILTIN("rplaca", rplaca, 2);
@@ -2341,6 +2342,16 @@ lisp_object_t lisp_read()
 {
     lisp_object_t result = parse1(&interp->ts_stdin);
     return result;
+}
+
+lisp_object_t read_from_string(lisp_object_t string)
+{
+    char *str;
+    size_t len;
+    get_string_parts(&string, &len, &str);
+    struct text_stream stream;
+    text_stream_init_str(&stream, str);
+    return parse1(&stream);
 }
 
 lisp_object_t print(lisp_object_t obj)

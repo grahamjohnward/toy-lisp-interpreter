@@ -72,6 +72,7 @@ static int parse_args(int argc, char **argv, struct interpreter_settings *settin
     settings->use_vm = 0;
     settings->vmboot = NULL;
     settings->vm_trace = 0;
+    settings->evalstr = NULL;
     int c;
     while (1) {
         int option_index;

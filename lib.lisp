@@ -399,7 +399,7 @@
               (go :next-arg)))
          provided-args))))
 
-(defmacro defstruct (struct-name slots)
+(defmacro defstruct (struct-name &rest slots)
   (let ((name (symbol-name struct-name))
         (slot-names (mapcar #'(lambda (slot)
                                 (if (consp slot)

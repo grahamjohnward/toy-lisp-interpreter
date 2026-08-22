@@ -118,7 +118,7 @@
 	      (incf i))))
       (convert-to-bytecode vector))))
 
-(defstruct lexical-context (block-alist (next-block-number 0) bindings (binding-count 0) tag-table))
+(defstruct lexical-context block-alist (next-block-number 0) bindings (binding-count 0) tag-table)
 
 (defun lexical-context-push-block (ctxt block-name block-id)
   (lexical-context-set-block-alist ctxt (cons `(,block-name . ,block-id)
@@ -150,7 +150,7 @@
   (lexical-context-set-tag-table ctxt (cdr (lexical-context-tag-table ctxt))))
 
 
-(defstruct lexical-scope-bindings ((wowza 0) bindings closurep))
+(defstruct lexical-scope-bindings (wowza 0) bindings closurep)
 
 (defun lexical-context-get-actual-bindings (bindings)
   (lexical-scope-bindings-bindings bindings))

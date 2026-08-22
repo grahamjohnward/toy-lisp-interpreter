@@ -87,7 +87,6 @@
   (if (= n 0) nil
       (cons (stream-car stream) (take (1- n) (stream-cdr stream)))))
 
-
 (defun integers-starting-from (n)
   (cons-stream n (integers-starting-from (+ n 1))))
 
@@ -101,3 +100,15 @@
    (sieve (stream-filter #'(lambda (x)
                              (not (divisible-p x (stream-car stream))))
                          (stream-cdr stream)))))
+
+(defun add-streams (s1 s2)
+  (stream-map2 #'+ s1 s2))
+
+(defun mul-streams (s1 s2)
+  (stream-map2 #'* s1 s2))
+
+(defun factorials ()
+  (let (factorials)
+    (setq factorials
+          (cons-stream 1 (mul-streams factorials (integers-starting-from 2))))
+    factorials))

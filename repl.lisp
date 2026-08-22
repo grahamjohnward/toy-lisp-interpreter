@@ -27,5 +27,3 @@
 	   (go repl)))
     (end-of-file
      (exit 0))))
-
-(repl)

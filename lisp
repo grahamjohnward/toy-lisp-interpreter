@@ -2,4 +2,7 @@
 
 D=$(dirname $0)
 
-exec rlwrap $D/main --heap-size=128m -use-vm --image=image --eval='(repl)'
+
+HEAP_SIZE=${HEAP_SIZE:-128m}
+
+exec rlwrap $D/main --heap-size=$HEAP_SIZE -use-vm --image=image --eval='(repl)'

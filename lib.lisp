@@ -450,3 +450,10 @@
                     (rplaca context (+ 1 (car context)))))
               slot-names context))
          ',struct-name))))
+
+(defun save-image (filename)
+  (princ "Writing image to file: ")
+  (princ filename)
+  (princ "\n")
+  ;; You can't do anything after %save-image as it calls exit
+  (%save-image filename))

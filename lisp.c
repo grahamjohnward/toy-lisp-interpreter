@@ -379,7 +379,7 @@ static void init_builtins()
     DEFBUILTIN("make-vector", allocate_vector, 1);
     DEFBUILTIN("svref", svref, 2);
     DEFBUILTIN("set-svref", svref_set, 3);
-    DEFBUILTIN("save-image", save_image, 1);
+    DEFBUILTIN("%save-image", save_image, 1);
     DEFBUILTIN("type-of", type_of, 1);
     DEFBUILTIN("integerp", integerp, 1);
     DEFBUILTIN("floatp", floatp, 1);

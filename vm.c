@@ -194,6 +194,10 @@ static void vm_setup_funcall(struct vm *vm)
     vm->top_of_data_stack[-2] = LispInt(new_argcount_c);
 }
 
+#if defined(__APPLE__)
+#define setjmp _setjmp
+#endif
+
 static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
 {
     lisp_object_t result = NIL;

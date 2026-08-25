@@ -4,7 +4,12 @@ else
   CC=clang-19
 endif
 
-CFLAGS=-gdwarf-4 -falign-functions=8
+ifeq ($(BUILD), debug)
+  CFLAGS=-gdwarf-4 -falign-functions=8 -DVM_TRACE_ENABLED
+else
+  CFLAGS=-gdwarf-4 -falign-functions=8 -DNDEBUG
+  OPTFLAGS=-O3
+endif
 
 PROG1 := tests
 
@@ -23,7 +28,7 @@ $(LIB): lisp.o vm.o vm-O.o lexical_scope.o compile.o string_buffer.o text_stream
 	$(AR) rs $@ $^
 
 %-O.o: %-O.c
-	$(CC) $(CFLAGS) -O3 -c -o $@ $<
+	$(CC) $(CFLAGS) $(OPTFLAGS) -c -o $@ $<
 
 $(PROG1): $(PROG1_OBJS) $(LIB)
 	$(CC) -o $@ $< -L. -l$(LIBNAME)

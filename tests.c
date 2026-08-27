@@ -2294,7 +2294,6 @@ void test_cons_bitmap()
     struct lisp_heap heap;
     lisp_heap_init(&heap, 1024);
     char *cons_address = heap.heap + 13 * sizeof(lisp_object_t);
-    printf("cons_address: %p\n", cons_address);
     heap_set_cons_bit(&heap, cons_address);
     int bit = heap_get_cons_bit(&heap, cons_address);
     check(bit, "ok");

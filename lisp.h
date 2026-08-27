@@ -165,7 +165,6 @@ lisp_object_t macroexpand_all_quasiquote(lisp_object_t expr, int depth);
 void init_compiler();
 
 struct cons {
-    object_header_t header;
     lisp_object_t car;
     lisp_object_t cdr;
 };
@@ -201,11 +200,14 @@ struct lisp_heap {
     /* These are flipped after a GC */
     char *from_space;
     char *to_space;
+    char *cons_bitmap;
 };
 
 void *get_frame_pointer(int n);
 
 void lisp_heap_init(struct lisp_heap *heap, size_t bytes);
+void heap_set_cons_bit(struct lisp_heap *heap, char *cons_address);
+int heap_get_cons_bit(struct lisp_heap *heap, char *cons_address);
 void lisp_heap_free(struct lisp_heap *heap);
 void gc_copy(struct lisp_heap *heap, lisp_object_t *p);
 

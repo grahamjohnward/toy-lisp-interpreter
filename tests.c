@@ -1495,7 +1495,6 @@ static void test_lisp_heap_cons()
     struct cons *consptr = ConsPtr(new_cons);
     check(consptr->car == NIL, "car");
     check(consptr->cdr == T, "cdr");
-    check(consptr->header == CONS_TYPE, "header");
     check(heap->freeptr - oldfreeptr == sizeof(struct cons), "freeptr");
     free_interpreter();
 }
@@ -2289,6 +2288,19 @@ void test_read_from_string()
     free_interpreter();
 }
 
+void test_cons_bitmap()
+{
+    START_OF_TEST("cons_bitmap");
+    struct lisp_heap heap;
+    lisp_heap_init(&heap, 1024);
+    char *cons_address = heap.heap + 13 * sizeof(lisp_object_t);
+    printf("cons_address: %p\n", cons_address);
+    heap_set_cons_bit(&heap, cons_address);
+    int bit = heap_get_cons_bit(&heap, cons_address);
+    check(bit, "ok");
+    lisp_heap_free(&heap);
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -2461,6 +2473,7 @@ int main(int argc, char **argv)
     test_strconcat();
     test_symbol_name();
     test_read_from_string();
+    test_cons_bitmap();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

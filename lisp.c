@@ -397,6 +397,10 @@ void init_interpreter_from_image(char *image)
     }
     assert(rc == interp->heap.heap);
     do_read(fd, interp->heap.from_space, interp->heap.freeptr - interp->heap.from_space);
+    /* Cons bitmap */
+    interp->heap.cons_bitmap = malloc(interp->heap.size_bytes / 8);
+    do_read(fd, interp->heap.cons_bitmap, interp->heap.size_bytes / 8);
+
     interp->symbol_table_hash_buckets = length_c(interp->symbol_table);
     text_stream_init_fd(&interp->ts_stdin, 0);
 
@@ -452,8 +456,8 @@ void init_interpreter2(size_t heap_size, int use_vm)
 
 void lisp_heap_init(struct lisp_heap *heap, size_t bytes)
 {
-    assert(bytes % 2 == 0);
-    assert(bytes % sizeof(lisp_object_t) == 0);
+    if (bytes % 64)
+        abort();
     heap->heap = (char *)mmap((void *)LISP_HEAP_BASE, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
     if (heap->heap == (char *)-1) {
         perror("lisp_heap_init: mmap failed");
@@ -463,6 +467,8 @@ void lisp_heap_init(struct lisp_heap *heap, size_t bytes)
     heap->size_bytes = bytes;
     heap->from_space = heap->heap;
     heap->to_space = heap->heap + bytes / 2;
+    heap->cons_bitmap = (char *)malloc(bytes / 8);
+    memset(heap->cons_bitmap, 0, bytes / 8);
     text_stream_init_fd(&interp->ts_stdin, 0);
 }
 
@@ -480,6 +486,31 @@ void lisp_heap_free(struct lisp_heap *heap)
         perror("lisp_heap_free: munmap failed");
         exit(1);
     }
+    free(heap->cons_bitmap);
+}
+
+void heap_set_cons_bit(struct lisp_heap *heap, char *cons_address)
+{
+    ptrdiff_t offset = cons_address - heap->heap;
+    assert(offset % 8 == 0);
+    /* Offset measured in lisp_object_t size */
+    int diff = offset / 8;
+    int bytediff = diff / 8;
+    int bit = diff % 8;
+    uint8_t *byte_to_set = (uint8_t *)heap->cons_bitmap + bytediff;
+    *byte_to_set |= (1 << bit);
+}
+
+int heap_get_cons_bit(struct lisp_heap *heap, char *cons_address)
+{
+    ptrdiff_t offset = cons_address - heap->heap;
+    assert(offset % 8 == 0);
+    /* Offset measured in lisp_object_t size */
+    int diff = offset / 8;
+    int bytediff = diff / 8;
+    int bit = diff % 8;
+    uint8_t *byte_to_read = (uint8_t *)heap->cons_bitmap + bytediff;
+    return *byte_to_read & (1 << bit);
 }
 
 static void gc_if_needed(size_t bytes_needed)
@@ -503,9 +534,9 @@ lisp_object_t cons(lisp_object_t car, lisp_object_t cdr)
     struct lisp_heap *heap = &interp->heap;
     gc_if_needed(sizeof(struct cons));
     struct cons *the_cons = (struct cons *)heap->freeptr;
-    the_cons->header = CONS_TYPE;
     the_cons->car = car;
     the_cons->cdr = cdr;
+    heap_set_cons_bit(heap, heap->freeptr);
     heap->freeptr += sizeof(struct cons);
     return ((lisp_object_t)the_cons) | CONS_TYPE;
 }
@@ -680,6 +711,8 @@ void gc_copy(struct lisp_heap *heap, lisp_object_t *p)
     size_t size = objsize(*p);
     void *ptr = (void *)(*p & PTR_MASK);
     memcpy(heap->freeptr, ptr, size);
+    if (consp(*p) != NIL)
+        heap_set_cons_bit(heap, heap->freeptr);
     uint64_t type = *p & TYPE_MASK;
     lisp_object_t moved_obj = ((uint64_t)heap->freeptr) | type;
     heap->freeptr += size;
@@ -758,6 +791,7 @@ lisp_object_t gc()
     printf("; Garbage collecting ... ");
     struct lisp_heap *heap = &interp->heap;
     heap->freeptr = heap->to_space;
+    memset((heap->freeptr - heap->heap) / 8 + heap->cons_bitmap, 0, heap->size_bytes / 16);
     /* Roots - stack */
     void *rbp = get_frame_pointer(1);
     assert(interp->top_of_stack);
@@ -810,36 +844,39 @@ lisp_object_t gc()
     /* Update pointers inside to-space objects */
     char *scanptr;
     for (scanptr = heap->to_space; scanptr < heap->freeptr;) {
-        object_header_t *headerptr = (object_header_t *)scanptr;
-        if (*headerptr == CONS_TYPE) {
+        if (heap_get_cons_bit(heap, scanptr)) {
             struct cons *consptr = (struct cons *)scanptr;
+            assert(heap_get_cons_bit(heap, scanptr));
             gc_copy(heap, &consptr->car);
             gc_copy(heap, &consptr->cdr);
             scanptr += sizeof(struct cons);
-        } else if (*headerptr == SYMBOL_TYPE) {
-            struct symbol *symptr = (struct symbol *)scanptr;
-            gc_copy(heap, &symptr->name);
-            gc_copy(heap, &symptr->value);
-            gc_copy(heap, &symptr->function);
-            gc_copy(heap, &symptr->plist);
-            scanptr += sizeof(struct symbol);
-        } else if (*headerptr == STRING_TYPE) {
-            struct string_header *strptr = (struct string_header *)scanptr;
-            scanptr += strptr->allocated_length + sizeof(struct string_header);
-        } else if (*headerptr == VECTOR_TYPE) {
-            struct vector *v = (struct vector *)scanptr;
-            lisp_object_t *storage = (lisp_object_t *)(scanptr + sizeof(struct vector));
-            for (int i = 0; i < Int(v->len); i++)
-                gc_copy(heap, storage + i);
-            scanptr += v->size_bytes;
-        } else if (*headerptr == FUNCTION_TYPE) {
-            struct lisp_function *fnptr = (struct lisp_function *)scanptr;
-            gc_copy(heap, &fnptr->kind);
-            gc_copy(heap, &fnptr->name);
-            gc_copy(heap, &fnptr->actual_function);
-            scanptr += sizeof(struct lisp_function);
         } else {
-            abort();
+            object_header_t *headerptr = (object_header_t *)scanptr;
+            if (*headerptr == SYMBOL_TYPE) {
+                struct symbol *symptr = (struct symbol *)scanptr;
+                gc_copy(heap, &symptr->name);
+                gc_copy(heap, &symptr->value);
+                gc_copy(heap, &symptr->function);
+                gc_copy(heap, &symptr->plist);
+                scanptr += sizeof(struct symbol);
+            } else if (*headerptr == STRING_TYPE) {
+                struct string_header *strptr = (struct string_header *)scanptr;
+                scanptr += strptr->allocated_length + sizeof(struct string_header);
+            } else if (*headerptr == VECTOR_TYPE) {
+                struct vector *v = (struct vector *)scanptr;
+                lisp_object_t *storage = (lisp_object_t *)(scanptr + sizeof(struct vector));
+                for (int i = 0; i < Int(v->len); i++)
+                    gc_copy(heap, storage + i);
+                scanptr += v->size_bytes;
+            } else if (*headerptr == FUNCTION_TYPE) {
+                struct lisp_function *fnptr = (struct lisp_function *)scanptr;
+                gc_copy(heap, &fnptr->kind);
+                gc_copy(heap, &fnptr->name);
+                gc_copy(heap, &fnptr->actual_function);
+                scanptr += sizeof(struct lisp_function);
+            } else {
+                abort();
+            }
         }
     }
     assert(scanptr == heap->freeptr);
@@ -849,37 +886,39 @@ lisp_object_t gc()
     heap->to_space = tmp;
     /* Make assertions about copied objects */
     for (char *p = heap->from_space; p < heap->freeptr;) {
-        object_header_t *headerptr = (object_header_t *)p;
-        if (*headerptr == CONS_TYPE) {
+        if (heap_get_cons_bit(heap, p)) {
             struct cons *c = (struct cons *)p;
             if (c->car != NIL && consp(c->car) != NIL)
                 gc_check_copied_object(c->car);
             if (c->cdr != NIL && consp(c->cdr) != NIL)
                 gc_check_copied_object(c->cdr);
             p += sizeof(struct cons);
-        } else if (*headerptr == SYMBOL_TYPE) {
-            struct symbol *sym = (struct symbol *)p;
-            gc_check_copied_object(sym->name);
-            gc_check_copied_object(sym->function);
-            gc_check_copied_object(sym->value);
-            gc_check_copied_object(sym->plist);
-            p += sizeof(struct symbol);
-        } else if (*headerptr == STRING_TYPE) {
-            struct string_header *strptr = (struct string_header *)p;
-            p += strptr->allocated_length + sizeof(struct string_header);
-        } else if (*headerptr == FUNCTION_TYPE) {
-            struct lisp_function *fnptr = (struct lisp_function *)p;
-            gc_check_copied_object(fnptr->kind);
-            gc_check_copied_object(fnptr->actual_function);
-            p += sizeof(struct lisp_function);
-        } else if (*headerptr == VECTOR_TYPE) {
-            struct vector *v = (struct vector *)p;
-            lisp_object_t *storage = (lisp_object_t *)(p + sizeof(struct vector));
-            for (int i = 0; i < Int(v->len); i++)
-                gc_check_copied_object(storage[i]);
-            p += v->size_bytes;
         } else {
-            abort();
+            object_header_t *headerptr = (object_header_t *)p;
+            if (*headerptr == SYMBOL_TYPE) {
+                struct symbol *sym = (struct symbol *)p;
+                gc_check_copied_object(sym->name);
+                gc_check_copied_object(sym->function);
+                gc_check_copied_object(sym->value);
+                gc_check_copied_object(sym->plist);
+                p += sizeof(struct symbol);
+            } else if (*headerptr == STRING_TYPE) {
+                struct string_header *strptr = (struct string_header *)p;
+                p += strptr->allocated_length + sizeof(struct string_header);
+            } else if (*headerptr == FUNCTION_TYPE) {
+                struct lisp_function *fnptr = (struct lisp_function *)p;
+                gc_check_copied_object(fnptr->kind);
+                gc_check_copied_object(fnptr->actual_function);
+                p += sizeof(struct lisp_function);
+            } else if (*headerptr == VECTOR_TYPE) {
+                struct vector *v = (struct vector *)p;
+                lisp_object_t *storage = (lisp_object_t *)(p + sizeof(struct vector));
+                for (int i = 0; i < Int(v->len); i++)
+                    gc_check_copied_object(storage[i]);
+                p += v->size_bytes;
+            } else {
+                abort();
+            }
         }
     }
     /* Say how much memory was freed */
@@ -2472,6 +2511,7 @@ lisp_object_t save_image(lisp_object_t name)
     do_write(fd, (char *)&interp->symbol_table, sizeof(lisp_object_t));
     do_write(fd, (char *)&interp->heap, sizeof(struct lisp_heap));
     do_write(fd, interp->heap.from_space, interp->heap.freeptr - interp->heap.from_space);
+    do_write(fd, (char *)interp->heap.cons_bitmap, interp->heap.size_bytes / 8);
     do_write(fd, (char *)&interp->vm.data_stack_size, sizeof(size_t));
     do_write(fd, (char *)interp->vm.data_stack, sizeof(lisp_object_t) * interp->vm.data_stack_size);
     do_write(fd, (char *)interp->vm.other_data_stack, sizeof(lisp_object_t) * interp->vm.data_stack_size);

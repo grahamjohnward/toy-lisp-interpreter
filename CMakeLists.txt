@@ -6,7 +6,7 @@ add_definitions(-D_DEFAULT_SOURCE)
 
 add_compile_options(-falign-functions=8)
 
-add_library(lisp STATIC lisp.c lexical_scope.c compile.c vm.c vm-O.c string_buffer.c text_stream.c)
+add_library(lisp STATIC lisp.c lisp-O.c lexical_scope.c compile.c vm.c vm-O.c string_buffer.c text_stream.c)
 
 add_executable(tests tests.c)
 add_executable(main main.c)

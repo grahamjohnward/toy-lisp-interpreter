@@ -380,7 +380,6 @@ void vm_inst_ret(struct vm *vm)
 
 static lisp_object_t findenv(lisp_object_t env, int offset)
 {
-    check_vector(env); // Eventually this should raise an exception VM-style, not interpreter-style
     for (int i = 0; i < offset; i++) {
         lisp_object_t parent = svref(env, 0);
         if (parent == NIL)

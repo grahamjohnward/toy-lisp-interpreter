@@ -104,19 +104,19 @@ void vm_run_one_instruction(struct vm *vm)
     CHECK_INSTRUCTION(INST_CALL,       vm_inst_call,       0) else
     CHECK_INSTRUCTION(INST_GET,        vm_inst_get,        2) else
     CHECK_INSTRUCTION(INST_POP,        vm_inst_pop,        0) else
-    CHECK_INSTRUCTION(INST_NOP,        vm_inst_nop,        0) else
-    CHECK_INSTRUCTION(INST_JMP_IF_NIL, vm_inst_jmp_if_nil, 1) else
     CHECK_INSTRUCTION(INST_GET0,       vm_inst_get0,       1) else
+    CHECK_INSTRUCTION(INST_JMP_IF_NIL, vm_inst_jmp_if_nil, 1) else
     CHECK_INSTRUCTION(INST_SET,        vm_inst_set,        2) else
     CHECK_INSTRUCTION(INST_RET,        vm_inst_ret,        0) else
-    CHECK_INSTRUCTION(INST_JMP,        vm_inst_jmp,        1) else
     CHECK_INSTRUCTION(INST_MAKE_ENV2,  vm_inst_setup_env2, 1) else
     CHECK_INSTRUCTION(INST_SET_TAG,    vm_inst_set_tag,    2) else
     CHECK_INSTRUCTION(INST_TAG_JMP,    vm_inst_tag_jmp,    1) else
+    CHECK_INSTRUCTION(INST_JMP,        vm_inst_jmp,        1) else
     CHECK_INSTRUCTION(INST_SET0,       vm_inst_set0,       1) else
     CHECK_INSTRUCTION(INST_MAKE_ENV,   vm_inst_setup_env,  1) else
     CHECK_INSTRUCTION(INST_REST_ARGS,  vm_inst_rest_args,  1) else
     CHECK_INSTRUCTION(INST_RAISE,      vm_inst_raise,      0) else
+    CHECK_INSTRUCTION(INST_NOP,        vm_inst_nop,        0) else
     CHECK_INSTRUCTION(INST_SWAP,       vm_inst_swap,       0) else
     CHECK_INSTRUCTION(INST_ABORT,      vm_inst_abort,      0) else
     // clang-format on

@@ -49,3 +49,46 @@ lisp_object_t native_pointer_p(lisp_object_t obj)
 {
     return ((obj & IMMEDIATE_TYPE_MASK) == NATIVE_POINTER_TYPE) ? T : NIL;
 }
+
+void check_cons(lisp_object_t obj)
+{
+    if (consp(obj) == NIL)
+        raise(sym("type-error"), cons(sym("cons"), obj));
+}
+
+lisp_object_t car(lisp_object_t obj)
+{
+    if (obj == NIL)
+        return NIL;
+    check_cons(obj);
+    return ConsPtr(obj)->car;
+}
+
+lisp_object_t cdr(lisp_object_t obj)
+{
+    if (obj == NIL)
+        return NIL;
+    check_cons(obj);
+    return ConsPtr(obj)->cdr;
+}
+
+lisp_object_t rplaca(lisp_object_t the_cons, lisp_object_t the_car)
+{
+    check_cons(the_cons);
+    struct cons *p = ConsPtr(the_cons);
+    p->car = the_car;
+    return the_cons;
+}
+
+lisp_object_t rplacd(lisp_object_t the_cons, lisp_object_t the_cdr)
+{
+    check_cons(the_cons);
+    struct cons *p = ConsPtr(the_cons);
+    p->cdr = the_cdr;
+    return the_cons;
+}
+
+lisp_object_t eq(lisp_object_t o1, lisp_object_t o2)
+{
+    return o1 == o2 ? T : NIL;
+}

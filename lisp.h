@@ -90,6 +90,7 @@ lisp_object_t load(lisp_object_t filename);
 #define IS_SHORT_STRING(s) ((s & TYPE_MASK) == SHORT_STRING_TYPE)
 
 void check_vector(lisp_object_t obj);
+void check_cons(lisp_object_t obj);
 
 lisp_object_t svref_c(lisp_object_t vector, size_t index);
 lisp_object_t svref(lisp_object_t vector, lisp_object_t index);

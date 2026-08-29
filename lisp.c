@@ -305,6 +305,7 @@ static void init_builtins()
     DEFBUILTIN("set-symbol-function", set_symbol_function, 2);
     DEFBUILTIN("set-symbol-value", set_symbol_value, 2);
     DEFBUILTIN("symbol-value", symbol_value, 1);
+    DEFBUILTIN("symbol-function", symbol_function, 1);
     DEFBUILTIN("make-symbol", make_symbol, 1);
     DEFBUILTIN("nthcdr", nthcdr, 2);
     DEFBUILTIN("vm-get-stack", get_vm_stack, 0);
@@ -1810,6 +1811,12 @@ lisp_object_t symbol_value(lisp_object_t symbol)
 {
     struct symbol *sym = SymbolPtr(symbol);
     return sym->value;
+}
+
+lisp_object_t symbol_function(lisp_object_t symbol)
+{
+    struct symbol *sym = SymbolPtr(symbol);
+    return sym->function;
 }
 
 lisp_object_t set_symbol_function(lisp_object_t symbol, lisp_object_t function)

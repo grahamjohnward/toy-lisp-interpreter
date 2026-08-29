@@ -2300,6 +2300,16 @@ void test_cons_bitmap()
     lisp_heap_free(&heap);
 }
 
+void test_symbol_function()
+{
+    START_OF_TEST("symbol_function");
+    init_interpreter_for_tests();
+    lisp_object_t symbol = sym("cons");
+    struct symbol *symbolptr = SymbolPtr(symbol);
+    check(symbol_function(symbol) == symbolptr->function, "ok");
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -2473,6 +2483,7 @@ int main(int argc, char **argv)
     test_symbol_name();
     test_read_from_string();
     test_cons_bitmap();
+    test_symbol_function();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

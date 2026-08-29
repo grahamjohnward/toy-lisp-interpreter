@@ -437,7 +437,6 @@ lisp_object_t vm_make_function2(lisp_object_t arg_info, lisp_object_t code, lisp
     struct lisp_function *fnptr = LispFunctionPtr(fn);
     fnptr->actual_function = actual_function;
     fnptr->kind = interp->syms.lambda;
-    fnptr->name = code;
     return fn;
 }
 

@@ -1802,6 +1802,7 @@ lisp_object_t evallet(lisp_object_t e, lisp_object_t a)
 
 lisp_object_t set_symbol_value(lisp_object_t symbol, lisp_object_t value)
 {
+    check_symbol(symbol);
     struct symbol *sym = SymbolPtr(symbol);
     sym->value = value;
     return value;
@@ -1809,18 +1810,21 @@ lisp_object_t set_symbol_value(lisp_object_t symbol, lisp_object_t value)
 
 lisp_object_t symbol_value(lisp_object_t symbol)
 {
+    check_symbol(symbol);
     struct symbol *sym = SymbolPtr(symbol);
     return sym->value;
 }
 
 lisp_object_t symbol_function(lisp_object_t symbol)
 {
+    check_symbol(symbol);
     struct symbol *sym = SymbolPtr(symbol);
     return sym->function;
 }
 
 lisp_object_t set_symbol_function(lisp_object_t symbol, lisp_object_t function)
 {
+    check_symbol(symbol);
     struct symbol *sym = SymbolPtr(symbol);
     struct lisp_function *fnptr = LispFunctionPtr(function);
     sym->function = function;

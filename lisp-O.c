@@ -107,3 +107,36 @@ lisp_object_t svref_set_unsafe(lisp_object_t vector, lisp_object_t index, lisp_o
     storage[Int(index)] = newvalue;
     return newvalue;
 }
+
+lisp_object_t caar(lisp_object_t obj)
+{
+    lisp_object_t x = car(obj);
+    return car(x);
+}
+
+lisp_object_t cadr(lisp_object_t obj)
+{
+    return car(cdr(obj));
+}
+
+lisp_object_t cdar(lisp_object_t obj)
+{
+    return cdr(car(obj));
+}
+
+lisp_object_t cddr(lisp_object_t obj)
+{
+    return cdr(cdr(obj));
+}
+
+lisp_object_t caddr(lisp_object_t obj)
+{
+    lisp_object_t cdr1 = cdr(obj);
+    lisp_object_t cdr2 = cdr(cdr1);
+    return car(cdr2);
+}
+
+lisp_object_t cadar(lisp_object_t obj)
+{
+    return car(cdr(car(obj)));
+}

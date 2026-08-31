@@ -160,3 +160,15 @@ void vm_inst_push(struct vm *vm, lisp_object_t obj)
     assert(vm->top_of_data_stack - vm->data_stack < vm->data_stack_size);
     *(vm->top_of_data_stack++) = obj;
 }
+
+void vm_inst_pop(struct vm *vm)
+{
+    vm->top_of_data_stack--;
+    assert(vm->top_of_data_stack >= vm->data_stack);
+}
+
+lisp_object_t vm_pop(struct vm *vm)
+{
+    assert(vm->top_of_data_stack >= vm->data_stack);
+    return *(--vm->top_of_data_stack);
+}

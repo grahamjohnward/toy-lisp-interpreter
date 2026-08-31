@@ -148,12 +148,6 @@ lisp_object_t vm_get_stack(struct vm *vm)
     return result;
 }
 
-lisp_object_t vm_pop(struct vm *vm)
-{
-    assert(vm->top_of_data_stack >= vm->data_stack);
-    return *(--vm->top_of_data_stack);
-}
-
 lisp_object_t vm_peek(struct vm *vm)
 {
     assert(vm->top_of_data_stack > vm->data_stack);
@@ -161,12 +155,6 @@ lisp_object_t vm_peek(struct vm *vm)
 }
 
 /** Instructions **/
-
-void vm_inst_pop(struct vm *vm)
-{
-    vm->top_of_data_stack--;
-    assert(vm->top_of_data_stack >= vm->data_stack);
-}
 
 static void vm_setup_funcall(struct vm *vm)
 {

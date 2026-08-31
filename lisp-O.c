@@ -92,3 +92,18 @@ lisp_object_t eq(lisp_object_t o1, lisp_object_t o2)
 {
     return o1 == o2 ? T : NIL;
 }
+
+lisp_object_t svref_unsafe(lisp_object_t vector, lisp_object_t index)
+{
+    struct vector *v = VectorPtr(vector);
+    lisp_object_t *storage = (lisp_object_t *)(((char *)v) + sizeof(struct vector));
+    return storage[Int(index)];
+}
+
+lisp_object_t svref_set_unsafe(lisp_object_t vector, lisp_object_t index, lisp_object_t newvalue)
+{
+    struct vector *v = VectorPtr(vector);
+    lisp_object_t *storage = (lisp_object_t *)(((char *)v) + sizeof(struct vector));
+    storage[Int(index)] = newvalue;
+    return newvalue;
+}

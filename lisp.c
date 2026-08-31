@@ -21,12 +21,6 @@ struct lisp_interpreter *interp;
 
 static int interpreter_initialized;
 
-struct vector {
-    object_header_t header;
-    lisp_object_t len;
-    size_t size_bytes;
-};
-
 static void check_string(lisp_object_t obj)
 {
     if (stringp(obj) == NIL)

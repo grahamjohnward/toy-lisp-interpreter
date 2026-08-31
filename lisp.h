@@ -94,7 +94,9 @@ void check_cons(lisp_object_t obj);
 
 lisp_object_t svref_c(lisp_object_t vector, size_t index);
 lisp_object_t svref(lisp_object_t vector, lisp_object_t index);
+lisp_object_t svref_unsafe(lisp_object_t vector, lisp_object_t index);
 lisp_object_t svref_set(lisp_object_t vector, lisp_object_t index, lisp_object_t newvalue);
+lisp_object_t svref_set_unsafe(lisp_object_t vector, lisp_object_t index, lisp_object_t newvalue);
 
 lisp_object_t allocate_string(size_t len, char *str);
 lisp_object_t allocate_vector(lisp_object_t size);
@@ -193,6 +195,12 @@ struct symbol {
     lisp_object_t function;
     lisp_object_t plist;
     uint64_t hash;
+};
+
+struct vector {
+    object_header_t header;
+    lisp_object_t len;
+    size_t size_bytes;
 };
 
 struct lisp_heap {

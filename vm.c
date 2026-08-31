@@ -5,6 +5,11 @@
 #include <setjmp.h>
 #include <stdio.h>
 
+#ifndef VM_TRACE_ENABLED
+#define svref svref_unsafe
+#define svref_set svref_set_unsafe
+#endif
+
 /* Defined in vm-O.c: */
 void vm_run_one_instruction(struct vm *vm);
 
@@ -453,7 +458,7 @@ lisp_object_t vm_make_simple_function(lisp_object_t arg_info, lisp_object_t code
 static lisp_object_t frame_has_tag(struct vm_call_stack_frame *frame, lisp_object_t tag)
 {
     for (lisp_object_t t = frame->tags; t != NIL; t = cdr(t)) {
-        if (eq(svref_c(car(t), 0), tag) != NIL) {
+        if (eq(svref(car(t), 0), tag) != NIL) {
             return car(t);
         }
     }
@@ -481,7 +486,7 @@ void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
     // 1.  Implementation of `(go ...)` in `tagbody`
     // 2.  Native exceptions i.e. `raise()` called in native code.
     if (tag_info != NIL) {
-        vm_inst_jmp(vm, svref_c(tag_info, 1));
+        vm_inst_jmp(vm, svref(tag_info, LispInt(1)));
         return;
     }
     // Is restoring data stack etc. actually the right behaviour when this is
@@ -490,8 +495,8 @@ void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
     for (struct vm_call_stack_frame *frame = vm->call_stack_pointer - 1; frame >= vm->call_stack; frame--) {
         lisp_object_t tag_info = frame_has_tag(frame, tag);
         if (tag_info != NIL) {
-            lisp_object_t dest = svref_c(tag_info, 1);
-            lisp_object_t stack_offset = svref_c(tag_info, 2);
+            lisp_object_t dest = svref(tag_info, LispInt(1));
+            lisp_object_t stack_offset = svref(tag_info, LispInt(2));
             vm->call_stack_pointer = frame;
             vm->registers = *frame;
             vm->top_of_data_stack = vm->data_stack + Int(stack_offset);

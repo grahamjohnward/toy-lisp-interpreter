@@ -475,7 +475,6 @@ static void gc_if_needed(size_t bytes_needed)
         size_t bytes_in_use_now = heap->freeptr - heap->from_space;
         size_t bytes_free = heap->size_bytes / 2 - bytes_in_use_now;
         if (bytes_free < bytes_needed) {
-            printf("%s\n", print_object(interp->symbol_table));
             printf("Heap exhausted\n");
             exit(1);
         }

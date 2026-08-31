@@ -457,3 +457,5 @@
   (princ "\n")
   ;; You can't do anything after %save-image as it calls exit
   (%save-image filename))
+
+(defparameter *print-readably* nil)

@@ -99,8 +99,6 @@
 	  (vector (make-vector (cdr label-info)))
 	  (i 0))
       (dolist (obj list)
-        (when (functionp obj)
-          (%asm abort))
 	(if (consp obj)
 	    (let ((first (car obj)))
 	      (cond ((eq first 'target)
@@ -362,11 +360,12 @@
                                                   ,@compiled-body))
                   (setq compiled-body `(,@preamble ,@compiled-body)))))
 	  (let ((code (assemble compiled-body)))
-            `(push ,arg-info push ,code
-                   push 2
-                   push ,(if closurep '%vm-make-function
-                             '%vm-make-simple-function)
-                   call)))))))
+            (if closurep
+                `(push ,arg-info push ,code
+                       push 2
+                       push %vm-make-function
+                       call)
+                `(push ,(%vm-make-simple-function arg-info code)))))))))
 
 (defun compile-if (expr ctxt)
   (assert (eq (car expr) 'if))
@@ -574,7 +573,7 @@
 (defun %compile (expr ctxt)
   (cond ((atom expr) 
 	 (cond ((or (stringp expr) (integerp expr) (floatp expr)
-                    (eq t expr) (eq nil expr))
+                    (functionp expr) (eq t expr) (eq nil expr))
 		`(push ,expr))
 	       ((symbolp expr)
 		(let ((lookup-result (lexical-context-lookup ctxt expr)))

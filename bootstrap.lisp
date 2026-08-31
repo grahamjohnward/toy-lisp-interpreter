@@ -8,6 +8,7 @@
                           ("raise.lisp" . "raise.compiled")
 			  ("bootstrap.lisp" . "bootstrap.compiled"))))
   (tagbody
+  (setq *print-readably* t)
    next-file
      (if (eq files-to-compile nil)
 	 (go done))

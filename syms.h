@@ -31,6 +31,7 @@ struct syms {
     lisp_object_t closure;
     lisp_object_t funcall;
     lisp_object_t single_float;
+    lisp_object_t print_readably;
 };
 
 #endif

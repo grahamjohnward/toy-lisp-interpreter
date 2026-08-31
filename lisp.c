@@ -178,6 +178,7 @@ static void init_symbols()
     interp->syms.closure = sym("closure");
     interp->syms.funcall = sym("funcall");
     interp->syms.single_float = sym("single-float");
+    interp->syms.print_readably = sym("*print-readably*");
 }
 
 lisp_object_t length(lisp_object_t seq);
@@ -796,6 +797,7 @@ lisp_object_t gc()
     GC_COPY_SYMBOL(closure);
     GC_COPY_SYMBOL(funcall);
     GC_COPY_SYMBOL(single_float);
+    GC_COPY_SYMBOL(print_readably);
 #undef GC_COPY_SYMBOL
     /* Roots - VM */
     gc_copy_vm(&interp->heap, &interp->vm);
@@ -1195,6 +1197,18 @@ static lisp_object_t parse_native_pointer(struct text_stream *ts)
     return make_native_pointer((void *)result);
 }
 
+static lisp_object_t parse_function(struct text_stream *ts)
+{
+    lisp_object_t list = parse1(ts);
+    lisp_object_t result = allocate_function();
+    struct lisp_function *fnptr = LispFunctionPtr(result);
+    fnptr->kind = car(list);
+    fnptr->name = cadr(list);
+    fnptr->actual_function = caddr(list);
+
+    return result;
+}
+
 lisp_object_t parse_dispatch(struct text_stream *ts)
 {
     assert(tspeek(ts) == '#');
@@ -1210,6 +1224,9 @@ lisp_object_t parse_dispatch(struct text_stream *ts)
     case 'p':
         text_stream_advance(ts);
         return parse_native_pointer(ts);
+    case 'f':
+        text_stream_advance(ts);
+        return parse_function(ts);
     default:
         abort();
     }
@@ -1404,15 +1421,21 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
         string_buffer_append(sb, buf);
     } else if (functionp(obj) != NIL) {
         struct lisp_function *fnptr = LispFunctionPtr(obj);
-        if (fnptr->name != NIL) {
-            string_buffer_append(sb, "#<function ");
-            print_object_to_buffer(fnptr->name, sb);
-            string_buffer_append(sb, ">");
+        if (symbol_value(interp->syms.print_readably) != NIL) {
+            string_buffer_append(sb, "#f");
+            lisp_object_t to_print = List(fnptr->kind, fnptr->name, fnptr->actual_function);
+            print_object_to_buffer(to_print, sb);
         } else {
-            if (fnptr->kind == interp->syms.closure)
-                string_buffer_append(sb, "#<closure>");
-            else
-                string_buffer_append(sb, "#<function>");
+            if (fnptr->name != NIL) {
+                string_buffer_append(sb, "#<function ");
+                print_object_to_buffer(fnptr->name, sb);
+                string_buffer_append(sb, ">");
+            } else {
+                if (fnptr->kind == interp->syms.closure)
+                    string_buffer_append(sb, "#<closure>");
+                else
+                    string_buffer_append(sb, "#<function>");
+            }
         }
     }
 }

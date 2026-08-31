@@ -2310,6 +2310,15 @@ void test_symbol_function()
     free_interpreter();
 }
 
+void test_read_function()
+{
+    START_OF_TEST("read_function");
+    init_interpreter_for_tests();
+    lisp_object_t function = parse1_wrapper("#f(:kind :name :actual-function)");
+    check(functionp(function) != NIL, "functionp");
+    free_interpreter();
+}
+
 int main(int argc, char **argv)
 {
     test_skip_whitespace();
@@ -2484,6 +2493,7 @@ int main(int argc, char **argv)
     test_read_from_string();
     test_cons_bitmap();
     test_symbol_function();
+    test_read_function();
     if (fail_count)
         printf("%d checks failed\n", fail_count);
     else

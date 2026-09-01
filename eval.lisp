@@ -14,4 +14,4 @@
 	 last-bit
            ;; Append ret instruction
 	   (set-svref new-code j 8))
-        (funcall (%vm-make-simple-function #(nil 0) new-code))))))
+        (funcall (%vm-make-function #(nil 0) new-code))))))

@@ -365,7 +365,7 @@
                        push 2
                        push %vm-make-closure
                        call)
-                `(push ,(%vm-make-simple-function arg-info code)))))))))
+                `(push ,(%vm-make-function arg-info code)))))))))
 
 (defun compile-if (expr ctxt)
   (assert (eq (car expr) 'if))

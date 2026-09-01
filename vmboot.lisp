@@ -35,7 +35,7 @@
 		      (set-svref new-code j 8))
 		   ;; We don't want this to make a closure:
                    ;; XXX why is this using funcall??
-		   (funcall (%vm-make-simple-function #(nil 0) new-code)))))
+		   (funcall (%vm-make-function #(nil 0) new-code)))))
 	     (go next1))
         (end-of-file
          't))))

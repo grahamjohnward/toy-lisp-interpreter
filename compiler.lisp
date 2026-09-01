@@ -363,7 +363,7 @@
             (if closurep
                 `(push ,arg-info push ,code
                        push 2
-                       push %vm-make-function
+                       push %vm-make-closure
                        call)
                 `(push ,(%vm-make-simple-function arg-info code)))))))))
 

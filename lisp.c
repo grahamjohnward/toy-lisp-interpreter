@@ -304,7 +304,7 @@ static void init_builtins()
     DEFBUILTIN("make-symbol", make_symbol, 1);
     DEFBUILTIN("nthcdr", nthcdr, 2);
     DEFBUILTIN("vm-get-stack", get_vm_stack, 0);
-    DEFBUILTIN("%vm-make-function", vm_make_function, 2);
+    DEFBUILTIN("%vm-make-closure", vm_make_function, 2);
     DEFBUILTIN("%vm-make-simple-function", vm_make_simple_function, 2);
     DEFBUILTIN("open", do_open, 2);
     DEFBUILTIN("close", do_close, 1);

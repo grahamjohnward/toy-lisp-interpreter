@@ -1,5 +1,7 @@
 #include "lisp.h"
 
+#include <assert.h>
+
 #define ISTYPE(obj, type) ((((obj) & TYPE_MASK) == (type)) ? T : NIL)
 
 lisp_object_t stringp(lisp_object_t obj)
@@ -139,4 +141,28 @@ lisp_object_t caddr(lisp_object_t obj)
 lisp_object_t cadar(lisp_object_t obj)
 {
     return car(cdr(car(obj)));
+}
+
+void heap_set_cons_bit(struct lisp_heap *heap, char *cons_address)
+{
+    ptrdiff_t offset = cons_address - heap->heap;
+    assert(offset % 8 == 0);
+    /* Offset measured in lisp_object_t size */
+    int diff = offset / 8;
+    int bytediff = diff / 8;
+    int bit = diff % 8;
+    uint8_t *byte_to_set = (uint8_t *)heap->cons_bitmap + bytediff;
+    *byte_to_set |= (1 << bit);
+}
+
+int heap_get_cons_bit(struct lisp_heap *heap, char *cons_address)
+{
+    ptrdiff_t offset = cons_address - heap->heap;
+    assert(offset % 8 == 0);
+    /* Offset measured in lisp_object_t size */
+    int diff = offset / 8;
+    int bytediff = diff / 8;
+    int bit = diff % 8;
+    uint8_t *byte_to_read = (uint8_t *)heap->cons_bitmap + bytediff;
+    return *byte_to_read & (1 << bit);
 }

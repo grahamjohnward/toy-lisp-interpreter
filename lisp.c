@@ -217,9 +217,9 @@ lisp_object_t set_symbol_function(lisp_object_t symbol, lisp_object_t function);
 
 lisp_object_t nthcdr(lisp_object_t n, lisp_object_t list);
 
-lisp_object_t vm_make_function(lisp_object_t arg_info, lisp_object_t code_vector);
+lisp_object_t vm_make_closure(lisp_object_t arg_info, lisp_object_t code_vector);
 
-lisp_object_t vm_make_simple_function(lisp_object_t arg_info, lisp_object_t code_vector);
+lisp_object_t vm_make_function(lisp_object_t arg_info, lisp_object_t code_vector);
 
 lisp_object_t basic_eval(lisp_object_t e);
 
@@ -304,8 +304,8 @@ static void init_builtins()
     DEFBUILTIN("make-symbol", make_symbol, 1);
     DEFBUILTIN("nthcdr", nthcdr, 2);
     DEFBUILTIN("vm-get-stack", get_vm_stack, 0);
-    DEFBUILTIN("%vm-make-closure", vm_make_function, 2);
-    DEFBUILTIN("%vm-make-function", vm_make_simple_function, 2);
+    DEFBUILTIN("%vm-make-closure", vm_make_closure, 2);
+    DEFBUILTIN("%vm-make-function", vm_make_function, 2);
     DEFBUILTIN("open", do_open, 2);
     DEFBUILTIN("close", do_close, 1);
     DEFBUILTIN("write", lisp_write, 2);

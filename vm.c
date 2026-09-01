@@ -433,12 +433,12 @@ lisp_object_t vm_make_function2(lisp_object_t arg_info, lisp_object_t code, lisp
     return fn;
 }
 
-lisp_object_t vm_make_function(lisp_object_t arg_info, lisp_object_t code)
+lisp_object_t vm_make_closure(lisp_object_t arg_info, lisp_object_t code)
 {
     return vm_make_function2(arg_info, code, interp->vm.registers.environment);
 }
 
-lisp_object_t vm_make_simple_function(lisp_object_t arg_info, lisp_object_t code)
+lisp_object_t vm_make_function(lisp_object_t arg_info, lisp_object_t code)
 {
     return vm_make_function2(arg_info, code, NIL);
 }

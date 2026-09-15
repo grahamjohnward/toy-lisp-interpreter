@@ -1,10 +1,10 @@
 (progn
   (set-symbol-function 'defmacro
 		       #'(lambda (name arglist &body body)
-			   `(progn
+			   `(eval-when :compile-toplevel (progn
 			      (let ((result (set-symbol-function ',name #'(lambda ,arglist (block ,name ,@body)))))
 				(putprop ',name 'macro 't)
-				result))))
+				result)))))
   (putprop 'defmacro 'macro 't))
 
 (defmacro defun (fname arglist &body body)

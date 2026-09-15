@@ -612,6 +612,8 @@
 		  (compile-return-from expr ctxt))
 		 ((eq sym 'condition-case)
 		  (compile-condition-case expr ctxt))
+                 ((eq sym 'eval-when)
+                  (raise 'eval-when-not-at-top-level))
 		 (t (compile-function-call expr ctxt)))))
 	(t (raise 'bad-expression expr))))
 
@@ -710,10 +712,35 @@
 	  ((eq sym 'quote) form)
 	  ((eq sym 'function)
 	   (macroexpand-all-function form))
+          ((eq sym 'eval-when)
+           `(eval-when ,(cadr form) ,(macroexpand-all (caddr form))))
 	  (t `(,sym ,@(macroexpand-all-list (cdr form)))))))
 
 ;; Ultimately this should simply be called `compile`
 (defun compile-toplevel (expr)
+  (let (eval)
+    (let ((ctxt (make-lexical-context)))
+      (let ((bytecode
+             (condition-case e
+                 (let (macroexpanded-code)
+	           (setq macroexpanded-code
+                         (macroexpand-all (convert-quasiquote expr 0)))
+                   (when (and (consp macroexpanded-code)
+                              (eq (first macroexpanded-code) 'eval-when)
+                              (eq (second macroexpanded-code) :compile-toplevel))
+                     (setq macroexpanded-code (third macroexpanded-code))
+                     (setq eval t))
+	           (assemble
+                       (compile
+                        (convert-quasiquote macroexpanded-code 0) ctxt)))
+               (type-error (print (list e expr)))
+	       (assertion-failed (print (list macroexpanded-code expr)))
+	       (bad-function (print (list macroexpanded-code expr))))))
+        (when eval
+          (funcall (%eval-make-function bytecode)))
+        bytecode))))
+
+(defun compile-toplevel-old (expr)
   (let ((ctxt (make-lexical-context)))
     (let (macroexpanded-code)
       (condition-case e

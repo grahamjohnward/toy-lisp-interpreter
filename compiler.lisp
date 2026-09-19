@@ -716,40 +716,18 @@
            `(eval-when ,(cadr form) ,(macroexpand-all (caddr form))))
 	  (t `(,sym ,@(macroexpand-all-list (cdr form)))))))
 
-;; Ultimately this should simply be called `compile`
 (defun compile-toplevel (expr)
-  (let (eval)
-    (let ((ctxt (make-lexical-context)))
-      (let ((bytecode
-             (condition-case e
-                 (let (macroexpanded-code)
-	           (setq macroexpanded-code
-                         (macroexpand-all (convert-quasiquote expr 0)))
-                   (when (and (consp macroexpanded-code)
-                              (eq (first macroexpanded-code) 'eval-when)
-                              (eq (second macroexpanded-code) :compile-toplevel))
-                     (setq macroexpanded-code (third macroexpanded-code))
-                     (setq eval t))
-	           (assemble
-                       (compile
-                        (convert-quasiquote macroexpanded-code 0) ctxt)))
-               (type-error (print (list e expr)))
-	       (assertion-failed (print (list macroexpanded-code expr)))
-	       (bad-function (print (list macroexpanded-code expr))))))
-        (when eval
-          (funcall (%eval-make-function bytecode)))
-        bytecode))))
-
-(defun compile-toplevel-old (expr)
-  (let ((ctxt (make-lexical-context)))
-    (let (macroexpanded-code)
-      (condition-case e
-	  (progn
-	    (setq macroexpanded-code
-                  (macroexpand-all (convert-quasiquote expr 0)))
-	    (assemble
-                (compile (convert-quasiquote macroexpanded-code 0) ctxt)))
-        (type-error (print (list e expr)))
-	(assertion-failed (print (list macroexpanded-code expr)))
-	(bad-function (print (list macroexpanded-code expr)))
-        ))))
+  (let (eval
+        (macroexpanded-code (macroexpand-all (convert-quasiquote expr 0))))
+    (when (and (consp macroexpanded-code)
+               (eq (first macroexpanded-code) 'eval-when)
+               (eq (second macroexpanded-code) :compile-toplevel))
+      (setq macroexpanded-code (third macroexpanded-code))
+      (setq eval t))
+    (let* ((qq-converted-code (convert-quasiquote macroexpanded-code 0))
+           (compiled-code (compile qq-converted-code (make-lexical-context))))
+      (when eval
+        (let* ((compiled-code-for-eval-when `(make-env 0 ,@compiled-code))
+               (bytecode-for-eval-when (assemble compiled-code-for-eval-when)))
+          (funcall (%eval-make-function bytecode-for-eval-when))))
+      (assemble compiled-code))))

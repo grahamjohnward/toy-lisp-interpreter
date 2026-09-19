@@ -306,13 +306,6 @@
       nil
       (cons (funcall function (car list)) (mapcar function (cdr list)))))
 
-;; Because we don't have closures in the interpreted language
-(defun mapcar-with-context (function list context)
-  (if (null list)
-      nil
-      (cons (funcall function (car list) context)
-	    (mapcar-with-context function (cdr list) context))))
-
 (defun %reverse-aux (list acc)
   (if (null list)
       acc
@@ -441,14 +434,14 @@
                                     thing-initializer)))))
                result)))
          ,@(let ((context (cons 2 name)))
-             (mapcar-with-context
-              #'(lambda (slot-name context)
+             (mapcar
+              #'(lambda (slot-name)
                   (prog1
                       (%defstruct-make-accessors (cdr context)
                                                  (symbol-name slot-name)
                                                  (car context))
                     (rplaca context (+ 1 (car context)))))
-              slot-names context))
+              slot-names))
          ',struct-name))))
 
 (defun save-image (filename)

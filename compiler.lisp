@@ -435,13 +435,13 @@
 				     `(set-tag ,(cdr pair) (target ,(cdr pair))))
 				 tag-alist))
 	 (apply #'append
-		(mapcar-with-context
-		 #'(lambda (form ctxt)
+		(mapcar
+		 #'(lambda (form)
 		     (if (symbolp form)
 			 `((label
 			    ,(lexical-context-tag-lookup ctxt form)))
 			 (append (compile form ctxt) '(pop))))
-		 (cdr expr) ctxt))
+		 (cdr expr)))
 	 '(push nil))
       (lexical-context-pop-tag-table ctxt))))
 
@@ -485,13 +485,10 @@
 	     push 2
 	     raise))))
 
-(defun compile-condition-case-handler (expr+tag mapcar-context)
+(defun compile-condition-case-handler (expr+tag ctxt jmp-target varname)
   (let ((expr (car expr+tag))
 	(tag (cddr expr+tag))
-        (condition (cadr expr+tag))
-	(ctxt (first mapcar-context))
-	(jmp-target (second mapcar-context))
-	(varname (third mapcar-context)))
+        (condition (cadr expr+tag)))
     `((label ,tag)
       push ,condition
       swap
@@ -530,9 +527,14 @@
 	    (compiled-body (compile body1 ctxt)))
 	(let ((compiled-handlers
 	       (apply #'append
-	       (mapcar-with-context #'compile-condition-case-handler
-				    (zip (mapcar #'cdr handlers) tag-alist)
-				    (list ctxt jmp-target e)))))
+	              (mapcar
+                       #'(lambda (expr+tag)
+                           (compile-condition-case-handler
+                            expr+tag
+                            ctxt
+                            jmp-target
+                            e))
+		       (zip (mapcar #'cdr handlers) tag-alist)))))
 	  `(,@set-tags
 	    ,@compiled-body
 	    jmp (target ,jmp-target)

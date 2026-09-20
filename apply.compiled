@@ -63,7 +63,6 @@
       0 2
       0 funcall
       1
-      4
       8)
   0 2
   0 %vm-make-closure

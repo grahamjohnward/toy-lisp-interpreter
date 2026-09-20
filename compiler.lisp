@@ -49,7 +49,7 @@
   (setq *instruction-info-alist* (reverse *instruction-info-alist*)))
 
 (define-instructions
-    ;; These have to be in the same order as the enum in vm.c
+    ;; These have to be in the same order as the enum in vm-O.c
     '((push 1)
       (call 0)
       (get 2)

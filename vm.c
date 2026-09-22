@@ -262,12 +262,12 @@ static void vm_handle_rest_args(struct vm *vm, lisp_object_t arity)
     vm_inst_push(vm, LispInt(args_left + 1));
 }
 
-void vm_inst_rest_args(struct vm *vm, lisp_object_t arity)
+lisp_object_t *vm_inst_rest_args(struct vm *vm, lisp_object_t arity)
 {
     vm_handle_rest_args(vm, arity);
 }
 
-void vm_inst_setup_env(struct vm *vm, lisp_object_t arity)
+lisp_object_t *vm_inst_setup_env(struct vm *vm, lisp_object_t arity)
 {
     lisp_object_t arg_count = vm_pop(vm);
     vm->registers.environment = allocate_vector(arity + LispInt(1));
@@ -276,7 +276,7 @@ void vm_inst_setup_env(struct vm *vm, lisp_object_t arity)
     svref_set(vm->registers.environment, 0, vm->registers.closure_env);
 }
 
-void vm_inst_setup_env2(struct vm *vm, lisp_object_t arity)
+lisp_object_t *vm_inst_setup_env2(struct vm *vm, lisp_object_t arity)
 {
     lisp_object_t arg_count = vm_pop(vm);
     if (arg_count > arity)
@@ -317,7 +317,7 @@ static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
     vm->registers.tags = NIL;
 }
 
-void vm_inst_call(struct vm *vm)
+lisp_object_t *vm_inst_call(struct vm *vm)
 {
     lisp_object_t fn = NIL;
     int funcall_count = 0;
@@ -341,7 +341,7 @@ start:
         vm_inst_push(vm, orig_fn);
         vm_inst_push(vm, LispInt(2));
         vm_inst_raise(vm);
-        return;
+        return NULL;
     }
     struct lisp_function *fnptr = LispFunctionPtr(fn);
 
@@ -364,7 +364,7 @@ start:
     }
 }
 
-void vm_inst_ret(struct vm *vm)
+lisp_object_t *vm_inst_ret(struct vm *vm)
 {
     assert(vm->call_stack_pointer > vm->call_stack);
     struct vm_call_stack_frame *call_stack_frame = --vm->call_stack_pointer;
@@ -382,7 +382,7 @@ static lisp_object_t findenv(lisp_object_t env, int offset)
     return env;
 }
 
-void vm_inst_get(struct vm *vm, lisp_object_t n, lisp_object_t m)
+lisp_object_t *vm_inst_get(struct vm *vm, lisp_object_t n, lisp_object_t m)
 {
     lisp_object_t env = NIL;
     if (n > 0)
@@ -395,7 +395,7 @@ void vm_inst_get(struct vm *vm, lisp_object_t n, lisp_object_t m)
     vm_inst_push(vm, svref(env, m));
 }
 
-void vm_inst_set(struct vm *vm, lisp_object_t n, lisp_object_t m)
+lisp_object_t *vm_inst_set(struct vm *vm, lisp_object_t n, lisp_object_t m)
 {
     lisp_object_t env = findenv(vm->registers.environment, Int(n));
     assert(length(env) > m);
@@ -403,19 +403,19 @@ void vm_inst_set(struct vm *vm, lisp_object_t n, lisp_object_t m)
     svref_set(env, m, vm_peek(vm));
 }
 
-void vm_inst_abort(struct vm *vm)
+lisp_object_t *vm_inst_abort(struct vm *vm)
 {
     vm_print_stack(vm);
     vm_print_call_stack(vm, "aborted");
     abort();
 }
 
-void vm_inst_jmp(struct vm *vm, lisp_object_t dest)
+lisp_object_t *vm_inst_jmp(struct vm *vm, lisp_object_t dest)
 {
     vm->registers.instruction_pointer = vm->registers.code_vector_storage + Int(dest);
 }
 
-void vm_inst_jmp_if_nil(struct vm *vm, lisp_object_t dest)
+lisp_object_t *vm_inst_jmp_if_nil(struct vm *vm, lisp_object_t dest)
 {
     lisp_object_t value = vm_pop(vm);
     if (value == NIL) {
@@ -453,7 +453,7 @@ static lisp_object_t frame_has_tag(struct vm_call_stack_frame *frame, lisp_objec
     return NIL;
 }
 
-void vm_inst_set_tag(struct vm *vm, lisp_object_t tag, lisp_object_t dest)
+lisp_object_t *vm_inst_set_tag(struct vm *vm, lisp_object_t tag, lisp_object_t dest)
 {
     ptrdiff_t stack_offset_c = vm->top_of_data_stack - vm->data_stack;
     lisp_object_t stack_offset = LispInt(stack_offset_c);
@@ -465,7 +465,7 @@ void vm_inst_set_tag(struct vm *vm, lisp_object_t tag, lisp_object_t dest)
 }
 // Do we also need an instruction to clear a tag?  Think so ...
 
-void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
+lisp_object_t *vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
 {
     lisp_object_t tag_info = frame_has_tag(&vm->registers, tag);
     // These seem like two different behaviours according to whether the tag
@@ -475,7 +475,7 @@ void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
     // 2.  Native exceptions i.e. `raise()` called in native code.
     if (tag_info != NIL) {
         vm_inst_jmp(vm, svref(tag_info, LispInt(1)));
-        return;
+        return NULL;
     }
     // Is restoring data stack etc. actually the right behaviour when this is
     // happening from (go ...) inside a tagbody?  Maybe it is actually.  Needs a
@@ -489,7 +489,7 @@ void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
             vm->registers = *frame;
             vm->top_of_data_stack = vm->data_stack + Int(stack_offset);
             vm_inst_jmp(vm, dest);
-            return;
+            return NULL;
         }
     }
     char *str = print_object(tag);
@@ -498,7 +498,7 @@ void vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag)
     abort();
 }
 
-void vm_inst_raise(struct vm *vm)
+lisp_object_t *vm_inst_raise(struct vm *vm)
 {
     // So the idea now is that this instruction will be the (entire) body of the
     // RAISE function, and tag and value should come from the stack.  I think it
@@ -537,11 +537,11 @@ void vm_inst_raise(struct vm *vm)
     vm_inst_push(vm, value);
 }
 
-void vm_inst_nop(struct vm *vm)
+lisp_object_t *vm_inst_nop(struct vm *vm)
 {
 }
 
-void vm_inst_swap(struct vm *vm)
+lisp_object_t *vm_inst_swap(struct vm *vm)
 {
     lisp_object_t top = vm_pop(vm);
     lisp_object_t next = vm_pop(vm);
@@ -549,19 +549,19 @@ void vm_inst_swap(struct vm *vm)
     vm_inst_push(vm, next);
 }
 
-void vm_inst_set_fp(struct vm *vm)
+lisp_object_t *vm_inst_set_fp(struct vm *vm)
 {
     lisp_object_t actual_arg_count = vm_pop(vm);
     assert(integerp(actual_arg_count) != NIL);
     vm->registers.fp = vm->top_of_data_stack - Int(actual_arg_count);
 }
 
-void vm_inst_get0(struct vm *vm, lisp_object_t n)
+lisp_object_t *vm_inst_get0(struct vm *vm, lisp_object_t n)
 {
     vm_inst_push(vm, vm->registers.fp[Int(n) - 1]);
 }
 
-void vm_inst_set0(struct vm *vm, lisp_object_t n)
+lisp_object_t *vm_inst_set0(struct vm *vm, lisp_object_t n)
 {
     vm->registers.fp[Int(n) - 1] = vm_peek(vm);
 }

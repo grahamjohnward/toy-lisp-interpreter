@@ -79,7 +79,7 @@ void vm_run_one_instruction(struct vm *vm)
 
 void vm_run(struct vm *vm)
 {
-    int ip = 0;
+    ip_t ip = vm->registers.code_vector_storage;
     while (vm->registers.instruction_pointer < vm->registers.max_instruction_pointer) {
 #ifdef VM_TRACE_ENABLED
         if (vm->vm_trace && (vm->registers.instruction_pointer - vm->registers.code_vector_storage) == 0)
@@ -130,8 +130,10 @@ void vm_run(struct vm *vm)
             TRACE(instruction);
             abort();
         }
-        if (vm->registers.instruction_pointer != vm->registers.code_vector_storage + ip)
+        if (vm->registers.instruction_pointer != ip) {
+            printf("%p %p\n", vm->registers.instruction_pointer, ip);
             abort();
+        }
 #undef CHECK_INSTRUCTION
 
 #ifdef VM_TRACE_ENABLED

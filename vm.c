@@ -215,6 +215,7 @@ static ip_t vm_call_builtin_function(struct vm *vm, ip_t ip, struct lisp_functio
     } else {
         vm->setjmp_activated = 1;
     }
+    ptrdiff_t boobah = ip - vm->registers.code_vector_storage;
     int arity_c = Int(arity);
     switch (arity_c) {
     case 0:
@@ -240,6 +241,7 @@ static ip_t vm_call_builtin_function(struct vm *vm, ip_t ip, struct lisp_functio
         abort();
     }
     vm->setjmp_activated = 0;
+    ip = vm->registers.code_vector_storage + boobah;
     vm_inst_push(vm, 0, result);
     return ip + 1;
 }
@@ -351,7 +353,7 @@ start:
         return vm_call_builtin_function(vm, ip, fnptr);
     } else if (fnptr->kind == interp->syms.lambda) {
         vm_call_lambda(vm, fnptr);
-        return 0;
+        return vm->registers.code_vector_storage;
     } else {
         char *str = print_object(fn);
         printf("Bad function: %s\n", str);
@@ -372,7 +374,7 @@ ip_t vm_inst_ret(struct vm *vm, ip_t ip)
     assert(vm->call_stack_pointer > vm->call_stack);
     struct vm_call_stack_frame *call_stack_frame = --vm->call_stack_pointer;
     vm->registers = *call_stack_frame;
-    return vm->registers.instruction_pointer - vm->registers.code_vector_storage;
+    return vm->registers.instruction_pointer;
 }
 
 static lisp_object_t findenv(lisp_object_t env, int offset)
@@ -420,7 +422,7 @@ ip_t vm_inst_abort(struct vm *vm, ip_t ip)
 ip_t vm_inst_jmp(struct vm *vm, ip_t ip, lisp_object_t dest)
 {
     vm->registers.instruction_pointer = vm->registers.code_vector_storage + Int(dest);
-    return Int(dest);
+    return vm->registers.code_vector_storage + Int(dest);
 }
 
 ip_t vm_inst_jmp_if_nil(struct vm *vm, ip_t ip, lisp_object_t dest)
@@ -428,7 +430,7 @@ ip_t vm_inst_jmp_if_nil(struct vm *vm, ip_t ip, lisp_object_t dest)
     lisp_object_t value = vm_pop(vm);
     if (value == NIL) {
         vm->registers.instruction_pointer = vm->registers.code_vector_storage + Int(dest);
-        return Int(dest);
+        return vm->registers.code_vector_storage + Int(dest);
     } else {
         return ip + 2;
     }
@@ -466,6 +468,7 @@ static lisp_object_t frame_has_tag(struct vm_call_stack_frame *frame, lisp_objec
 
 ip_t vm_inst_set_tag(struct vm *vm, ip_t ip, lisp_object_t tag, lisp_object_t dest)
 {
+    ptrdiff_t boobah = ip - vm->registers.code_vector_storage;
     ptrdiff_t stack_offset_c = vm->top_of_data_stack - vm->data_stack;
     lisp_object_t stack_offset = LispInt(stack_offset_c);
     lisp_object_t tag_info = allocate_vector(LispInt(3));
@@ -473,6 +476,7 @@ ip_t vm_inst_set_tag(struct vm *vm, ip_t ip, lisp_object_t tag, lisp_object_t de
     svref_set(tag_info, LispInt(1), dest);
     svref_set(tag_info, LispInt(2), stack_offset);
     vm->registers.tags = cons(tag_info, vm->registers.tags);
+    ip = vm->registers.code_vector_storage + boobah;
     return ip + 3;
 }
 // Do we also need an instruction to clear a tag?  Think so ...

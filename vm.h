@@ -6,6 +6,10 @@
 
 #define LISP_VM_STACK_SIZE 1024
 
+typedef lisp_object_t *ip_t;
+
+#define NULL_IP NULL
+
 struct vm_call_stack_frame {
     lisp_object_t code_vector;
     lisp_object_t *code_vector_storage;
@@ -38,7 +42,7 @@ struct vm {
     int setjmp_activated;
 
     // woo
-    lisp_object_t **wowza;
+    ip_t *wowza;
 };
 
 void vm_init(struct vm *vm, size_t size);
@@ -62,8 +66,6 @@ lisp_object_t *get_vector_storage(lisp_object_t vector);
 void vm_set_code_vector(struct vm *vm, lisp_object_t code_vector);
 
 /** Instructions **/
-
-typedef ptrdiff_t ip_t;
 
 ip_t vm_inst_push(struct vm *vm, ip_t ip, lisp_object_t obj);
 

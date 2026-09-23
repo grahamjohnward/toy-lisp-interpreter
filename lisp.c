@@ -1620,9 +1620,9 @@ lisp_object_t raise(lisp_object_t sym, lisp_object_t value)
         //     (some-error (do-something-else)))
         // Then we are always handling the error a step up the stack from where it is thrown
 
-        vm_inst_push(&interp->vm, sym);
-        vm_inst_push(&interp->vm, value);
-        vm_inst_push(&interp->vm, LispInt(2));
+        vm_inst_push(&interp->vm, 0, sym);
+        vm_inst_push(&interp->vm, 0, value);
+        vm_inst_push(&interp->vm, 0, LispInt(2));
         // The split between what happens in here and what happens after the longjmp
         // is interesting (?)
         longjmp(interp->vm.jmp_buf, 1);

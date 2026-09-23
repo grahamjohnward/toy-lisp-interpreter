@@ -191,7 +191,7 @@ static void vm_setup_funcall(struct vm *vm)
 #define setjmp _setjmp
 #endif
 
-static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
+static ip_t vm_call_builtin_function(struct vm *vm, ip_t ip, struct lisp_function *fnptr)
 {
     lisp_object_t result = NIL;
     lisp_object_t actual_function = fnptr->actual_function;
@@ -202,17 +202,16 @@ static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
     lisp_object_t provided_arity = vm_pop(vm);
     lisp_object_t arity = (int64_t)caddr(actual_function);
     if (provided_arity != arity) {
-        vm_inst_push(vm, NULL, sym("bad-arity"));
-        vm_inst_push(vm, NULL, cons(provided_arity, arity));
-        vm_inst_push(vm, NULL, LispInt(2));
-        vm_inst_raise(vm, NULL);
-        return;
+        vm_inst_push(vm, 0, sym("bad-arity"));
+        vm_inst_push(vm, 0, cons(provided_arity, arity));
+        vm_inst_push(vm, 0, LispInt(2));
+        return vm_inst_raise(vm, ip);
     }
     int v = setjmp(vm->jmp_buf);
     if (v != 0) {
-        vm_inst_raise(vm, NULL);
+        ip_t new_ip = vm_inst_raise(vm, ip);
         vm->setjmp_activated = 0;
-        return;
+        return new_ip;
     } else {
         vm->setjmp_activated = 1;
     }
@@ -241,7 +240,8 @@ static void vm_call_builtin_function(struct vm *vm, struct lisp_function *fnptr)
         abort();
     }
     vm->setjmp_activated = 0;
-    vm_inst_push(vm, NULL, result);
+    vm_inst_push(vm, 0, result);
+    return ip + 1;
 }
 
 static void vm_handle_rest_args(struct vm *vm, lisp_object_t arity)
@@ -258,25 +258,27 @@ static void vm_handle_rest_args(struct vm *vm, lisp_object_t arity)
         actual_rest_args = cons(vm_pop(vm), actual_rest_args);
         args_left--;
     }
-    vm_inst_push(vm, NULL, actual_rest_args);
-    vm_inst_push(vm, NULL, LispInt(args_left + 1));
+    vm_inst_push(vm, 0, actual_rest_args);
+    vm_inst_push(vm, 0, LispInt(args_left + 1));
 }
 
-lisp_object_t *vm_inst_rest_args(struct vm *vm, lisp_object_t *ip, lisp_object_t arity)
+ip_t vm_inst_rest_args(struct vm *vm, ip_t ip, lisp_object_t arity)
 {
     vm_handle_rest_args(vm, arity);
+    return ip + 2;
 }
 
-lisp_object_t *vm_inst_setup_env(struct vm *vm, lisp_object_t *ip, lisp_object_t arity)
+ip_t vm_inst_setup_env(struct vm *vm, ip_t ip, lisp_object_t arity)
 {
     lisp_object_t arg_count = vm_pop(vm);
     vm->registers.environment = allocate_vector(arity + LispInt(1));
     for (int i = Int(arg_count); i > 0; i--)
         svref_set(vm->registers.environment, LispInt(i), vm_pop(vm));
     svref_set(vm->registers.environment, 0, vm->registers.closure_env);
+    return ip + 2;
 }
 
-lisp_object_t *vm_inst_setup_env2(struct vm *vm, lisp_object_t *ip, lisp_object_t arity)
+ip_t vm_inst_setup_env2(struct vm *vm, ip_t ip, lisp_object_t arity)
 {
     lisp_object_t arg_count = vm_pop(vm);
     if (arg_count > arity)
@@ -295,6 +297,7 @@ lisp_object_t *vm_inst_setup_env2(struct vm *vm, lisp_object_t *ip, lisp_object_
     } else {
         vm->registers.environment = NIL;
     }
+    return ip + 2;
 }
 
 void vm_set_code_vector(struct vm *vm, lisp_object_t code_vector)
@@ -317,7 +320,7 @@ static void vm_call_lambda(struct vm *vm, struct lisp_function *fnptr)
     vm->registers.tags = NIL;
 }
 
-lisp_object_t *vm_inst_call(struct vm *vm, lisp_object_t *ip)
+ip_t vm_inst_call(struct vm *vm, ip_t ip)
 {
     lisp_object_t fn = NIL;
     int funcall_count = 0;
@@ -337,18 +340,18 @@ start:
     }
     if (functionp(fn) == NIL) {
         TRACE(orig_fn);
-        vm_inst_push(vm, NULL, sym("bad-function"));
-        vm_inst_push(vm, NULL, orig_fn);
-        vm_inst_push(vm, NULL, LispInt(2));
-        vm_inst_raise(vm, NULL);
-        return NULL;
+        vm_inst_push(vm, 0, sym("bad-function"));
+        vm_inst_push(vm, 0, orig_fn);
+        vm_inst_push(vm, 0, LispInt(2));
+        return vm_inst_raise(vm, ip);
     }
     struct lisp_function *fnptr = LispFunctionPtr(fn);
 
     if (fnptr->kind == interp->syms.built_in_function) {
-        vm_call_builtin_function(vm, fnptr);
+        return vm_call_builtin_function(vm, ip, fnptr);
     } else if (fnptr->kind == interp->syms.lambda) {
         vm_call_lambda(vm, fnptr);
+        return 0;
     } else {
         char *str = print_object(fn);
         printf("Bad function: %s\n", str);
@@ -357,18 +360,19 @@ start:
         printf("Bad kind: %s\n", str);
         vm_print_stack(vm);
         free(str);
-        vm_inst_push(vm, NULL, sym("bad-function"));
-        vm_inst_push(vm, NULL, fn);
-        vm_inst_push(vm, NULL, LispInt(2));
-        vm_inst_raise(vm, NULL);
+        vm_inst_push(vm, 0, sym("bad-function"));
+        vm_inst_push(vm, 0, fn);
+        vm_inst_push(vm, 0, LispInt(2));
+        return vm_inst_raise(vm, ip);
     }
 }
 
-lisp_object_t *vm_inst_ret(struct vm *vm, lisp_object_t *ip)
+ip_t vm_inst_ret(struct vm *vm, ip_t ip)
 {
     assert(vm->call_stack_pointer > vm->call_stack);
     struct vm_call_stack_frame *call_stack_frame = --vm->call_stack_pointer;
     vm->registers = *call_stack_frame;
+    return vm->registers.instruction_pointer - vm->registers.code_vector_storage;
 }
 
 static lisp_object_t findenv(lisp_object_t env, int offset)
@@ -382,7 +386,7 @@ static lisp_object_t findenv(lisp_object_t env, int offset)
     return env;
 }
 
-lisp_object_t *vm_inst_get(struct vm *vm, lisp_object_t *ip, lisp_object_t n, lisp_object_t m)
+ip_t vm_inst_get(struct vm *vm, ip_t ip, lisp_object_t n, lisp_object_t m)
 {
     lisp_object_t env = NIL;
     if (n > 0)
@@ -392,34 +396,41 @@ lisp_object_t *vm_inst_get(struct vm *vm, lisp_object_t *ip, lisp_object_t n, li
         /* Old logic: transitional case where "get 0 n" used rather than get0 n */
         env = findenv(vm->registers.environment, Int(n));
     assert(length(env) > m);
-    vm_inst_push(vm, NULL, svref(env, m));
+    vm_inst_push(vm, 0, svref(env, m));
+    return ip + 3;
 }
 
-lisp_object_t *vm_inst_set(struct vm *vm, lisp_object_t *ip, lisp_object_t n, lisp_object_t m)
+ip_t vm_inst_set(struct vm *vm, ip_t ip, lisp_object_t n, lisp_object_t m)
 {
     lisp_object_t env = findenv(vm->registers.environment, Int(n));
     assert(length(env) > m);
     /* peek not pop here since we return the new value */
     svref_set(env, m, vm_peek(vm));
+    return ip + 3;
 }
 
-lisp_object_t *vm_inst_abort(struct vm *vm, lisp_object_t *ip)
+ip_t vm_inst_abort(struct vm *vm, ip_t ip)
 {
     vm_print_stack(vm);
     vm_print_call_stack(vm, "aborted");
     abort();
+    return ip + 1; /* Never reached */
 }
 
-lisp_object_t *vm_inst_jmp(struct vm *vm, lisp_object_t *ip, lisp_object_t dest)
+ip_t vm_inst_jmp(struct vm *vm, ip_t ip, lisp_object_t dest)
 {
     vm->registers.instruction_pointer = vm->registers.code_vector_storage + Int(dest);
+    return Int(dest);
 }
 
-lisp_object_t *vm_inst_jmp_if_nil(struct vm *vm, lisp_object_t *ip, lisp_object_t dest)
+ip_t vm_inst_jmp_if_nil(struct vm *vm, ip_t ip, lisp_object_t dest)
 {
     lisp_object_t value = vm_pop(vm);
     if (value == NIL) {
         vm->registers.instruction_pointer = vm->registers.code_vector_storage + Int(dest);
+        return Int(dest);
+    } else {
+        return ip + 2;
     }
 }
 
@@ -453,7 +464,7 @@ static lisp_object_t frame_has_tag(struct vm_call_stack_frame *frame, lisp_objec
     return NIL;
 }
 
-lisp_object_t *vm_inst_set_tag(struct vm *vm, lisp_object_t *ip, lisp_object_t tag, lisp_object_t dest)
+ip_t vm_inst_set_tag(struct vm *vm, ip_t ip, lisp_object_t tag, lisp_object_t dest)
 {
     ptrdiff_t stack_offset_c = vm->top_of_data_stack - vm->data_stack;
     lisp_object_t stack_offset = LispInt(stack_offset_c);
@@ -462,10 +473,11 @@ lisp_object_t *vm_inst_set_tag(struct vm *vm, lisp_object_t *ip, lisp_object_t t
     svref_set(tag_info, LispInt(1), dest);
     svref_set(tag_info, LispInt(2), stack_offset);
     vm->registers.tags = cons(tag_info, vm->registers.tags);
+    return ip + 3;
 }
 // Do we also need an instruction to clear a tag?  Think so ...
 
-lisp_object_t *vm_inst_tag_jmp(struct vm *vm, lisp_object_t *ip, lisp_object_t tag)
+ip_t vm_inst_tag_jmp(struct vm *vm, ip_t ip, lisp_object_t tag)
 {
     lisp_object_t tag_info = frame_has_tag(&vm->registers, tag);
     // These seem like two different behaviours according to whether the tag
@@ -474,8 +486,7 @@ lisp_object_t *vm_inst_tag_jmp(struct vm *vm, lisp_object_t *ip, lisp_object_t t
     // 1.  Implementation of `(go ...)` in `tagbody`
     // 2.  Native exceptions i.e. `raise()` called in native code.
     if (tag_info != NIL) {
-        vm_inst_jmp(vm, NULL, svref(tag_info, LispInt(1)));
-        return NULL;
+        return vm_inst_jmp(vm, ip, svref(tag_info, LispInt(1)));
     }
     // Is restoring data stack etc. actually the right behaviour when this is
     // happening from (go ...) inside a tagbody?  Maybe it is actually.  Needs a
@@ -488,8 +499,7 @@ lisp_object_t *vm_inst_tag_jmp(struct vm *vm, lisp_object_t *ip, lisp_object_t t
             vm->call_stack_pointer = frame;
             vm->registers = *frame;
             vm->top_of_data_stack = vm->data_stack + Int(stack_offset);
-            vm_inst_jmp(vm, NULL, dest);
-            return NULL;
+            return vm_inst_jmp(vm, ip, dest);
         }
     }
     char *str = print_object(tag);
@@ -498,7 +508,7 @@ lisp_object_t *vm_inst_tag_jmp(struct vm *vm, lisp_object_t *ip, lisp_object_t t
     abort();
 }
 
-lisp_object_t *vm_inst_raise(struct vm *vm, lisp_object_t *ip)
+ip_t vm_inst_raise(struct vm *vm, ip_t ip)
 {
     // So the idea now is that this instruction will be the (entire) body of the
     // RAISE function, and tag and value should come from the stack.  I think it
@@ -533,20 +543,23 @@ lisp_object_t *vm_inst_raise(struct vm *vm, lisp_object_t *ip)
     lisp_object_t value = vm_pop(vm);
     lisp_object_t tag = vm_pop(vm);
 
-    vm_inst_tag_jmp(vm, NULL, tag);
-    vm_inst_push(vm, NULL, value);
+    ip_t new_ip = vm_inst_tag_jmp(vm, ip, tag);
+    vm_inst_push(vm, 0, value);
+    return new_ip;
 }
 
-lisp_object_t *vm_inst_nop(struct vm *vm, lisp_object_t *ip)
+ip_t vm_inst_nop(struct vm *vm, ip_t ip)
 {
+    return ip + 1;
 }
 
-lisp_object_t *vm_inst_swap(struct vm *vm, lisp_object_t *ip)
+ip_t vm_inst_swap(struct vm *vm, ip_t ip)
 {
     lisp_object_t top = vm_pop(vm);
     lisp_object_t next = vm_pop(vm);
-    vm_inst_push(vm, NULL, top);
-    vm_inst_push(vm, NULL, next);
+    vm_inst_push(vm, 0, top);
+    vm_inst_push(vm, 0, next);
+    return ip + 1;
 }
 
 lisp_object_t *vm_inst_set_fp(struct vm *vm, lisp_object_t *ip)
@@ -554,14 +567,16 @@ lisp_object_t *vm_inst_set_fp(struct vm *vm, lisp_object_t *ip)
     lisp_object_t actual_arg_count = vm_pop(vm);
     assert(integerp(actual_arg_count) != NIL);
     vm->registers.fp = vm->top_of_data_stack - Int(actual_arg_count);
+    return ip + 1;
 }
 
-lisp_object_t *vm_inst_get0(struct vm *vm, lisp_object_t *ip, lisp_object_t n)
+ip_t vm_inst_get0(struct vm *vm, ip_t ip, lisp_object_t n)
 {
-    vm_inst_push(vm, ip, vm->registers.fp[Int(n) - 1]);
+    return vm_inst_push(vm, ip, vm->registers.fp[Int(n) - 1]);
 }
 
-lisp_object_t *vm_inst_set0(struct vm *vm, lisp_object_t *ip, lisp_object_t n)
+ip_t vm_inst_set0(struct vm *vm, ip_t ip, lisp_object_t n)
 {
     vm->registers.fp[Int(n) - 1] = vm_peek(vm);
+    return ip + 2;
 }

@@ -58,48 +58,54 @@ enum instruction {
 #define INST0(fp)                        \
     vm->registers.instruction_pointer++; \
     TRACE0;                              \
-    fp(vm, NULL);
+    ip = fp(vm, ip);
 
 #define INST1(fp)                                \
     arg1 = vm->registers.instruction_pointer[1]; \
     vm->registers.instruction_pointer += 2;      \
     TRACE1;                                      \
-    fp(vm, NULL, arg1);
+    ip = fp(vm, ip, arg1);
 
 #define INST2(fp)                                \
     arg1 = vm->registers.instruction_pointer[1]; \
     arg2 = vm->registers.instruction_pointer[2]; \
     vm->registers.instruction_pointer += 3;      \
     TRACE2;                                      \
-    fp(vm, NULL, arg1, arg2);
+    ip = fp(vm, ip, arg1, arg2);
 
 void vm_run_one_instruction(struct vm *vm)
 {
+}
+
+void vm_run(struct vm *vm)
+{
+    int ip = 0;
+    while (vm->registers.instruction_pointer < vm->registers.max_instruction_pointer) {
 #ifdef VM_TRACE_ENABLED
-    if (vm->vm_trace && (vm->registers.instruction_pointer - vm->registers.code_vector_storage) == 0)
-        TRACE(vm->registers.code_vector);
+        if (vm->vm_trace && (vm->registers.instruction_pointer - vm->registers.code_vector_storage) == 0)
+            TRACE(vm->registers.code_vector);
 #endif
 
-    lisp_object_t instruction = *vm->registers.instruction_pointer;
-    lisp_object_t arg1 = NIL;
-    lisp_object_t arg2 = NIL;
+        lisp_object_t instruction = *vm->registers.instruction_pointer;
+        lisp_object_t arg1 = NIL;
+        lisp_object_t arg2 = NIL;
 
 #ifdef VM_TRACE_ENABLED
-    char *str0 = NULL;
-    char *str1 = NULL;
-    char *str2 = NULL;
-    char *str3 = NULL;
-    if (vm->vm_trace) {
-        str0 = print_object(LispInt(vm->registers.instruction_pointer - vm->registers.code_vector_storage));
-        str1 = print_object(instruction);
-    }
+        char *str0 = NULL;
+        char *str1 = NULL;
+        char *str2 = NULL;
+        char *str3 = NULL;
+        if (vm->vm_trace) {
+            str0 = print_object(LispInt(vm->registers.instruction_pointer - vm->registers.code_vector_storage));
+            str1 = print_object(instruction);
+        }
 #endif
 
 #define CHECK_INSTRUCTION(code, fp, the_arity) \
     if (instruction == LispInt(code)) {        \
         INST##the_arity(fp);                   \
     }
-    // clang-format off
+        // clang-format off
     CHECK_INSTRUCTION(INST_PUSH,       vm_inst_push,       1) else
     CHECK_INSTRUCTION(INST_CALL,       vm_inst_call,       0) else
     CHECK_INSTRUCTION(INST_GET,        vm_inst_get,        2) else
@@ -119,23 +125,29 @@ void vm_run_one_instruction(struct vm *vm)
     CHECK_INSTRUCTION(INST_NOP,        vm_inst_nop,        0) else
     CHECK_INSTRUCTION(INST_SWAP,       vm_inst_swap,       0) else
     CHECK_INSTRUCTION(INST_ABORT,      vm_inst_abort,      0) else
-    // clang-format on
-    {
-        TRACE(instruction);
-        abort();
-    }
-
+        // clang-format on
+        {
+            TRACE(instruction);
+            abort();
+        }
+        if (vm->registers.instruction_pointer != vm->registers.code_vector_storage + ip)
+            abort();
 #undef CHECK_INSTRUCTION
 
 #ifdef VM_TRACE_ENABLED
-    if (vm->vm_trace) {
-        free(str0);
-        free(str1);
-        if (str2)
-            free(str2);
-        if (str3)
-            free(str3);
+        if (vm->vm_trace) {
+            free(str0);
+            free(str1);
+            if (str2)
+                free(str2);
+            if (str3)
+                free(str3);
+        }
+#endif
     }
+#ifdef VM_TRACE_ENABLED
+    if (vm->vm_trace)
+        vm_print_stack(vm);
 #endif
 }
 
@@ -144,27 +156,19 @@ void vm_run_one_instruction(struct vm *vm)
 #undef INST0
 #undef VM_TRACE
 
-void vm_run(struct vm *vm)
-{
-    while (vm->registers.instruction_pointer < vm->registers.max_instruction_pointer)
-        vm_run_one_instruction(vm);
-#ifdef VM_TRACE_ENABLED
-    if (vm->vm_trace)
-        vm_print_stack(vm);
-#endif
-}
-
-lisp_object_t *vm_inst_push(struct vm *vm, lisp_object_t *ip, lisp_object_t obj)
+ip_t vm_inst_push(struct vm *vm, ip_t ip, lisp_object_t obj)
 {
     assert(vm->top_of_data_stack >= vm->data_stack);
     assert(vm->top_of_data_stack - vm->data_stack < vm->data_stack_size);
     *(vm->top_of_data_stack++) = obj;
+    return ip + 2;
 }
 
-lisp_object_t *vm_inst_pop(struct vm *vm, lisp_object_t *ip)
+ip_t vm_inst_pop(struct vm *vm, ip_t ip)
 {
     vm->top_of_data_stack--;
     assert(vm->top_of_data_stack >= vm->data_stack);
+    return ip + 1;
 }
 
 lisp_object_t vm_pop(struct vm *vm)

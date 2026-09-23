@@ -137,7 +137,7 @@ int main(int argc, char **argv)
             lisp_object_t string = allocate_string(strlen(argv[i]) + 1, argv[i]);
             svref_set(arglist, LispInt(argidx), string);
         }
-        vm_inst_push(&interp->vm, arglist);
+        vm_inst_push(&interp->vm, NULL, arglist);
         vm_run(&interp->vm);
     } else {
         for (; i < argc; i++)

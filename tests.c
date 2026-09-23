@@ -1868,12 +1868,12 @@ static void test_vm_inst_call_lambda()
     lisp_object_t arg_info = parse1_wrapper("#(nil 2)");
     lisp_object_t symbol = make_function(NIL, parse1_wrapper("#(14 2)"), arg_info);
     /* Set up the stack */
-    vm_inst_push(&interp->vm, sym("foo"));
-    vm_inst_push(&interp->vm, sym("bar"));
-    vm_inst_push(&interp->vm, LispInt(2));
-    vm_inst_push(&interp->vm, symbol);
+    vm_inst_push(&interp->vm, NULL, sym("foo"));
+    vm_inst_push(&interp->vm, NULL, sym("bar"));
+    vm_inst_push(&interp->vm, NULL, LispInt(2));
+    vm_inst_push(&interp->vm, NULL, symbol);
     /* Call */
-    vm_inst_call(&interp->vm);
+    vm_inst_call(&interp->vm, NULL);
     vm_run(&interp->vm);
     /* Check */
     lisp_object_t env = interp->vm.registers.environment;
@@ -1893,26 +1893,26 @@ static void test_vm_inst_get_set()
 
     lisp_object_t symbol = make_function(parse1_wrapper("#(nil bof xyz)"), parse1_wrapper("#(14 2)"), parse1_wrapper("#(nil 2)"));
 
-    vm_inst_push(&interp->vm, sym("foo"));
-    vm_inst_push(&interp->vm, sym("bar"));
-    vm_inst_push(&interp->vm, LispInt(2));
-    vm_inst_push(&interp->vm, symbol);
-    vm_inst_call(&interp->vm);
+    vm_inst_push(&interp->vm, NULL, sym("foo"));
+    vm_inst_push(&interp->vm, NULL, sym("bar"));
+    vm_inst_push(&interp->vm, NULL, LispInt(2));
+    vm_inst_push(&interp->vm, NULL, symbol);
+    vm_inst_call(&interp->vm, NULL);
     vm_run(&interp->vm);
 
-    vm_inst_get(&interp->vm, 0, LispInt(1));
+    vm_inst_get(&interp->vm, NULL, 0, LispInt(1));
     check(vm_pop(&interp->vm) == sym("foo"), "get");
-    vm_inst_get(&interp->vm, LispInt(1), LispInt(2));
+    vm_inst_get(&interp->vm, NULL, LispInt(1), LispInt(2));
     check(vm_pop(&interp->vm) == sym("xyz"), "get closure env");
 
-    vm_inst_push(&interp->vm, sym("baz"));
-    vm_inst_set(&interp->vm, 0, LispInt(1));
-    vm_inst_get(&interp->vm, 0, LispInt(1));
+    vm_inst_push(&interp->vm, NULL, sym("baz"));
+    vm_inst_set(&interp->vm, NULL, 0, LispInt(1));
+    vm_inst_get(&interp->vm, NULL, 0, LispInt(1));
     check(vm_pop(&interp->vm) == sym("baz"), "set");
 
-    vm_inst_push(&interp->vm, sym("boo"));
-    vm_inst_set(&interp->vm, LispInt(1), LispInt(2));
-    vm_inst_get(&interp->vm, LispInt(1), LispInt(2));
+    vm_inst_push(&interp->vm, NULL, sym("boo"));
+    vm_inst_set(&interp->vm, NULL, LispInt(1), LispInt(2));
+    vm_inst_get(&interp->vm, NULL, LispInt(1), LispInt(2));
     check(vm_pop(&interp->vm) == sym("boo"), "set closure env");
 
     free_interpreter();
@@ -2052,7 +2052,7 @@ static void test_vm_inst_set_tag()
     START_OF_TEST("vm_inst_set_tag");
     init_interpreter_for_tests();
     // lisp_object_t code = parse1_wrapper("#(set-tag bof 5 tag-push foo push bar)");
-    vm_inst_set_tag(&interp->vm, sym("bof"), LispInt(4));
+    vm_inst_set_tag(&interp->vm, NULL, sym("bof"), LispInt(4));
     char *str = print_object(interp->vm.registers.tags);
     check(strcmp("(#(bof 4 0))", str) == 0, "ok");
     free(str);
@@ -2079,7 +2079,7 @@ static void test_vm_inst_tag_jmp()
     vm_set_code_vector(vm, parse1_wrapper("#(foo bar baz quux boof)"));
     vm->registers.environment = NIL;
     vm->registers.tags = NIL;
-    vm_inst_set_tag(vm, sym("bof"), LispInt(4));
+    vm_inst_set_tag(vm, NULL, sym("bof"), LispInt(4));
 
     lisp_object_t expected_code_vector = vm->registers.code_vector;
     lisp_object_t *expected_instruction_pointer = vm->registers.code_vector_storage + 4;
@@ -2091,7 +2091,7 @@ static void test_vm_inst_tag_jmp()
     vm->registers.environment = NIL;
     vm->registers.tags = NIL;
 
-    vm_inst_tag_jmp(vm, sym("bof"));
+    vm_inst_tag_jmp(vm, NULL, sym("bof"));
     check(vm->registers.code_vector == expected_code_vector, "code vector");
     check(vm->registers.instruction_pointer == expected_instruction_pointer, "instruction pointer");
 
@@ -2106,7 +2106,7 @@ static void test_vm_inst_raise()
     vm_set_code_vector(vm, parse1_wrapper("#(foo bar baz quux boof)"));
     vm->registers.environment = NIL;
     vm->registers.tags = NIL;
-    vm_inst_set_tag(vm, sym("bof"), LispInt(4));
+    vm_inst_set_tag(vm, NULL, sym("bof"), LispInt(4));
     lisp_object_t expected_code_vector = vm->registers.code_vector;
     lisp_object_t *expected_instruction_pointer = vm->registers.code_vector_storage + 4;
     /* As if a function call happened */
@@ -2118,11 +2118,11 @@ static void test_vm_inst_raise()
     vm->registers.tags = NIL;
 
     /* raise is invoked like a function call */
-    vm_inst_push(vm, sym("bof")); /* tag */
-    vm_inst_push(vm, sym("return-value")); /* return value */
-    vm_inst_push(vm, LispInt(2)); /* argcount */
+    vm_inst_push(vm, NULL, sym("bof")); /* tag */
+    vm_inst_push(vm, NULL, sym("return-value")); /* return value */
+    vm_inst_push(vm, NULL, LispInt(2)); /* argcount */
 
-    vm_inst_raise(vm);
+    vm_inst_raise(vm, NULL);
 
     check(vm_peek(vm) == sym("return-value"), "return value");
     check(vm->registers.code_vector == expected_code_vector, "code vector");
@@ -2168,9 +2168,9 @@ void test_vm_inst_swap()
     START_OF_TEST("vm_inst_swap");
     init_interpreter_for_tests();
     struct vm *vm = &interp->vm;
-    vm_inst_push(vm, LispInt(1));
-    vm_inst_push(vm, LispInt(2));
-    vm_inst_swap(vm);
+    vm_inst_push(vm, NULL, LispInt(1));
+    vm_inst_push(vm, NULL, LispInt(2));
+    vm_inst_swap(vm, NULL);
     check(vm_pop(vm) == LispInt(1), "top");
     check(vm_pop(vm) == LispInt(2), "second");
     free_interpreter();
@@ -2182,16 +2182,16 @@ void test_vm_inst_get0()
     init_interpreter_for_tests();
     struct vm *vm = &interp->vm;
 
-    vm_inst_push(vm, LispInt(1));
-    vm_inst_push(vm, LispInt(2));
-    vm_inst_push(vm, LispInt(2)); // arg count
-    vm_inst_setup_env2(vm, LispInt(2));
+    vm_inst_push(vm, NULL, LispInt(1));
+    vm_inst_push(vm, NULL, LispInt(2));
+    vm_inst_push(vm, NULL, LispInt(2)); // arg count
+    vm_inst_setup_env2(vm, NULL, LispInt(2));
 
-    vm_inst_get0(vm, LispInt(1));
+    vm_inst_get0(vm, NULL, LispInt(1));
     check(vm->top_of_data_stack - vm->data_stack == 1, "size1");
     check(vm_pop(vm) == LispInt(1), "ok1");
 
-    vm_inst_get0(vm, LispInt(2));
+    vm_inst_get0(vm, NULL, LispInt(2));
     check(vm->top_of_data_stack - vm->data_stack == 1, "size2");
     lisp_object_t top = vm_pop(vm);
     check(top == LispInt(2), "ok2");
@@ -2205,15 +2205,15 @@ void test_vm_inst_set0()
     init_interpreter_for_tests();
     struct vm *vm = &interp->vm;
     vm->registers.fp = vm->top_of_data_stack;
-    vm_inst_push(vm, LispInt(1));
-    vm_inst_push(vm, LispInt(2));
-    vm_inst_push(vm, LispInt(2)); // arg count
-    vm_inst_setup_env2(vm, LispInt(2));
+    vm_inst_push(vm, NULL, LispInt(1));
+    vm_inst_push(vm, NULL, LispInt(2));
+    vm_inst_push(vm, NULL, LispInt(2)); // arg count
+    vm_inst_setup_env2(vm, NULL, LispInt(2));
 
-    vm_inst_push(vm, LispInt(14));
-    vm_inst_set0(vm, LispInt(1));
+    vm_inst_push(vm, NULL, LispInt(14));
+    vm_inst_set0(vm, NULL, LispInt(1));
     vm_pop(vm); /* Throw away return value of set0 (14) */
-    vm_inst_get0(vm, LispInt(1));
+    vm_inst_get0(vm, NULL, LispInt(1));
     check(vm_pop(vm) == LispInt(14), "ok");
 
     free_interpreter();

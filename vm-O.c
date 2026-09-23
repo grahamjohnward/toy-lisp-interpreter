@@ -58,20 +58,20 @@ enum instruction {
 #define INST0(fp)                        \
     vm->registers.instruction_pointer++; \
     TRACE0;                              \
-    fp(vm);
+    fp(vm, NULL);
 
 #define INST1(fp)                                \
     arg1 = vm->registers.instruction_pointer[1]; \
     vm->registers.instruction_pointer += 2;      \
     TRACE1;                                      \
-    fp(vm, arg1);
+    fp(vm, NULL, arg1);
 
 #define INST2(fp)                                \
     arg1 = vm->registers.instruction_pointer[1]; \
     arg2 = vm->registers.instruction_pointer[2]; \
     vm->registers.instruction_pointer += 3;      \
     TRACE2;                                      \
-    fp(vm, arg1, arg2);
+    fp(vm, NULL, arg1, arg2);
 
 void vm_run_one_instruction(struct vm *vm)
 {
@@ -154,14 +154,14 @@ void vm_run(struct vm *vm)
 #endif
 }
 
-lisp_object_t *vm_inst_push(struct vm *vm, lisp_object_t obj)
+lisp_object_t *vm_inst_push(struct vm *vm, lisp_object_t *ip, lisp_object_t obj)
 {
     assert(vm->top_of_data_stack >= vm->data_stack);
     assert(vm->top_of_data_stack - vm->data_stack < vm->data_stack_size);
     *(vm->top_of_data_stack++) = obj;
 }
 
-lisp_object_t *vm_inst_pop(struct vm *vm)
+lisp_object_t *vm_inst_pop(struct vm *vm, lisp_object_t *ip)
 {
     vm->top_of_data_stack--;
     assert(vm->top_of_data_stack >= vm->data_stack);

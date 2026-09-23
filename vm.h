@@ -60,42 +60,42 @@ void vm_set_code_vector(struct vm *vm, lisp_object_t code_vector);
 
 /** Instructions **/
 
-lisp_object_t *vm_inst_push(struct vm *vm, lisp_object_t obj);
+lisp_object_t *vm_inst_push(struct vm *vm, lisp_object_t *ip, lisp_object_t obj);
 
-lisp_object_t *vm_inst_pop(struct vm *vm);
+lisp_object_t *vm_inst_pop(struct vm *vm, lisp_object_t *ip);
 
-lisp_object_t *vm_inst_call(struct vm *vm);
+lisp_object_t *vm_inst_call(struct vm *vm, lisp_object_t *ip);
 
-lisp_object_t *vm_inst_ret(struct vm *vm);
+lisp_object_t *vm_inst_ret(struct vm *vm, lisp_object_t *ip);
 
-lisp_object_t *vm_inst_setup_env(struct vm *vm, lisp_object_t arity);
+lisp_object_t *vm_inst_setup_env(struct vm *vm, lisp_object_t *ip, lisp_object_t arity);
 
-lisp_object_t *vm_inst_rest_args(struct vm *vm, lisp_object_t arity);
+lisp_object_t *vm_inst_rest_args(struct vm *vm, lisp_object_t *ip, lisp_object_t arity);
 
-lisp_object_t *vm_inst_get(struct vm *vm, lisp_object_t n, lisp_object_t m);
+lisp_object_t *vm_inst_get(struct vm *vm, lisp_object_t *ip, lisp_object_t n, lisp_object_t m);
 
-lisp_object_t *vm_inst_set(struct vm *vm, lisp_object_t n, lisp_object_t m);
+lisp_object_t *vm_inst_set(struct vm *vm, lisp_object_t *ip, lisp_object_t n, lisp_object_t m);
 
-lisp_object_t *vm_inst_setup_env2(struct vm *vm, lisp_object_t arity);
+lisp_object_t *vm_inst_setup_env2(struct vm *vm, lisp_object_t *ip, lisp_object_t arity);
 
-lisp_object_t *vm_inst_get0(struct vm *vm, lisp_object_t n);
+lisp_object_t *vm_inst_get0(struct vm *vm, lisp_object_t *ip, lisp_object_t n);
 
-lisp_object_t *vm_inst_set0(struct vm *vm, lisp_object_t n);
+lisp_object_t *vm_inst_set0(struct vm *vm, lisp_object_t *ip, lisp_object_t n);
 
-lisp_object_t *vm_inst_abort(struct vm *vm);
+lisp_object_t *vm_inst_abort(struct vm *vm, lisp_object_t *ip);
 
-lisp_object_t *vm_inst_jmp(struct vm *vm, lisp_object_t dest);
+lisp_object_t *vm_inst_jmp(struct vm *vm, lisp_object_t *ip, lisp_object_t dest);
 
-lisp_object_t *vm_inst_jmp_if_nil(struct vm *vm, lisp_object_t dest);
+lisp_object_t *vm_inst_jmp_if_nil(struct vm *vm, lisp_object_t *ip, lisp_object_t dest);
 
-lisp_object_t *vm_inst_set_tag(struct vm *vm, lisp_object_t tag, lisp_object_t dest);
+lisp_object_t *vm_inst_set_tag(struct vm *vm, lisp_object_t *ip, lisp_object_t tag, lisp_object_t dest);
 
-lisp_object_t *vm_inst_tag_jmp(struct vm *vm, lisp_object_t tag);
+lisp_object_t *vm_inst_tag_jmp(struct vm *vm, lisp_object_t *ip, lisp_object_t tag);
 
-lisp_object_t *vm_inst_raise(struct vm *vm);
+lisp_object_t *vm_inst_raise(struct vm *vm, lisp_object_t *ip);
 
-lisp_object_t *vm_inst_nop(struct vm *vm);
+lisp_object_t *vm_inst_nop(struct vm *vm, lisp_object_t *ip);
 
-lisp_object_t *vm_inst_swap(struct vm *vm);
+lisp_object_t *vm_inst_swap(struct vm *vm, lisp_object_t *ip);
 
 #endif

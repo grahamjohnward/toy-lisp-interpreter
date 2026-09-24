@@ -10,9 +10,6 @@
 #define svref_set svref_set_unsafe
 #endif
 
-/* Defined in vm-O.c: */
-void vm_run_one_instruction(struct vm *vm);
-
 void vm_init(struct vm *vm, size_t data_stack_size)
 {
     vm->data_stack_size = data_stack_size;

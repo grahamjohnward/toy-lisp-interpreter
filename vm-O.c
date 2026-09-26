@@ -55,104 +55,162 @@ enum instruction {
         printf(format, __VA_ARGS__); \
     }
 
-#define INST0(fp)                        \
-    vm->registers.instruction_pointer++; \
-    TRACE0;                              \
+/*
+"A" instructions don't use the instruction pointer.
+"B" instructions do, so we need to write it back into the struct vm
+*/
+
+#define SAVE_STUFF                                           \
+    vm->registers.instruction_pointer = instruction_pointer; \
+    vm->registers.max_instruction_pointer = max_instruction_pointer;
+
+#define RESTORE_STUFF                                        \
+    instruction_pointer = vm->registers.instruction_pointer; \
+    max_instruction_pointer = vm->registers.max_instruction_pointer;
+
+#define SAVE_SOME_STUFF \
+    vm->registers.instruction_pointer = instruction_pointer;
+
+#define RESTORE_SOME_STUFF \
+    instruction_pointer = vm->registers.instruction_pointer;
+
+#define INST0A(fp)         \
+    instruction_pointer++; \
+    TRACE0;                \
     fp(vm);
 
-#define INST1(fp)                                \
-    arg1 = vm->registers.instruction_pointer[1]; \
-    vm->registers.instruction_pointer += 2;      \
-    TRACE1;                                      \
+#define INST0B(fp)         \
+    instruction_pointer++; \
+    SAVE_STUFF;            \
+    TRACE0;                \
+    fp(vm);                \
+    RESTORE_STUFF;
+
+#define INST1A(fp)                 \
+    arg1 = instruction_pointer[1]; \
+    instruction_pointer += 2;      \
+    TRACE1;                        \
     fp(vm, arg1);
 
-#define INST2(fp)                                \
-    arg1 = vm->registers.instruction_pointer[1]; \
-    arg2 = vm->registers.instruction_pointer[2]; \
-    vm->registers.instruction_pointer += 3;      \
-    TRACE2;                                      \
+#define INST1B(fp)                 \
+    arg1 = instruction_pointer[1]; \
+    instruction_pointer += 2;      \
+    SAVE_STUFF;                    \
+    TRACE1;                        \
+    fp(vm, arg1);                  \
+    RESTORE_STUFF;
+
+#define INST1C(fp)                 \
+    arg1 = instruction_pointer[1]; \
+    instruction_pointer += 2;      \
+    SAVE_SOME_STUFF;               \
+    TRACE1;                        \
+    fp(vm, arg1);                  \
+    RESTORE_SOME_STUFF;
+
+#define INST2A(fp)                 \
+    arg1 = instruction_pointer[1]; \
+    arg2 = instruction_pointer[2]; \
+    instruction_pointer += 3;      \
+    TRACE2;                        \
     fp(vm, arg1, arg2);
 
-void vm_run_one_instruction(struct vm *vm)
+#define INST2B(fp)                 \
+    arg1 = instruction_pointer[1]; \
+    arg2 = instruction_pointer[2]; \
+    instruction_pointer += 3;      \
+    SAVE_STUFF;                    \
+    TRACE2;                        \
+    fp(vm, arg1, arg2);            \
+    RESTORE_STUFF;
+
+#define INST2C(fp)                 \
+    arg1 = instruction_pointer[1]; \
+    arg2 = instruction_pointer[2]; \
+    instruction_pointer += 3;      \
+    SAVE_SOME_STUFF;               \
+    TRACE2;                        \
+    fp(vm, arg1, arg2);            \
+    RESTORE_SOME_STUFF;
+
+void vm_run(struct vm *vm)
 {
+    lisp_object_t *instruction_pointer = vm->registers.instruction_pointer;
+    lisp_object_t *max_instruction_pointer = vm->registers.max_instruction_pointer;
+    while (instruction_pointer < max_instruction_pointer) {
 #ifdef VM_TRACE_ENABLED
-    if (vm->vm_trace && (vm->registers.instruction_pointer - vm->registers.code_vector_storage) == 0)
-        TRACE(vm->registers.code_vector);
+        if (vm->vm_trace && (vm->registers.instruction_pointer - vm->registers.code_vector_storage) == 0)
+            TRACE(vm->registers.code_vector);
 #endif
 
-    lisp_object_t instruction = *vm->registers.instruction_pointer;
-    lisp_object_t arg1 = NIL;
-    lisp_object_t arg2 = NIL;
+        lisp_object_t instruction = *instruction_pointer;
+        lisp_object_t arg1 = NIL;
+        lisp_object_t arg2 = NIL;
 
 #ifdef VM_TRACE_ENABLED
-    char *str0 = NULL;
-    char *str1 = NULL;
-    char *str2 = NULL;
-    char *str3 = NULL;
-    if (vm->vm_trace) {
-        str0 = print_object(LispInt(vm->registers.instruction_pointer - vm->registers.code_vector_storage));
-        str1 = print_object(instruction);
-    }
+        char *str0 = NULL;
+        char *str1 = NULL;
+        char *str2 = NULL;
+        char *str3 = NULL;
+        if (vm->vm_trace) {
+            str0 = print_object(LispInt(vm->registers.instruction_pointer - vm->registers.code_vector_storage));
+            str1 = print_object(instruction);
+        }
 #endif
 
-#define CHECK_INSTRUCTION(code, fp, the_arity) \
-    if (instruction == LispInt(code)) {        \
-        INST##the_arity(fp);                   \
+#define CHECK_INSTRUCTION(code, fp, the_arity, thing) \
+    if (instruction == LispInt(code)) {               \
+        INST##the_arity##thing(fp);                   \
     }
-    // clang-format off
-    CHECK_INSTRUCTION(INST_PUSH,       vm_inst_push,       1) else
-    CHECK_INSTRUCTION(INST_CALL,       vm_inst_call,       0) else
-    CHECK_INSTRUCTION(INST_GET,        vm_inst_get,        2) else
-    CHECK_INSTRUCTION(INST_POP,        vm_inst_pop,        0) else
-    CHECK_INSTRUCTION(INST_GET0,       vm_inst_get0,       1) else
-    CHECK_INSTRUCTION(INST_JMP_IF_NIL, vm_inst_jmp_if_nil, 1) else
-    CHECK_INSTRUCTION(INST_SET,        vm_inst_set,        2) else
-    CHECK_INSTRUCTION(INST_RET,        vm_inst_ret,        0) else
-    CHECK_INSTRUCTION(INST_MAKE_ENV2,  vm_inst_setup_env2, 1) else
-    CHECK_INSTRUCTION(INST_SET_TAG,    vm_inst_set_tag,    2) else
-    CHECK_INSTRUCTION(INST_TAG_JMP,    vm_inst_tag_jmp,    1) else
-    CHECK_INSTRUCTION(INST_JMP,        vm_inst_jmp,        1) else
-    CHECK_INSTRUCTION(INST_SET0,       vm_inst_set0,       1) else
-    CHECK_INSTRUCTION(INST_MAKE_ENV,   vm_inst_setup_env,  1) else
-    CHECK_INSTRUCTION(INST_REST_ARGS,  vm_inst_rest_args,  1) else
-    CHECK_INSTRUCTION(INST_RAISE,      vm_inst_raise,      0) else
-    CHECK_INSTRUCTION(INST_NOP,        vm_inst_nop,        0) else
-    CHECK_INSTRUCTION(INST_SWAP,       vm_inst_swap,       0) else
-    CHECK_INSTRUCTION(INST_ABORT,      vm_inst_abort,      0) else
-    // clang-format on
-    {
-        TRACE(instruction);
-        abort();
-    }
+        // clang-format off
+    CHECK_INSTRUCTION(INST_PUSH,       vm_inst_push,       1, A) else
+    CHECK_INSTRUCTION(INST_CALL,       vm_inst_call,       0, B) else
+    CHECK_INSTRUCTION(INST_GET,        vm_inst_get,        2, A) else
+    CHECK_INSTRUCTION(INST_POP,        vm_inst_pop,        0, A) else
+    CHECK_INSTRUCTION(INST_GET0,       vm_inst_get0,       1, A) else
+    CHECK_INSTRUCTION(INST_JMP_IF_NIL, vm_inst_jmp_if_nil, 1, C) else
+    CHECK_INSTRUCTION(INST_SET,        vm_inst_set,        2, A) else
+    CHECK_INSTRUCTION(INST_RET,        vm_inst_ret,        0, B) else
+    CHECK_INSTRUCTION(INST_MAKE_ENV2,  vm_inst_setup_env2, 1, A) else
+    CHECK_INSTRUCTION(INST_SET_TAG,    vm_inst_set_tag,    2, B) else
+    CHECK_INSTRUCTION(INST_TAG_JMP,    vm_inst_tag_jmp,    1, C) else
+    CHECK_INSTRUCTION(INST_JMP,        vm_inst_jmp,        1, C) else
+    CHECK_INSTRUCTION(INST_SET0,       vm_inst_set0,       1, A) else
+    CHECK_INSTRUCTION(INST_MAKE_ENV,   vm_inst_setup_env,  1, A) else
+    CHECK_INSTRUCTION(INST_REST_ARGS,  vm_inst_rest_args,  1, B) else
+    CHECK_INSTRUCTION(INST_RAISE,      vm_inst_raise,      0, B) else
+    CHECK_INSTRUCTION(INST_NOP,        vm_inst_nop,        0, A) else
+    CHECK_INSTRUCTION(INST_SWAP,       vm_inst_swap,       0, A) else
+    CHECK_INSTRUCTION(INST_ABORT,      vm_inst_abort,      0, B) else
+        // clang-format on
+        {
+            TRACE(instruction);
+            abort();
+        }
 
 #undef CHECK_INSTRUCTION
 
 #ifdef VM_TRACE_ENABLED
-    if (vm->vm_trace) {
-        free(str0);
-        free(str1);
-        if (str2)
-            free(str2);
-        if (str3)
-            free(str3);
-    }
+        if (vm->vm_trace) {
+            free(str0);
+            free(str1);
+            if (str2)
+                free(str2);
+            if (str3)
+                free(str3);
+        }
 #endif
+#ifdef VM_TRACE_ENABLED
+        if (vm->vm_trace)
+            vm_print_stack(vm);
+#endif
+    }
 }
 
 #undef INST2
 #undef INST1
 #undef INST0
 #undef VM_TRACE
-
-void vm_run(struct vm *vm)
-{
-    while (vm->registers.instruction_pointer < vm->registers.max_instruction_pointer)
-        vm_run_one_instruction(vm);
-#ifdef VM_TRACE_ENABLED
-    if (vm->vm_trace)
-        vm_print_stack(vm);
-#endif
-}
 
 void vm_inst_push(struct vm *vm, lisp_object_t obj)
 {

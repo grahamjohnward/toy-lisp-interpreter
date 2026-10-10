@@ -341,22 +341,22 @@
   `(setq ,place (cons ,obj ,place)))
 
 (defun vector (&rest objects)
-  (let ((len (length objects)))
-    (let ((result (make-vector len)))
-      (let ((i 0))
-	(dolist (obj objects)
-	  (set-svref result i obj)
-	  (incf i)))
-      result)))
+  (let* ((len (length objects))
+         (result (make-vector len))
+         (i 0))
+    (dolist (obj objects)
+      (set-svref result i obj)
+      (incf i))
+    result))
 
 (defun list-to-vector (list)
-  (let ((length (length list)))
-    (let ((vector (make-vector length))
-	  (i 0))
-      (dolist (obj list)
-	(set-svref vector i obj)
-	(setq i (+ 1 i)))
-      vector)))
+  (let* ((length (length list))
+         (vector (make-vector length))
+	 (i 0))
+    (dolist (obj list)
+      (set-svref vector i obj)
+      (setq i (+ 1 i)))
+    vector))
 
 (defun %defstruct-make-accessors (struct-name slot-name index)
   `(progn
@@ -370,27 +370,27 @@
        (set-svref obj ,index new-value))))
 
 (defun %defstruct-make-initializer (struct-name slots)
-  (let ((index 2))
-    (let ((cond-clauses
-           (mapcar #'(lambda (slot)
-                       (let ((keyword
-                              (make-symbol
-                               (%strconcat ":" (symbol-name slot)))))
-                         (prog1
-                             `((eq (car args) ,keyword)
-                               (progn
-                                 (push ',slot provided-args)
-                                 (set-svref result ,index (cadr args))
-                                 (setq args (cddr args))))
-                           (incf index))))
-                   slots)))
-      `(let (provided-args)
-         (tagbody
-          :next-arg
-            (cond ,@cond-clauses)
-            (when (not (null args))
-              (go :next-arg)))
-         provided-args))))
+  (let* ((index 2)
+         (cond-clauses
+          (mapcar #'(lambda (slot)
+                      (let ((keyword
+                             (make-symbol
+                              (%strconcat ":" (symbol-name slot)))))
+                        (prog1
+                            `((eq (car args) ,keyword)
+                              (progn
+                                (push ',slot provided-args)
+                                (set-svref result ,index (cadr args))
+                                (setq args (cddr args))))
+                          (incf index))))
+                  slots)))
+    `(let (provided-args)
+       (tagbody
+        :next-arg
+          (cond ,@cond-clauses)
+          (when (not (null args))
+            (go :next-arg)))
+       provided-args)))
 
 (defmacro defstruct (struct-name &rest slots)
   (let ((name (symbol-name struct-name))
@@ -399,50 +399,50 @@
                                     (car slot)
                                     slot)) 
                             slots))
-        (n (length slots)))
-    (let (default-initializer-map
-          (i 2))
-      (dolist (slot slots)
-        (when (consp slot)
-          (let ((slot-name (car slot))
-                (slot-initializer (cadr slot)))
-            (push `(cons ',slot-name
-                         (cons ,i
-                               ,(if (or (eq slot-initializer t)
-                                        (eq slot-initializer nil)
-                                        (integerp slot-initializer))
-                                    slot-initializer
-                                    `#'(lambda () ,slot-initializer))))
-                  default-initializer-map)))
-        (incf i))
-      `(progn
-         (defparameter ,struct-name (list ,@default-initializer-map))
-         (defun ,(make-symbol (%strconcat "make-" name)) (&rest args)
-           (let ((result (make-vector ,(+ 2 n))))
-             (set-svref result 0 :struct)
-             (set-svref result 1 ',struct-name)
-             (let ((provided-args
-                    ,(%defstruct-make-initializer struct-name slot-names)))
-               (dolist (thing ,struct-name)
-                 (let ((thing-slot (car thing))
-                       (thing-idx (cadr thing))
-                       (thing-initializer (cddr thing)))
-                   (when (not (find thing-slot provided-args))
-                     (set-svref result thing-idx
-                                (if (functionp thing-initializer)
-                                    (funcall thing-initializer)
-                                    thing-initializer)))))
-               result)))
-         ,@(let ((context (cons 2 name)))
-             (mapcar
-              #'(lambda (slot-name)
-                  (prog1
-                      (%defstruct-make-accessors (cdr context)
-                                                 (symbol-name slot-name)
-                                                 (car context))
-                    (rplaca context (+ 1 (car context)))))
-              slot-names))
-         ',struct-name))))
+        (n (length slots))
+        default-initializer-map
+        (i 2))
+    (dolist (slot slots)
+      (when (consp slot)
+        (let ((slot-name (car slot))
+              (slot-initializer (cadr slot)))
+          (push `(cons ',slot-name
+                       (cons ,i
+                             ,(if (or (eq slot-initializer t)
+                                      (eq slot-initializer nil)
+                                      (integerp slot-initializer))
+                                  slot-initializer
+                                  `#'(lambda () ,slot-initializer))))
+                default-initializer-map)))
+      (incf i))
+    `(progn
+       (defparameter ,struct-name (list ,@default-initializer-map))
+       (defun ,(make-symbol (%strconcat "make-" name)) (&rest args)
+         (let ((result (make-vector ,(+ 2 n))))
+           (set-svref result 0 :struct)
+           (set-svref result 1 ',struct-name)
+           (let ((provided-args
+                  ,(%defstruct-make-initializer struct-name slot-names)))
+             (dolist (thing ,struct-name)
+               (let ((thing-slot (car thing))
+                     (thing-idx (cadr thing))
+                     (thing-initializer (cddr thing)))
+                 (when (not (find thing-slot provided-args))
+                   (set-svref result thing-idx
+                              (if (functionp thing-initializer)
+                                  (funcall thing-initializer)
+                                  thing-initializer)))))
+             result)))
+       ,@(let ((context (cons 2 name)))
+           (mapcar
+            #'(lambda (slot-name)
+                (prog1
+                    (%defstruct-make-accessors (cdr context)
+                                               (symbol-name slot-name)
+                                               (car context))
+                  (rplaca context (+ 1 (car context)))))
+            slot-names))
+       ',struct-name)))
 
 (defun save-image (filename)
   (princ "Writing image to file: ")

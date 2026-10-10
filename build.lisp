@@ -30,5 +30,3 @@
        (setq files-to-compile (cdr files-to-compile))
        (go next-file)
      done)))
-
-

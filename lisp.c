@@ -516,7 +516,7 @@ void lisp_heap_init(struct lisp_heap *heap, size_t bytes)
 {
     if (bytes % 64)
         abort();
-    heap->heap = (char *)mmap((void *)LISP_HEAP_BASE, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+    heap->heap = (char *)mmap(NULL, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (heap->heap == (char *)-1) {
         perror("lisp_heap_init: mmap failed");
         exit(1);

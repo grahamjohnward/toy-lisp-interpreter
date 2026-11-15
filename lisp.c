@@ -328,6 +328,97 @@ static void init_builtins()
 #undef DEFBUILTIN
 }
 
+static void fixup_obj(ptrdiff_t offset, lisp_object_t *p)
+{
+    if ((*p & IMMEDIATE_TYPE_MASK) == OBJECT_TYPE && *p != T && *p != NIL && *p != VARARGS_LIST_SENTINEL)
+        *p += offset;
+}
+
+static void fixup_image(ptrdiff_t offset)
+{
+    /* From-space is where the live objects are */
+    for (char *scanptr = interp->heap.from_space; scanptr < interp->heap.freeptr;) {
+        if (heap_get_cons_bit(&interp->heap, scanptr)) {
+            struct cons *consptr = (struct cons *)scanptr;
+            fixup_obj(offset, &consptr->car);
+            fixup_obj(offset, &consptr->cdr);
+            scanptr += sizeof(struct cons);
+        } else {
+            object_header_t *headerptr = (object_header_t *)scanptr;
+            if (*headerptr == SYMBOL_TYPE) {
+                struct symbol *symbolptr = (struct symbol *)scanptr;
+                fixup_obj(offset, &symbolptr->name);
+                fixup_obj(offset, &symbolptr->value);
+                fixup_obj(offset, &symbolptr->function);
+                fixup_obj(offset, &symbolptr->plist);
+                scanptr += sizeof(struct symbol);
+            } else if (*headerptr == STRING_TYPE) {
+                struct string_header *strptr = (struct string_header *)scanptr;
+                scanptr += strptr->allocated_length + sizeof(struct string_header);
+            } else if (*headerptr == VECTOR_TYPE) {
+                struct vector *v = (struct vector *)scanptr;
+                fixup_obj(offset, &v->len);
+                lisp_object_t *storage = (lisp_object_t *)(((char *)v) + sizeof(struct vector));
+                for (lisp_object_t *p = storage; p - storage < Int(v->len); p++)
+                    fixup_obj(offset, p);
+                scanptr += v->size_bytes;
+            } else if (*headerptr == FUNCTION_TYPE) {
+                struct lisp_function *fnptr = (struct lisp_function *)scanptr;
+                fixup_obj(offset, &fnptr->kind);
+                fixup_obj(offset, &fnptr->name);
+                fixup_obj(offset, &fnptr->actual_function);
+                scanptr += sizeof(struct lisp_function);
+            } else {
+                abort();
+            }
+        }
+    }
+
+#define FIXUP_SYMBOL(S) fixup_obj(offset, &interp->syms.S)
+    FIXUP_SYMBOL(lambda);
+    FIXUP_SYMBOL(quote);
+    FIXUP_SYMBOL(built_in_function);
+    FIXUP_SYMBOL(progn);
+    FIXUP_SYMBOL(tagbody);
+    FIXUP_SYMBOL(set);
+    FIXUP_SYMBOL(go);
+    FIXUP_SYMBOL(amprest);
+    FIXUP_SYMBOL(ampbody);
+    FIXUP_SYMBOL(ampoptional);
+    FIXUP_SYMBOL(condition_case);
+    FIXUP_SYMBOL(quasiquote);
+    FIXUP_SYMBOL(unquote);
+    FIXUP_SYMBOL(unquote_splice);
+    FIXUP_SYMBOL(let);
+    FIXUP_SYMBOL(integer);
+    FIXUP_SYMBOL(symbol);
+    FIXUP_SYMBOL(cons);
+    FIXUP_SYMBOL(string);
+    FIXUP_SYMBOL(vector);
+    FIXUP_SYMBOL(macro);
+    FIXUP_SYMBOL(function);
+    FIXUP_SYMBOL(return_from);
+    FIXUP_SYMBOL(pctblock);
+    FIXUP_SYMBOL(block);
+    FIXUP_SYMBOL(if_);
+    FIXUP_SYMBOL(closure);
+    FIXUP_SYMBOL(funcall);
+    FIXUP_SYMBOL(single_float);
+    FIXUP_SYMBOL(print_readably);
+#undef FIXUP_SYMBOL
+
+    fixup_obj(offset, &interp->symbol_table);
+
+    /* From the VM we save the three stacks to the image, but nothing else */
+    for (struct vm_call_stack_frame *p = interp->vm.call_stack; p < interp->vm.call_stack_pointer; p++) {
+        fixup_obj(offset, &p->closure_env);
+        fixup_obj(offset, &p->code_vector);
+        p->code_vector_storage = get_vector_storage(p->code_vector);
+        fixup_obj(offset, &p->environment);
+        fixup_obj(offset, &p->tags);
+    }
+}
+
 void init_interpreter_from_image(char *image)
 {
     assert(!interpreter_initialized);
@@ -343,16 +434,30 @@ void init_interpreter_from_image(char *image)
     do_read(fd, (char *)&interp->use_vm, sizeof(int));
     do_read(fd, (char *)&interp->symbol_table, sizeof(lisp_object_t));
     do_read(fd, (char *)&interp->heap, sizeof(struct lisp_heap));
-    void *rc = mmap(interp->heap.heap, interp->heap.size_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-    if (rc == MAP_FAILED) {
-        perror("mmap");
+    /* Copy of original heap containing original pointers */
+    struct lisp_heap orig_heap = interp->heap;
+    /* Allocate new heap */
+    char *new_heap_address = mmap(NULL, interp->heap.size_bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (new_heap_address == MAP_FAILED) {
+        perror("mmap (oh dear)");
         exit(1);
     }
-    assert(rc == interp->heap.heap);
+    interp->heap.heap = new_heap_address;
+    /* Add this to old pointers to get new pointers: */
+    ptrdiff_t offset = new_heap_address - orig_heap.heap;
+    interp->heap.freeptr += offset;
+    interp->heap.from_space += offset;
+    interp->heap.to_space += offset;
+    assert(new_heap_address == interp->heap.heap);
+
+    /* Read the heap into the new location */
+    /* This depends on all the pointer members of interp->heap having been updated */
     do_read(fd, interp->heap.from_space, interp->heap.freeptr - interp->heap.from_space);
     /* Cons bitmap */
     interp->heap.cons_bitmap = malloc(interp->heap.size_bytes / 8);
     do_read(fd, interp->heap.cons_bitmap, interp->heap.size_bytes / 8);
+
+    fixup_image(offset);
 
     interp->symbol_table_hash_buckets = length_c(interp->symbol_table);
     text_stream_init_fd(&interp->ts_stdin, 0);
@@ -445,7 +550,9 @@ void lisp_heap_free(struct lisp_heap *heap)
 static void gc_if_needed(size_t bytes_needed)
 {
     struct lisp_heap *heap = &interp->heap;
+#ifndef NDEBUG
     assert_heap_invariants(heap);
+#endif
     if (heap->freeptr + bytes_needed - heap->from_space > heap->size_bytes / 2) {
         gc();
         size_t bytes_in_use_now = heap->freeptr - heap->from_space;

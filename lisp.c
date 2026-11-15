@@ -3,7 +3,10 @@
 #include "string_buffer.h"
 #include "text_stream.h"
 
+#ifndef __OpenBSD__
 #include <alloca.h>
+#endif
+
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -16,6 +19,10 @@
 #include <strings.h>
 #include <sys/mman.h>
 #include <unistd.h>
+
+#ifdef __OpenBSD__
+#include <sys/stat.h>
+#endif
 
 struct lisp_interpreter *interp;
 
@@ -795,6 +802,10 @@ static int jmp_buf_entry_is_pointer[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 #elif defined(__APPLE__)
 int jmp_buf_size = 11;
 static int jmp_buf_entry_is_pointer[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+#define BUF(buf) (buf)
+#elif defined(__OpenBSD__)
+int jmp_buf_size = 64;
+static int jmp_buf_entry_is_pointer[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 #define BUF(buf) (buf)
 #endif
 

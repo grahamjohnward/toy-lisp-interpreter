@@ -1,7 +1,7 @@
 ifeq ($(shell uname), Darwin)
   CC=clang
 else
-  CC=clang-19
+  CC=clang
 endif
 
 ifeq ($(BUILD), debug)

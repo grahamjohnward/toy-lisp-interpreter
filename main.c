@@ -65,6 +65,8 @@ static size_t parse_heap_size(char *arg)
     return heap_size;
 }
 
+#define SET_SETTING_VALUE(S) do { len = strlen(optarg); settings->S = malloc(len + 1); strncpy(settings->S, optarg, len); } while (0);
+
 static int parse_args(int argc, char **argv, struct interpreter_settings *settings)
 {
     settings->heap_size = 1024 * 1024; /* default */
@@ -74,6 +76,7 @@ static int parse_args(int argc, char **argv, struct interpreter_settings *settin
     settings->vm_trace = 0;
     settings->evalstr = NULL;
     int c;
+    size_t len = 0;
     while (1) {
         int option_index;
         c = getopt_long_only(argc, argv, "+", options, &option_index);
@@ -84,22 +87,19 @@ static int parse_args(int argc, char **argv, struct interpreter_settings *settin
             settings->heap_size = parse_heap_size(optarg);
             break;
         case 2:
-            settings->image = malloc(strlen(optarg));
-            strcpy(settings->image, optarg);
+            SET_SETTING_VALUE(image);
             break;
         case 3:
             settings->use_vm = 1;
             break;
         case 4:
-            settings->vmboot = malloc(strlen(optarg) + 1);
-            strcpy(settings->vmboot, optarg);
+            SET_SETTING_VALUE(vmboot);
             break;
         case 5:
             settings->vm_trace = 1;
             break;
         case 6:
-            settings->evalstr = malloc(strlen(optarg) + 1);
-            strcpy(settings->evalstr, optarg);
+            SET_SETTING_VALUE(evalstr);
             break;
         default:
             abort();
@@ -107,6 +107,8 @@ static int parse_args(int argc, char **argv, struct interpreter_settings *settin
     }
     return optind;
 }
+
+#undef SET_SETTING_VALUE
 
 int main(int argc, char **argv)
 {

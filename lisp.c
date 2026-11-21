@@ -260,6 +260,11 @@ static lisp_object_t mod(lisp_object_t a, lisp_object_t b)
     return LispInt(Int(a) % Int(b));
 }
 
+static lisp_object_t do_exit(lisp_object_t status)
+{
+    exit(Int(status));
+}
+
 #define FUNCALL_ARITY -1
 
 static void init_builtins()
@@ -282,7 +287,7 @@ static void init_builtins()
     DEFBUILTIN("two-arg-times", times, 2);
     DEFBUILTIN("two-arg-divide", divide, 2);
     DEFBUILTIN("=", eq, 2);
-    DEFBUILTIN("exit", exit, 1);
+    DEFBUILTIN("exit", do_exit, 1);
     DEFBUILTIN("get", getprop, 2);
     DEFBUILTIN("putprop", putprop, 3);
     DEFBUILTIN("make-vector", allocate_vector, 1);

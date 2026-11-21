@@ -65,11 +65,11 @@ static size_t parse_heap_size(char *arg)
     return heap_size;
 }
 
-#define SET_SETTING_VALUE(S)               \
-    do {                                   \
-        len = strlen(optarg);              \
-        settings->S = malloc(len + 1);     \
-        strncpy(settings->S, optarg, len); \
+#define SET_SETTING_VALUE(S)                  \
+    do {                                      \
+        buflen = strlen(optarg) + 1;          \
+        settings->S = malloc(buflen);         \
+        strncpy(settings->S, optarg, buflen); \
     } while (0);
 
 static int parse_args(int argc, char **argv, struct interpreter_settings *settings)
@@ -81,7 +81,7 @@ static int parse_args(int argc, char **argv, struct interpreter_settings *settin
     settings->vm_trace = 0;
     settings->evalstr = NULL;
     int c;
-    size_t len = 0;
+    size_t buflen = 0;
     while (1) {
         int option_index;
         c = getopt_long_only(argc, argv, "+", options, &option_index);

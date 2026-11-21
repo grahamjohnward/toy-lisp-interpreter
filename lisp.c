@@ -1116,7 +1116,7 @@ lisp_object_t gensym()
         symptr->value += LispInt(1);
     int n = Int(symptr->value);
     char *name = alloca(16);
-    sprintf(name, "g%d", n);
+    snprintf(name, 16, "g%d", n);
     return sym(name);
 }
 
@@ -1500,11 +1500,11 @@ void print_object_to_buffer(lisp_object_t obj, struct string_buffer *sb)
         string_buffer_append(sb, ")");
     } else if (function_pointer_p(obj) != NIL) {
         char *buf = alloca(32);
-        sprintf(buf, "%p", (FunctionPtr(obj)));
+        snprintf(buf, 32, "%p", (FunctionPtr(obj)));
         string_buffer_append(sb, buf);
     } else if (native_pointer_p(obj) != NIL) {
         char *buf = alloca(32);
-        sprintf(buf, "#p%p", NativePtr(obj));
+        snprintf(buf, 32, "#p%p", NativePtr(obj));
         string_buffer_append(sb, buf);
     } else if (functionp(obj) != NIL) {
         struct lisp_function *fnptr = LispFunctionPtr(obj);

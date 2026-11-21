@@ -169,5 +169,7 @@ int main(int argc, char **argv)
         free(settings.image);
     if (settings.vmboot)
         free(settings.vmboot);
+    if (settings.evalstr)
+        free(settings.evalstr);
     return 0;
 }

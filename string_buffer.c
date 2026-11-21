@@ -19,7 +19,7 @@ void string_buffer_append(struct string_buffer *sb, char *string)
     sb->len += link->len;
     /* Copy string */
     link->string = malloc(link->len + 1);
-    strcpy(link->string, string);
+    strncpy(link->string, string, link->len + 1);
 }
 
 void string_buffer_init(struct string_buffer *sb)
@@ -35,7 +35,7 @@ char *string_buffer_to_string(struct string_buffer *sb)
     char *result = malloc(sb->len + 1);
     char *cur = result;
     for (struct string_buffer_link *link = sb->head; link; link = link->next) {
-        strcpy(cur, link->string);
+        strncpy(cur, link->string, link->len + 1);
         cur += link->len;
     }
     return result;

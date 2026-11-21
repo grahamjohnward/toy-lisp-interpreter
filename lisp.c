@@ -2685,20 +2685,3 @@ lisp_object_t string_concat(lisp_object_t str1, lisp_object_t str2)
     newstr[newlen - 1] = '\0';
     return allocate_string(newlen, newstr);
 }
-
-// Seems like this may be dodgy in some GC-related way, but can't put my
-// finger on why
-lisp_object_t push(lisp_object_t obj, lisp_object_t *place)
-{
-    // GC may happen in here and it will scan the C stack.  It will not know
-    // what to do with `place` - it certainly won't dereference and copy it.
-    // That could mean the object pointed to goes unreferenced.
-    //
-    // HOWEVER, inside `cons`, `*place` will be on the stack and the GC will
-    // see it.  So perhaps this is in fact OK?  No it is not, because the
-    // object will have been updated as it appears on the stack here, but not
-    // necessarily wherever `place` points (though probably it is also
-    // somewhere on the stack).
-    *place = cons(obj, *place);
-    return *place;
-}

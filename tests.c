@@ -1786,26 +1786,6 @@ static void test_nthcdr()
     test_eval_helper("(nthcdr 3 '(a b))", "nil");
 }
 
-static void test_push()
-{
-    START_OF_TEST("push");
-    lisp_object_t l = NIL;
-    lisp_object_t a = NIL;
-    lisp_object_t b = NIL;
-    lisp_object_t c = NIL;
-    init_interpreter_for_tests();
-    a = sym("a");
-    b = sym("b");
-    c = sym("c");
-    l = cons(a, NIL);
-    push(b, &l);
-    push(c, &l);
-    char *str = print_object(l);
-    check(strcmp("(c b a)", str) == 0, "ok");
-    free(str);
-    free_interpreter();
-}
-
 static void test_vm_initialization()
 {
     START_OF_TEST("vm_initialization");
@@ -2464,7 +2444,6 @@ int main(int argc, char **argv)
     test_less_than();
     test_greater_than();
     test_nthcdr();
-    test_push();
     test_vm_initialization();
     test_vm_push_pop();
     test_vm_call_builtin();

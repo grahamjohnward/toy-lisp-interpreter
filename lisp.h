@@ -107,8 +107,6 @@ void get_string_parts(lisp_object_t *string, size_t *lenptr, char **strptr);
 lisp_object_t length(lisp_object_t seq);
 int length_c(lisp_object_t seq);
 
-lisp_object_t push(lisp_object_t obj, lisp_object_t *place);
-
 lisp_object_t symbolp(lisp_object_t obj);
 lisp_object_t integerp(lisp_object_t obj);
 lisp_object_t floatp(lisp_object_t obj);

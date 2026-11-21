@@ -65,7 +65,12 @@ static size_t parse_heap_size(char *arg)
     return heap_size;
 }
 
-#define SET_SETTING_VALUE(S) do { len = strlen(optarg); settings->S = malloc(len + 1); strncpy(settings->S, optarg, len); } while (0);
+#define SET_SETTING_VALUE(S)               \
+    do {                                   \
+        len = strlen(optarg);              \
+        settings->S = malloc(len + 1);     \
+        strncpy(settings->S, optarg, len); \
+    } while (0);
 
 static int parse_args(int argc, char **argv, struct interpreter_settings *settings)
 {

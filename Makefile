@@ -1,8 +1,4 @@
-ifeq ($(shell uname), Darwin)
-  CC=clang
-else
-  CC=clang
-endif
+CC=clang
 
 ifeq ($(BUILD), debug)
   CFLAGS=-gdwarf-4 -falign-functions=8 -DVM_TRACE_ENABLED

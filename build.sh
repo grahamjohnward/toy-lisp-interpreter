@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-./main --use-vm --image=image.image --eval='(build)'
+./main --image=image.image --eval='(build)'
